@@ -9,16 +9,22 @@
             <span class="logo-text">Present<span class="text-accent">Pro</span></span>
           </div>
           <div class="file-menu">
-            <label class="menu-item">
+            <label class="menu-item" :class="{ 'is-loading': isConverting }">
               <input
                 type="file"
                 @change="handleFileUpload"
                 accept=".pdf, .pptx, .ppsx, .potx"
                 hidden
+                :disabled="isConverting"
               />
-              Archivo <span class="shortcut">Ctrl+O</span>
+              {{ isConverting ? 'Convirtiendo PPTX...' : 'Archivo' }}
+              <span class="shortcut" v-if="!isConverting">Ctrl+O</span>
             </label>
-            <button class="menu-item" :disabled="!hasDoc" @click="exportPresentation">
+            <button
+              class="menu-item"
+              :disabled="!hasDoc || isConverting"
+              @click="exportPresentation"
+            >
               Exportar Web <span class="shortcut">Ctrl+E</span>
             </button>
           </div>
@@ -37,6 +43,12 @@
           <button class="btn-play" @click="togglePlayMode">▶ Modo Presentación</button>
         </div>
       </header>
+
+      <div v-if="isConverting" class="loading-overlay">
+        <div class="spinner"></div>
+        <h2>Procesando Presentación...</h2>
+        <p>Convirtiendo PowerPoint a formato visual de alta fidelidad.</p>
+      </div>
 
       <div class="pro-workspace">
         <aside class="pro-sidebar left-sidebar" v-if="hasDoc && !playMode">
@@ -153,11 +165,14 @@
             ✖ Salir de Presentación (Esc)
           </button>
 
-          <div v-if="!hasDoc" class="empty-workspace">
+          <div v-if="!hasDoc && !isConverting" class="empty-workspace">
             <div class="empty-box">
               <span class="empty-icon">🎬</span>
               <h3>Crea Experiencias Interactivas</h3>
-              <p>Sube un PDF para máxima fidelidad, o un PPTX para extraer sus fondos.</p>
+              <p>
+                Sube un PDF o un PowerPoint (.pptx). Los archivos PPTX se convertirán
+                automáticamente a alta fidelidad.
+              </p>
               <div class="button-group mt-4">
                 <button class="btn-secondary" @click="createBlankProject">
                   ✨ Crear en Blanco
@@ -182,10 +197,8 @@
                 transform: `scale(${zoom})`,
                 width: `${baseWidth}px`,
                 height: `${baseHeight}px`,
-                backgroundColor: slideConfigs[pageNum]?.bgColor || '#ffffff',
-                backgroundImage: slideConfigs[pageNum]?.bgImage
-                  ? `url(${slideConfigs[pageNum].bgImage})`
-                  : 'none',
+                backgroundColor: currentBgColor,
+                backgroundImage: currentBgImage,
                 backgroundSize: 'cover',
               }"
               @click.self="handleCanvasClick"
@@ -196,16 +209,16 @@
                 v-if="
                   docType === 'pptx' &&
                   !playMode &&
-                  !slideConfigs[pageNum]?.bgImage &&
-                  slideConfigs[pageNum]?.bgColor === '#ffffff'
+                  currentBgImage === 'none' &&
+                  currentBgColor === '#ffffff'
                 "
                 class="pptx-placeholder"
               >
                 <span style="font-size: 3rem">📊</span>
                 <p>Estructura PPTX Cargada ({{ baseWidth }}x{{ baseHeight }})</p>
                 <small
-                  >No se detectó imagen de fondo en el XML. Usa el panel derecho para asignar
-                  una.</small
+                  >No se detectó imagen de fondo en esta diapositiva. Usa el panel derecho para
+                  asignar una.</small
                 >
               </div>
 
@@ -628,27 +641,29 @@
 <script setup lang="ts">
 import { ref, computed, markRaw, onMounted, onUnmounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
-import JSZip from 'jszip'
 import NavbarComponent from '@/components/navbarComponent.vue'
 
-// Configuración estable del Worker de PDF.js para Vite
+// Importar el worker correctamente de forma compatible
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.js',
   import.meta.url,
 ).toString()
 
+// --- ESTADO GENERAL ---
 const pdfCanvas = ref<HTMLCanvasElement | null>(null)
 const workspaceRef = ref<HTMLElement | null>(null)
 
 let _RAW_PDF_DOC: any = null
 let _PDF_BASE64_STORE: string = ''
 
-const docType = ref<'pdf' | 'pptx' | 'blank'>('blank')
+const docType = ref<'pdf' | 'blank'>('blank')
 const hasDoc = ref(false)
 const playMode = ref(false)
 const pageNum = ref(1)
 const numPages = ref(0)
 const zoom = ref(1.0)
+const isConverting = ref(false) // Estado de carga para la API
+
 type ToolType =
   | 'select'
   | 'text'
@@ -663,11 +678,11 @@ const activeTool = ref<ToolType>('select')
 const baseWidth = ref(1280)
 const baseHeight = ref(720)
 
-// Estado del documento y configuración visual de las diapositivas
 const documentState = ref<Record<number, any[]>>({})
 const slideConfigs = ref<Record<number, { bgColor: string; bgImage: string | null }>>({})
 const selectedElementId = ref<string | null>(null)
 
+// --- COMPUTED PROPERTIES ---
 const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
 const selectedElement = computed(() =>
   selectedElementId.value
@@ -675,14 +690,16 @@ const selectedElement = computed(() =>
     : null,
 )
 
-// Propiedades computadas para manejar fondos visuales limpiamente
-const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff')
-const currentBgImage = computed(() =>
-  slideConfigs.value[pageNum.value]?.bgImage
-    ? `url(${slideConfigs.value[pageNum.value].bgImage})`
-    : 'none',
-)
+const currentBgColor = computed(() => {
+  return slideConfigs.value[pageNum.value]?.bgColor || '#ffffff'
+})
 
+const currentBgImage = computed(() => {
+  const img = slideConfigs.value[pageNum.value]?.bgImage
+  return img ? `url(${img})` : 'none'
+})
+
+// --- LIFECYCLE ---
 onMounted(() => {
   if (!customElements.get('model-viewer')) {
     const script = document.createElement('script')
@@ -699,6 +716,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && playMode.value) togglePlayMode()
 }
 
+// --- UTILS ---
 const isYouTube = (url: string) =>
   url &&
   url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
@@ -709,6 +727,21 @@ const getYouTubeEmbedUrl = (url: string) => {
   return match && match[1] ? `https://www.youtube-nocookie.com/embed/${match[1]}?rel=0` : ''
 }
 
+// AQUÍ ESTÁ LA FUNCIÓN QUE FALTABA
+const getIconForType = (type: string) => {
+  const icons: any = {
+    text: 'T',
+    shape: '🟥',
+    image: '🖼️',
+    video: '🎥',
+    '3d': '🧊',
+    interactive: '⚡',
+    link: '🔗',
+    accordion: '📑',
+  }
+  return icons[type] || '📄'
+}
+
 const initializeConfigs = () => {
   for (let i = 1; i <= numPages.value; i++) {
     if (!documentState.value[i]) documentState.value[i] = []
@@ -716,6 +749,143 @@ const initializeConfigs = () => {
   }
 }
 
+// --- PROCESAMIENTO DE ARCHIVOS Y API ---
+const handleFileUpload = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  const fileExtension = file.name.split('.').pop()?.toLowerCase()
+
+  if (fileExtension === 'pdf') {
+    await processPdfFile(file)
+  } else if (['pptx', 'ppsx', 'potx'].includes(fileExtension || '')) {
+    await convertPptxToPdfViaAPI(file)
+  }
+}
+
+// Función para procesar un PDF (ya sea subido directamente o devuelto por la API)
+const processPdfFile = async (file: File | Blob) => {
+  docType.value = 'pdf'
+  const reader = new FileReader()
+
+  reader.onload = async (e) => {
+    const dataUrl = e.target?.result as string
+    _PDF_BASE64_STORE = dataUrl.split(',')[1]
+
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const loadingTask = pdfjsLib.getDocument({ data: bytes })
+    _RAW_PDF_DOC = markRaw(await loadingTask.promise)
+    numPages.value = _RAW_PDF_DOC.numPages
+    hasDoc.value = true
+    documentState.value = {}
+    slideConfigs.value = {}
+    initializeConfigs()
+    await renderPage(1)
+    setTimeout(fitToScreen, 100)
+  }
+  reader.readAsDataURL(file)
+}
+
+// =================================================================================
+// 🚀 NUEVO: CONVERSIÓN DE PPTX A PDF VÍA API EXTERNA (ConvertAPI)
+// Documentación: https://www.convertapi.com/pptx-to-pdf
+// NOTA: Para producción, DEBES cambiar 'secret_YOUR_API_KEY' por tu propia Key gratuita.
+// =================================================================================
+const convertPptxToPdfViaAPI = async (file: File) => {
+  isConverting.value = true
+
+  // 1. Convertir el archivo a Base64 para enviarlo a la API
+  const reader = new FileReader()
+  reader.readAsDataURL(file)
+
+  reader.onload = async () => {
+    try {
+      const base64Data = (reader.result as string).split(',')[1]
+
+      // REEMPLAZAR ESTA KEY POR UNA VÁLIDA DE CONVERTAPI.COM
+      const CONVERT_API_SECRET = 'DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ' // <-- ¡Cambiar en producción!
+
+      // 2. Hacer la llamada POST a la API
+      const response = await fetch(
+        `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=${CONVERT_API_SECRET}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            Parameters: [
+              {
+                Name: 'File',
+                FileValue: {
+                  Name: file.name,
+                  Data: base64Data,
+                },
+              },
+            ],
+          }),
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error('Fallo en la API de conversión. Verifica tu API Key.')
+      }
+
+      const result = await response.json()
+
+      // 3. Extraer el PDF resultante de la respuesta de la API
+      const pdfBase64 = result.Files[0].FileData
+
+      // Convertir Base64 de vuelta a un Blob/File de PDF
+      const byteCharacters = atob(pdfBase64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const pdfBlob = new Blob([byteArray], { type: 'application/pdf' })
+
+      // 4. Procesar el PDF recién convertido como si el usuario lo hubiera subido
+      await processPdfFile(pdfBlob)
+    } catch (error) {
+      console.error(error)
+      alert(
+        'Error al convertir el PowerPoint. Asegúrate de tener una API Key válida configurada en el código.',
+      )
+    } finally {
+      isConverting.value = false
+    }
+  }
+}
+
+// --- RENDERIZADO ---
+const renderPage = async (num: number) => {
+  await nextTick()
+  if (!pdfCanvas.value) return
+  const canvas = pdfCanvas.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const dpr = window.devicePixelRatio || 2
+
+  if (docType.value === 'pdf' && _RAW_PDF_DOC && num <= _RAW_PDF_DOC.numPages) {
+    const page = await _RAW_PDF_DOC.getPage(num)
+    const viewport = page.getViewport({ scale: 1.0 })
+    baseWidth.value = viewport.width
+    baseHeight.value = viewport.height
+
+    canvas.width = viewport.width * dpr
+    canvas.height = viewport.height * dpr
+    canvas.style.width = `${viewport.width}px`
+    canvas.style.height = `${viewport.height}px`
+    ctx.scale(dpr, dpr)
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    await page.render({ canvasContext: ctx, viewport }).promise
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+}
+
+// --- HERRAMIENTAS Y EVENTOS UI ---
 const createBlankProject = () => {
   _RAW_PDF_DOC = null
   _PDF_BASE64_STORE = ''
@@ -732,12 +902,22 @@ const createBlankProject = () => {
   setTimeout(fitToScreen, 100)
 }
 
-const addNewSlide = () => {
-  numPages.value += 1
-  if (!documentState.value[numPages.value]) documentState.value[numPages.value] = []
-  if (!slideConfigs.value[numPages.value])
-    slideConfigs.value[numPages.value] = { bgColor: '#ffffff', bgImage: null }
-  changePageTo(numPages.value)
+const changePageTo = (num: number) => {
+  if (num < 1 || num > numPages.value) return
+  pageNum.value = num
+  selectedElementId.value = null
+  renderPage(num)
+}
+
+const changeZoom = (delta: number) => {
+  zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4))
+}
+
+const fitToScreen = () => {
+  if (!workspaceRef.value) return
+  const availableHeight = workspaceRef.value.clientHeight - 80
+  const idealZoom = availableHeight / baseHeight.value
+  zoom.value = Math.max(0.2, idealZoom)
 }
 
 const handleCanvasClick = (e: MouseEvent) => {
@@ -827,8 +1007,6 @@ const handleCanvasClick = (e: MouseEvent) => {
   activeTool.value = 'select'
 }
 
-// === FUNCIONES SEPARADAS PARA EVITAR ERRORES DE COMPILACIÓN VUE ===
-
 const addAccordionSection = () => {
   if (selectedElement.value && selectedElement.value.type === 'accordion') {
     selectedElement.value.items.push({
@@ -845,8 +1023,6 @@ const removeBackgroundImage = () => {
     renderPage(pageNum.value)
   }
 }
-
-// ====================================================================
 
 const handleLocalMediaUpload = (event: Event, el: any) => {
   const file = (event.target as HTMLInputElement).files?.[0]
@@ -930,170 +1106,6 @@ const togglePlayMode = () => {
     })
   })
   fitToScreen()
-}
-
-const getIconForType = (type: string) => {
-  const icons: any = {
-    text: 'T',
-    shape: '🟥',
-    image: '🖼️',
-    video: '🎥',
-    '3d': '🧊',
-    interactive: '⚡',
-    link: '🔗',
-    accordion: '📑',
-  }
-  return icons[type] || '📄'
-}
-
-const handleFileUpload = async (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-
-  const fileExtension = file.name.split('.').pop()?.toLowerCase()
-
-  if (fileExtension === 'pdf') {
-    docType.value = 'pdf'
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const dataUrl = e.target?.result as string
-      _PDF_BASE64_STORE = dataUrl.split(',')[1]
-
-      const bytes = new Uint8Array(await file.arrayBuffer())
-      const loadingTask = pdfjsLib.getDocument({ data: bytes })
-      _RAW_PDF_DOC = markRaw(await loadingTask.promise)
-      numPages.value = _RAW_PDF_DOC.numPages
-      hasDoc.value = true
-      documentState.value = {}
-      slideConfigs.value = {}
-      initializeConfigs()
-      await renderPage(1)
-      setTimeout(fitToScreen, 100)
-    }
-    reader.readAsDataURL(file)
-  } else if (['pptx', 'ppsx', 'potx'].includes(fileExtension || '')) {
-    docType.value = 'pptx'
-    _RAW_PDF_DOC = null
-    _PDF_BASE64_STORE = ''
-
-    try {
-      const zip = await JSZip.loadAsync(file)
-
-      // Get slide count
-      const appXml = await zip.file('docProps/app.xml')?.async('string')
-      const slidesMatch = appXml?.match(/<Slides>(\d+)<\/Slides>/)
-      numPages.value = slidesMatch ? parseInt(slidesMatch[1]) : 1
-
-      // Get dimensions
-      const presXml = await zip.file('ppt/presentation.xml')?.async('string')
-      const sizeMatch = presXml?.match(/<p:sldSz cx="(\d+)" cy="(\d+)"/i)
-      if (sizeMatch) {
-        baseWidth.value = Math.round((parseInt(sizeMatch[1]) / 914400) * 96)
-        baseHeight.value = Math.round((parseInt(sizeMatch[2]) / 914400) * 96)
-      } else {
-        baseWidth.value = 1280
-        baseHeight.value = 720
-      }
-
-      hasDoc.value = true
-      documentState.value = {}
-      slideConfigs.value = {}
-      initializeConfigs()
-
-      // --- MOTOR DE EXTRACCIÓN DE FONDOS DEL PPTX ---
-      for (let i = 1; i <= numPages.value; i++) {
-        try {
-          const slideXml = await zip.file(`ppt/slides/slide${i}.xml`)?.async('string')
-          if (!slideXml) continue
-
-          // 1. Color de Fondo Sólido
-          const colorMatch = slideXml.match(/<p:bg>.*?<a:srgbClr val="([0-9A-Fa-f]{6})"/)
-          if (colorMatch) slideConfigs.value[i].bgColor = `#${colorMatch[1]}`
-
-          // 2. Imagen de Fondo
-          const bgImageMatch = slideXml.match(/<p:bg>.*?<a:blip r:embed="([^"]+)"/)
-          if (bgImageMatch) {
-            const rId = bgImageMatch[1]
-            const relsXml = await zip.file(`ppt/slides/_rels/slide${i}.xml.rels`)?.async('string')
-            if (relsXml) {
-              const relRegex = new RegExp(`<Relationship Id="${rId}".*?Target="([^"]+)"`)
-              const relMatch = relsXml.match(relRegex)
-              if (relMatch) {
-                let targetPath = relMatch[1]
-                targetPath = targetPath.replace('../', 'ppt/')
-
-                const imageFile = zip.file(targetPath)
-                if (imageFile) {
-                  const base64 = await imageFile.async('base64')
-                  const ext = targetPath.split('.').pop()?.toLowerCase()
-                  const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
-                  slideConfigs.value[i].bgImage = `data:${mimeType};base64,${base64}`
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(`Error extrayendo fondo de slide ${i}`, e)
-        }
-      }
-      // ----------------------------------------------
-
-      pageNum.value = 1
-      renderPage(1)
-      setTimeout(fitToScreen, 100)
-    } catch (err) {
-      alert('Error al leer el archivo PPTX. Asegúrate de que no esté corrupto.')
-      console.error(err)
-    }
-  }
-}
-
-const renderPage = async (num: number) => {
-  await nextTick()
-  if (!pdfCanvas.value) return
-  const canvas = pdfCanvas.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const dpr = window.devicePixelRatio || 2
-
-  if (docType.value === 'pdf' && _RAW_PDF_DOC && num <= _RAW_PDF_DOC.numPages) {
-    const page = await _RAW_PDF_DOC.getPage(num)
-    const viewport = page.getViewport({ scale: 1.0 })
-    baseWidth.value = viewport.width
-    baseHeight.value = viewport.height
-
-    canvas.width = viewport.width * dpr
-    canvas.height = viewport.height * dpr
-    canvas.style.width = `${viewport.width}px`
-    canvas.style.height = `${viewport.height}px`
-    ctx.scale(dpr, dpr)
-
-    // Clear canvas as HTML handles the solid bgColor for other docs
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    await page.render({ canvasContext: ctx, viewport }).promise
-  } else {
-    // For PPTX or Blank, clear the canvas as it is not used for rendering PDF layers
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-  }
-}
-
-const changePageTo = (num: number) => {
-  if (num < 1 || num > numPages.value) return
-  pageNum.value = num
-  selectedElementId.value = null
-  renderPage(num)
-}
-
-const changeZoom = (delta: number) => {
-  zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4))
-}
-
-const fitToScreen = () => {
-  if (!workspaceRef.value) return
-  const availableHeight = workspaceRef.value.clientHeight - 80
-  const idealZoom = availableHeight / baseHeight.value
-  zoom.value = Math.max(0.2, idealZoom)
 }
 
 const exportPresentation = () => {
@@ -1218,8 +1230,10 @@ const exportPresentation = () => {
     window.__BASE_WIDTH = ${baseWidth.value};
     window.__BASE_HEIGHT = ${baseHeight.value};
     window.__DOC_TYPE = '${docType.value}';
+    // Se inserta el PDF completo en Base64 para que el archivo exportado sea autónomo
+    window.__RAW_PDF_B64 = '${_PDF_BASE64_STORE}';
     
-    const { createApp, ref, computed, onMounted } = Vue;
+    const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
     createApp({
       setup() {
@@ -1250,10 +1264,47 @@ const exportPresentation = () => {
           zoom.value = Math.min(wZoom, hZoom) * 0.95;
         };
 
+        // Lógica para renderizar el PDF guardado dentro del HTML
+        let pdfDoc = null;
+        const pdfCanvas = ref(null);
+        
+        const initPdf = async () => {
+            if (docType.value === 'pdf' && window.__RAW_PDF_B64) {
+                const pdfData = atob(window.__RAW_PDF_B64);
+                const uint8Array = new Uint8Array(pdfData.length);
+                for (let i = 0; i < pdfData.length; i++) {
+                    uint8Array[i] = pdfData.charCodeAt(i);
+                }
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+                pdfDoc = await loadingTask.promise;
+                renderPdfPage(pageNum.value);
+            }
+        };
+
+        const renderPdfPage = async (num) => {
+            await nextTick();
+            if (docType.value !== 'pdf' || !pdfDoc || !pdfCanvas.value) return;
+            const page = await pdfDoc.getPage(num);
+            const viewport = page.getViewport({ scale: 1.0 });
+            const canvas = pdfCanvas.value;
+            const ctx = canvas.getContext('2d');
+            
+            const dpr = window.devicePixelRatio || 2;
+            canvas.width = viewport.width * dpr;
+            canvas.height = viewport.height * dpr;
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
+            ctx.scale(dpr, dpr);
+            
+            await page.render({ canvasContext: ctx, viewport }).promise;
+        }
+
         const changePageTo = (num) => {
           if(num >= 1 && num <= numPages.value) {
             pageNum.value = num;
             closeAllInteractives();
+            if(docType.value === 'pdf') renderPdfPage(num);
           }
         };
 
@@ -1273,6 +1324,7 @@ const exportPresentation = () => {
 
         onMounted(() => {
           fitToScreen();
+          initPdf();
           window.addEventListener('resize', fitToScreen);
           document.addEventListener('keydown', (e) => {
             if(e.key === 'ArrowRight') changePageTo(pageNum.value + 1);
@@ -1282,7 +1334,7 @@ const exportPresentation = () => {
 
         return { 
           baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements,
-          currentBgColor, currentBgImage,
+          currentBgColor, currentBgImage, pdfCanvas,
           changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl
         };
       }
@@ -1316,7 +1368,36 @@ const exportPresentation = () => {
   overflow: hidden;
 }
 
-/* HEADER */
+/* HEADER Y OVERLAY DE CARGA */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(13, 17, 23, 0.9);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(88, 166, 255, 0.3);
+  border-top-color: #58a6ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pro-header {
   display: flex;
   justify-content: space-between;
@@ -1364,6 +1445,11 @@ const exportPresentation = () => {
 .menu-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.menu-item.is-loading {
+  background: #58a6ff;
+  color: #0d1117;
+  font-weight: bold;
 }
 .shortcut {
   font-size: 0.7rem;
