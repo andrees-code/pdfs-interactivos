@@ -234,8 +234,9 @@
                   left: `${el.x}px`,
                   top: `${el.y}px`,
                   width: `${el.width}px`,
-                  height: `${el.height}px`,
+                  height: el.height === 'auto' ? 'auto' : `${el.height}px`,
                   zIndex: el.zIndex,
+                  opacity: el.opacity !== undefined ? el.opacity : 1,
                 }"
                 @mousedown.stop="startDrag($event, el)"
               >
@@ -246,6 +247,9 @@
                     color: el.color,
                     fontSize: `${el.fontSize}px`,
                     fontWeight: el.fontWeight,
+                    fontFamily: el.fontFamily,
+                    fontStyle: el.fontStyle,
+                    textAlign: el.textAlign,
                   }"
                 >
                   {{ el.content }}
@@ -258,22 +262,37 @@
                     backgroundColor: el.bgColor,
                     borderRadius: `${el.borderRadius}px`,
                     border: `${el.borderWidth}px solid ${el.borderColor}`,
-                    opacity: el.opacity,
                   }"
                 ></div>
 
-                <div v-else-if="el.type === 'image'" class="el-image-container">
+                <div
+                  v-else-if="el.type === 'image'"
+                  class="el-image-container"
+                  :style="{
+                    borderRadius: `${el.borderRadius || 0}px`,
+                    border: `${el.borderWidth || 0}px solid ${el.borderColor || '#000'}`,
+                    overflow: 'hidden',
+                  }"
+                >
                   <img
                     v-if="el.src"
                     :src="el.src"
                     class="el-content-fitted"
-                    :style="{ objectFit: el.fit, opacity: el.opacity }"
+                    :style="{ objectFit: el.fit }"
                     draggable="false"
                   />
                   <div v-else class="placeholder-box">🖼️ Sin Imagen</div>
                 </div>
 
-                <div v-else-if="el.type === 'video'" class="el-video-container">
+                <div
+                  v-else-if="el.type === 'video'"
+                  class="el-video-container"
+                  :style="{
+                    borderRadius: `${el.borderRadius || 0}px`,
+                    border: `${el.borderWidth || 0}px solid ${el.borderColor || '#000'}`,
+                    overflow: 'hidden',
+                  }"
+                >
                   <template v-if="el.src">
                     <iframe
                       v-if="isYouTube(el.src)"
@@ -333,6 +352,10 @@
                     backgroundColor: el.bgColor,
                     color: el.color,
                     borderRadius: `${el.borderRadius}px`,
+                    border: `${el.borderWidth || 0}px solid ${el.borderColor || '#000'}`,
+                    fontSize: `${el.fontSize || 16}px`,
+                    fontWeight: el.fontWeight || 'bold',
+                    fontFamily: el.fontFamily || 'Arial',
                   }"
                   @click.stop="playMode ? changePageTo(el.targetPage) : null"
                 >
@@ -361,19 +384,26 @@
                     </div>
                   </div>
                 </div>
+
+                <div
+                  v-if="selectedElementId === el.id && !playMode && el.type !== 'interactive'"
+                  class="resize-handle"
+                  @mousedown.stop="startResize($event, el)"
+                ></div>
               </div>
             </div>
           </div>
         </main>
 
         <aside class="pro-sidebar right-sidebar" v-if="hasDoc && !playMode">
-          <div class="panel-header">Inspector</div>
+          <div class="panel-header">Inspector de Diseño</div>
 
           <div class="panel-content" v-if="selectedElement">
             <div class="prop-group">
               <div class="badge-type">{{ selectedElement.type.toUpperCase() }}</div>
             </div>
 
+            <div class="prop-group section-divider">Geometría</div>
             <div class="prop-row">
               <div class="prop-group half">
                 <label>Ancho (W)</label>
@@ -381,24 +411,63 @@
               </div>
               <div class="prop-group half">
                 <label>Alto (H)</label>
-                <input type="number" v-model="selectedElement.height" class="pro-input" />
+                <input
+                  type="number"
+                  v-model="selectedElement.height"
+                  class="pro-input"
+                  :disabled="
+                    selectedElement.type === 'text' || selectedElement.type === 'accordion'
+                  "
+                />
               </div>
             </div>
 
+            <div
+              class="prop-group"
+              v-if="selectedElement.type !== 'interactive' && selectedElement.type !== '3d'"
+            >
+              <label>Opacidad Total</label>
+              <input
+                type="range"
+                v-model="selectedElement.opacity"
+                min="0"
+                max="1"
+                step="0.05"
+                class="w-100"
+              />
+            </div>
+
             <template v-if="selectedElement.type === 'text'">
+              <div class="prop-group section-divider">Tipografía</div>
               <div class="prop-group">
                 <label>Contenido</label>
                 <textarea v-model="selectedElement.content" class="pro-input" rows="3"></textarea>
               </div>
               <div class="prop-group">
-                <label>Color</label>
-                <input type="color" v-model="selectedElement.color" class="pro-color-picker" />
+                <label>Fuente</label>
+                <select v-model="selectedElement.fontFamily" class="pro-input">
+                  <option value="Arial, sans-serif">Arial</option>
+                  <option value="'Times New Roman', serif">Times New Roman</option>
+                  <option value="'Courier New', monospace">Courier New</option>
+                  <option value="Georgia, serif">Georgia</option>
+                  <option value="'Verdana', sans-serif">Verdana</option>
+                  <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                  <option value="'Comic Sans MS', sans-serif">Comic Sans</option>
+                </select>
               </div>
+
               <div class="prop-row">
                 <div class="prop-group half">
                   <label>Tamaño</label>
                   <input type="number" v-model="selectedElement.fontSize" class="pro-input" />
                 </div>
+                <div class="prop-group half">
+                  <label>Color</label>
+                  <input type="color" v-model="selectedElement.color" class="pro-color-picker" />
+                </div>
+              </div>
+
+              <div class="prop-row">
                 <div class="prop-group half">
                   <label>Grosor</label>
                   <select v-model="selectedElement.fontWeight" class="pro-input">
@@ -407,33 +476,116 @@
                     <option value="800">Bold</option>
                   </select>
                 </div>
+                <div class="prop-group half">
+                  <label>Estilo</label>
+                  <select v-model="selectedElement.fontStyle" class="pro-input">
+                    <option value="normal">Normal</option>
+                    <option value="italic">Cursiva</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="prop-group">
+                <label>Alineación</label>
+                <div class="align-buttons">
+                  <button
+                    class="tool-btn"
+                    :class="{ active: selectedElement.textAlign === 'left' }"
+                    @click="selectedElement.textAlign = 'left'"
+                  >
+                    Izq
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: selectedElement.textAlign === 'center' }"
+                    @click="selectedElement.textAlign = 'center'"
+                  >
+                    Cen
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: selectedElement.textAlign === 'right' }"
+                    @click="selectedElement.textAlign = 'right'"
+                  >
+                    Der
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: selectedElement.textAlign === 'justify' }"
+                    @click="selectedElement.textAlign = 'justify'"
+                  >
+                    Jus
+                  </button>
+                </div>
               </div>
             </template>
 
             <template v-if="selectedElement.type === 'shape'">
+              <div class="prop-group section-divider">Estilo de Forma</div>
               <div class="prop-group">
                 <label>Color de Fondo</label>
                 <input type="color" v-model="selectedElement.bgColor" class="pro-color-picker" />
               </div>
-              <div class="prop-group">
-                <label>Opacidad</label>
-                <input
-                  type="range"
-                  v-model="selectedElement.opacity"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  class="w-100"
-                />
-              </div>
               <div class="prop-row">
                 <div class="prop-group half">
-                  <label>Borde (px)</label>
-                  <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                  <label>Radio Esquinas</label>
+                  <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
                 </div>
                 <div class="prop-group half">
-                  <label>Radio (px)</label>
+                  <label>Grosor Borde</label>
+                  <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                </div>
+              </div>
+              <div class="prop-group" v-if="selectedElement.borderWidth > 0">
+                <label>Color del Borde</label>
+                <input
+                  type="color"
+                  v-model="selectedElement.borderColor"
+                  class="pro-color-picker"
+                />
+              </div>
+            </template>
+
+            <template v-if="selectedElement.type === 'image' || selectedElement.type === 'video'">
+              <div class="prop-group section-divider">Fuente del Medio</div>
+              <div class="prop-group file-upload-group">
+                <label class="btn-secondary w-100 text-center block">
+                  <input
+                    type="file"
+                    @change="handleLocalMediaUpload($event, selectedElement)"
+                    :accept="selectedElement.type === 'image' ? 'image/*' : 'video/mp4,video/webm'"
+                    hidden
+                  />
+                  📁 Subir Archivo Local
+                </label>
+              </div>
+              <div class="prop-group">
+                <label>O Enlace Externo (URL)</label>
+                <input
+                  type="text"
+                  v-model="selectedElement.src"
+                  class="pro-input"
+                  placeholder="https://..."
+                />
+              </div>
+              <div class="prop-group">
+                <label>Ajuste de Recorte</label>
+                <select v-model="selectedElement.fit" class="pro-input">
+                  <option value="contain">Contener (Ver entero)</option>
+                  <option value="cover">Cubrir (Recortar)</option>
+                  <option value="fill">Rellenar (Deformar)</option>
+                </select>
+              </div>
+
+              <div class="prop-group section-divider">Bordes (Opcional)</div>
+              <div class="prop-row">
+                <div class="prop-group half">
+                  <label>Radio</label>
                   <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                </div>
+                <div class="prop-group half">
+                  <label>Grosor Borde</label>
+                  <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
                 </div>
               </div>
               <div class="prop-group" v-if="selectedElement.borderWidth > 0">
@@ -444,54 +596,24 @@
                   class="pro-color-picker"
                 />
               </div>
-            </template>
 
-            <template v-if="selectedElement.type === 'image' || selectedElement.type === 'video'">
-              <div class="prop-group file-upload-group">
-                <label>Cargar Archivo Local</label>
-                <label class="btn-secondary w-100 text-center block">
-                  <input
-                    type="file"
-                    @change="handleLocalMediaUpload($event, selectedElement)"
-                    :accept="selectedElement.type === 'image' ? 'image/*' : 'video/mp4,video/webm'"
-                    hidden
-                  />
-                  📁 Seleccionar {{ selectedElement.type === 'image' ? 'Imagen' : 'Vídeo' }}
-                </label>
-              </div>
-              <div class="prop-group">
-                <label>O Enlace Externo (Soporta YouTube)</label>
-                <input
-                  type="text"
-                  v-model="selectedElement.src"
-                  class="pro-input"
-                  placeholder="https://..."
-                />
-              </div>
-              <div class="prop-group">
-                <label>Ajuste de contenido</label>
-                <select v-model="selectedElement.fit" class="pro-input">
-                  <option value="contain">Contener (Ver entero)</option>
-                  <option value="cover">Cubrir (Recortar)</option>
-                  <option value="fill">Rellenar (Deformar)</option>
-                </select>
-              </div>
               <div
                 class="prop-group"
                 v-if="selectedElement.type === 'video' && !isYouTube(selectedElement.src)"
               >
+                <div class="section-divider">Reproducción</div>
                 <label class="checkbox-label">
-                  <input type="checkbox" v-model="selectedElement.autoplay" /> Auto-reproducir (MP4)
+                  <input type="checkbox" v-model="selectedElement.autoplay" /> Auto-reproducir
                 </label>
                 <label class="checkbox-label mt-2">
-                  <input type="checkbox" v-model="selectedElement.loop" /> Bucle (MP4)
+                  <input type="checkbox" v-model="selectedElement.loop" /> Bucle
                 </label>
               </div>
             </template>
 
             <template v-if="selectedElement.type === '3d'">
+              <div class="prop-group section-divider">Modelo 3D</div>
               <div class="prop-group file-upload-group">
-                <label>Cargar Modelo Local (.glb, .gltf)</label>
                 <label class="btn-secondary w-100 text-center block">
                   <input
                     type="file"
@@ -499,11 +621,11 @@
                     accept=".glb,.gltf"
                     hidden
                   />
-                  🧊 Subir Modelo 3D
+                  🧊 Subir Modelo Local
                 </label>
               </div>
-              <div class="prop-group mt-4">
-                <label>O Enlace Externo (URL)</label>
+              <div class="prop-group mt-2">
+                <label>O URL del Modelo</label>
                 <input
                   type="text"
                   v-model="selectedElement.src"
@@ -514,16 +636,17 @@
             </template>
 
             <template v-if="selectedElement.type === 'interactive'">
+              <div class="prop-group section-divider">Hotspot Animado</div>
               <div class="prop-group">
-                <label>Color del Hotspot</label>
+                <label>Color del Pulso</label>
                 <input type="color" v-model="selectedElement.color" class="pro-color-picker" />
               </div>
               <div class="prop-group">
-                <label>Título del Pop-up</label>
+                <label>Título de la Ventana</label>
                 <input type="text" v-model="selectedElement.modalTitle" class="pro-input" />
               </div>
               <div class="prop-group">
-                <label>Contenido HTML</label>
+                <label>Contenido (Soporta HTML)</label>
                 <textarea
                   v-model="selectedElement.contentHtml"
                   class="pro-input"
@@ -533,12 +656,13 @@
             </template>
 
             <template v-if="selectedElement.type === 'link'">
+              <div class="prop-group section-divider">Botón de Navegación</div>
               <div class="prop-group">
                 <label>Texto del Botón</label>
                 <input type="text" v-model="selectedElement.text" class="pro-input" />
               </div>
               <div class="prop-group">
-                <label>Diapositiva Destino (1 - {{ numPages }})</label>
+                <label>Ir a Diapositiva (1 - {{ numPages }})</label>
                 <input
                   type="number"
                   v-model="selectedElement.targetPage"
@@ -557,15 +681,34 @@
                   <input type="color" v-model="selectedElement.color" class="pro-color-picker" />
                 </div>
               </div>
+              <div class="prop-row">
+                <div class="prop-group half">
+                  <label>Redondeo</label>
+                  <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                </div>
+                <div class="prop-group half">
+                  <label>Borde Px</label>
+                  <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                </div>
+              </div>
+              <div class="prop-group" v-if="selectedElement.borderWidth > 0">
+                <label>Color Borde</label>
+                <input
+                  type="color"
+                  v-model="selectedElement.borderColor"
+                  class="pro-color-picker"
+                />
+              </div>
             </template>
 
             <template v-if="selectedElement.type === 'accordion'">
+              <div class="prop-group section-divider">Acordeón</div>
               <div class="prop-group">
-                <label>Color Principal</label>
+                <label>Color Base</label>
                 <input type="color" v-model="selectedElement.bgColor" class="pro-color-picker" />
               </div>
               <div class="prop-group">
-                <label>Elementos del Acordeón</label>
+                <label>Secciones</label>
                 <div
                   v-for="(item, index) in selectedElement.items"
                   :key="index"
@@ -581,7 +724,7 @@
                     v-model="item.content"
                     class="pro-input"
                     rows="2"
-                    placeholder="Contenido profundo..."
+                    placeholder="Contenido..."
                   ></textarea>
                   <button
                     class="btn-text-danger mt-1"
@@ -601,9 +744,9 @@
           </div>
 
           <div class="panel-content empty-state" v-else>
-            <p class="section-subtitle">Fondo de la Diapositiva {{ pageNum }}</p>
+            <p class="section-subtitle">Diseño Diapositiva {{ pageNum }}</p>
             <div class="prop-group mt-4 text-left">
-              <label>Color de Fondo</label>
+              <label>Color Sólido de Fondo</label>
               <input
                 type="color"
                 v-model="slideConfigs[pageNum].bgColor"
@@ -612,23 +755,23 @@
               />
             </div>
             <div class="prop-group text-left">
-              <label>Imagen de Fondo</label>
+              <label>Subir Imagen de Fondo</label>
               <label class="btn-secondary w-100 text-center block">
                 <input type="file" @change="setSlideBackgroundImage" accept="image/*" hidden />
-                🖼️ Reemplazar Manualmente
+                🖼️ Reemplazar Imagen
               </label>
               <button
                 v-if="slideConfigs[pageNum] && slideConfigs[pageNum].bgImage"
                 class="btn-text-danger w-100 mt-2"
                 @click="removeBackgroundImage"
               >
-                Quitar imagen
+                Quitar imagen actual
               </button>
             </div>
             <div class="info-box mt-4 text-left" v-if="docType === 'pptx'">
               <small
-                >💡 Si el PPTX usó imágenes de fondo, las hemos extraído. Si usaste textos sueltos
-                en PPTX, guarda tu archivo como PDF para verlos.</small
+                >💡 Tu PPTX se ha procesado a través de la API y se visualiza como un PDF vectorial
+                de alta calidad.</small
               >
             </div>
           </div>
@@ -662,7 +805,7 @@ const playMode = ref(false)
 const pageNum = ref(1)
 const numPages = ref(0)
 const zoom = ref(1.0)
-const isConverting = ref(false) // Estado de carga para la API
+const isConverting = ref(false)
 
 type ToolType =
   | 'select'
@@ -690,10 +833,7 @@ const selectedElement = computed(() =>
     : null,
 )
 
-const currentBgColor = computed(() => {
-  return slideConfigs.value[pageNum.value]?.bgColor || '#ffffff'
-})
-
+const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff')
 const currentBgImage = computed(() => {
   const img = slideConfigs.value[pageNum.value]?.bgImage
   return img ? `url(${img})` : 'none'
@@ -727,7 +867,6 @@ const getYouTubeEmbedUrl = (url: string) => {
   return match && match[1] ? `https://www.youtube-nocookie.com/embed/${match[1]}?rel=0` : ''
 }
 
-// AQUÍ ESTÁ LA FUNCIÓN QUE FALTABA
 const getIconForType = (type: string) => {
   const icons: any = {
     text: 'T',
@@ -763,7 +902,6 @@ const handleFileUpload = async (event: Event) => {
   }
 }
 
-// Función para procesar un PDF (ya sea subido directamente o devuelto por la API)
 const processPdfFile = async (file: File | Blob) => {
   docType.value = 'pdf'
   const reader = new FileReader()
@@ -786,15 +924,9 @@ const processPdfFile = async (file: File | Blob) => {
   reader.readAsDataURL(file)
 }
 
-// =================================================================================
-// 🚀 NUEVO: CONVERSIÓN DE PPTX A PDF VÍA API EXTERNA (ConvertAPI)
-// Documentación: https://www.convertapi.com/pptx-to-pdf
-// NOTA: Para producción, DEBES cambiar 'secret_YOUR_API_KEY' por tu propia Key gratuita.
-// =================================================================================
 const convertPptxToPdfViaAPI = async (file: File) => {
   isConverting.value = true
 
-  // 1. Convertir el archivo a Base64 para enviarlo a la API
   const reader = new FileReader()
   reader.readAsDataURL(file)
 
@@ -802,39 +934,24 @@ const convertPptxToPdfViaAPI = async (file: File) => {
     try {
       const base64Data = (reader.result as string).split(',')[1]
 
-      // REEMPLAZAR ESTA KEY POR UNA VÁLIDA DE CONVERTAPI.COM
-      const CONVERT_API_SECRET = 'DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ' // <-- ¡Cambiar en producción!
+      const CONVERT_API_SECRET = 'DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ'
 
-      // 2. Hacer la llamada POST a la API
       const response = await fetch(
         `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=${CONVERT_API_SECRET}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            Parameters: [
-              {
-                Name: 'File',
-                FileValue: {
-                  Name: file.name,
-                  Data: base64Data,
-                },
-              },
-            ],
+            Parameters: [{ Name: 'File', FileValue: { Name: file.name, Data: base64Data } }],
           }),
         },
       )
 
-      if (!response.ok) {
-        throw new Error('Fallo en la API de conversión. Verifica tu API Key.')
-      }
+      if (!response.ok) throw new Error('Fallo en la API de conversión.')
 
       const result = await response.json()
-
-      // 3. Extraer el PDF resultante de la respuesta de la API
       const pdfBase64 = result.Files[0].FileData
 
-      // Convertir Base64 de vuelta a un Blob/File de PDF
       const byteCharacters = atob(pdfBase64)
       const byteNumbers = new Array(byteCharacters.length)
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -843,13 +960,10 @@ const convertPptxToPdfViaAPI = async (file: File) => {
       const byteArray = new Uint8Array(byteNumbers)
       const pdfBlob = new Blob([byteArray], { type: 'application/pdf' })
 
-      // 4. Procesar el PDF recién convertido como si el usuario lo hubiera subido
       await processPdfFile(pdfBlob)
     } catch (error) {
       console.error(error)
-      alert(
-        'Error al convertir el PowerPoint. Asegúrate de tener una API Key válida configurada en el código.',
-      )
+      alert('Error al convertir el PowerPoint. Verifica tu conexión o tu API Key.')
     } finally {
       isConverting.value = false
     }
@@ -936,10 +1050,11 @@ const handleCanvasClick = (e: MouseEvent) => {
     y: rawY,
     zIndex: currentPageElements.value.length + 10,
     type: activeTool.value,
+    opacity: 1,
   }
 
   if (activeTool.value === 'link') {
-    newElement.name = 'Botón Navegación'
+    newElement.name = 'Botón'
     newElement.width = 180
     newElement.height = 45
     newElement.text = 'Ir a página...'
@@ -947,6 +1062,11 @@ const handleCanvasClick = (e: MouseEvent) => {
     newElement.bgColor = '#2ea043'
     newElement.color = '#ffffff'
     newElement.borderRadius = 8
+    newElement.borderWidth = 0
+    newElement.borderColor = '#ffffff'
+    newElement.fontFamily = 'Arial'
+    newElement.fontSize = 16
+    newElement.fontWeight = 'bold'
   } else if (activeTool.value === 'accordion') {
     newElement.name = 'Acordeón'
     newElement.width = 300
@@ -957,17 +1077,19 @@ const handleCanvasClick = (e: MouseEvent) => {
   } else if (activeTool.value === 'text') {
     newElement.name = 'Texto'
     newElement.width = 300
-    newElement.height = 50
-    newElement.content = 'Texto Nuevo'
+    newElement.height = 'auto'
+    newElement.content = 'Escribe aquí...'
     newElement.color = '#000000'
-    newElement.fontSize = 24
-    newElement.fontWeight = '600'
+    newElement.fontSize = 32
+    newElement.fontWeight = '400'
+    newElement.fontFamily = 'Arial, sans-serif'
+    newElement.fontStyle = 'normal'
+    newElement.textAlign = 'left'
   } else if (activeTool.value === 'shape') {
     newElement.name = 'Forma'
     newElement.width = 150
     newElement.height = 150
     newElement.bgColor = '#2f81f7'
-    newElement.opacity = 1
     newElement.borderRadius = 8
     newElement.borderWidth = 0
     newElement.borderColor = '#ffffff'
@@ -977,7 +1099,9 @@ const handleCanvasClick = (e: MouseEvent) => {
     newElement.height = 250
     newElement.src = ''
     newElement.fit = 'contain'
-    newElement.opacity = 1
+    newElement.borderRadius = 0
+    newElement.borderWidth = 0
+    newElement.borderColor = '#000000'
   } else if (activeTool.value === 'video') {
     newElement.name = 'Vídeo'
     newElement.width = 400
@@ -986,6 +1110,9 @@ const handleCanvasClick = (e: MouseEvent) => {
     newElement.fit = 'cover'
     newElement.autoplay = false
     newElement.loop = false
+    newElement.borderRadius = 0
+    newElement.borderWidth = 0
+    newElement.borderColor = '#000000'
   } else if (activeTool.value === '3d') {
     newElement.name = 'Modelo 3D'
     newElement.width = 300
@@ -1042,14 +1169,21 @@ const setSlideBackgroundImage = (e: Event) => {
   reader.readAsDataURL(file)
 }
 
+// --- LÓGICA DE ARRASTRE Y REDIMENSIÓN (CORREGIDA PARA NO SELECCIONAR TEXTO) ---
 let isDragging = false
+let isResizing = false
 let startX = 0,
   startY = 0
 let initialElX = 0,
   initialElY = 0
+let initialWidth = 0,
+  initialHeight = 0
 
 const startDrag = (e: MouseEvent, el: any) => {
-  if (playMode.value || activeTool.value !== 'select') return
+  if (playMode.value || activeTool.value !== 'select' || isResizing) return
+
+  e.preventDefault() // <-- PREVIENE LA SELECCIÓN DE TEXTO DEL NAVEGADOR
+
   selectedElementId.value = el.id
   isDragging = true
   startX = e.clientX
@@ -1064,13 +1198,36 @@ const startDrag = (e: MouseEvent, el: any) => {
     el.x = initialElX + dx
     el.y = initialElY + dy
   }
-
   const onMouseUp = () => {
     isDragging = false
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
   }
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
 
+const startResize = (e: MouseEvent, el: any) => {
+  e.preventDefault() // <-- PREVIENE LA SELECCIÓN DE TEXTO AL REDIMENSIONAR
+
+  isResizing = true
+  startX = e.clientX
+  startY = e.clientY
+  initialWidth = el.width
+  initialHeight = el.height === 'auto' ? el.height : el.height
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    if (!isResizing) return
+    const dx = (moveEvent.clientX - startX) / zoom.value
+    const dy = (moveEvent.clientY - startY) / zoom.value
+    el.width = Math.max(20, initialWidth + dx)
+    if (el.height !== 'auto') el.height = Math.max(20, initialHeight + dy)
+  }
+  const onMouseUp = () => {
+    isResizing = false
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
   document.addEventListener('mousemove', onMouseMove)
   document.addEventListener('mouseup', onMouseUp)
 }
@@ -1108,18 +1265,24 @@ const togglePlayMode = () => {
   fitToScreen()
 }
 
+// --- EXPORTACIÓN HTML ---
 const exportPresentation = () => {
   if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank') {
     alert('El proyecto está vacío. Añade algo antes de exportar.')
     return
   }
 
-  const safeStateString = JSON.stringify(documentState.value).replace(/</g, '\\x3C')
-  const safeConfigString = JSON.stringify(slideConfigs.value).replace(/</g, '\\x3C')
+  // USO DE \\u003c PARA EVITAR ROMPER EL SCRIPT TAG EN LA EXPORTACIÓN
+  const safeStateString = JSON.stringify(documentState.value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+  const safeConfigString = JSON.stringify(slideConfigs.value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
 
   if (safeStateString.includes('blob:')) {
     alert(
-      '⚠️ AVISO IMPORTANTE:\n\nHas subido archivos locales desde tu PC. Al exportar este archivo, tú podrás verlo en este equipo, pero si se lo envías a otra persona, los archivos no cargarán.\n\nPara que sea universal, usa Enlaces Externos (URLs de internet) para tus fotos/vídeos.',
+      '⚠️ AVISO IMPORTANTE:\nHas subido archivos locales desde tu PC. Al exportar, tú podrás verlo en este equipo, pero si se lo envías a otra persona, los archivos no cargarán.\nUsa Enlaces Externos (URLs) para que funcione en cualquier ordenador.',
     )
   }
 
@@ -1135,27 +1298,28 @@ const exportPresentation = () => {
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"><\/script>
   
   <style>
-    body { margin: 0; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    /* CSS user-select previene que el texto se subraye globalmente en la version exportada */
+    body { margin: 0; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; -webkit-user-select: none; }
     #app { display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; position: relative; }
     .canvas-wrapper { position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); transform-origin: center center; transition: transform 0.2s; background-size: cover; background-position: center; }
     .layer-pdf { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; }
     .interactive-element { position: absolute; box-sizing: border-box; display: flex; }
     
-    .el-text { width: 100%; height: 100%; white-space: pre-wrap; line-height: 1.2; text-shadow: 1px 1px 2px rgba(255,255,255,0.8); }
+    .el-text { width: 100%; height: 100%; white-space: pre-wrap; line-height: 1.2; word-break: break-word; user-select: text; -webkit-user-select: text; }
     .el-shape { width: 100%; height: 100%; }
-    .el-content-fitted { width: 100%; height: 100%; display: block; }
-    .el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
+    .el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; padding: 0 10px; box-sizing: border-box; }
     .el-link:active { transform: scale(0.95); }
     .el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .hotspot-pulse { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 70% { transform: scale(1.1); opacity: 0; } 100% { transform: scale(0.95); opacity: 0; } }
-    .interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: white; color: #333; padding: 20px; border-radius: 8px; width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); z-index: 9999; cursor: default; }
+    .interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: white; color: #333; padding: 20px; border-radius: 8px; width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); z-index: 9999; cursor: default; user-select: text; -webkit-user-select: text; }
     .modal-title { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 5px; }
     
     .el-accordion { width: 100%; height: 100%; overflow-y: auto; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .accordion-item { border-bottom: 1px solid rgba(255,255,255,0.1); }
     .accordion-header { padding: 12px 16px; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; background: rgba(0,0,0,0.2); }
-    .accordion-content { padding: 16px; font-size: 0.9rem; line-height: 1.5; background: rgba(0,0,0,0.05); }
+    .accordion-content { padding: 16px; font-size: 0.9rem; line-height: 1.5; background: rgba(0,0,0,0.05); user-select: text; -webkit-user-select: text; }
 
     .nav-controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); padding: 10px 20px; border-radius: 30px; display: flex; gap: 10px; z-index: 10000; }
     .nav-btn { background: #444; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; }
@@ -1169,18 +1333,18 @@ const exportPresentation = () => {
       <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
       
       <div v-for="el in currentPageElements" :key="el.id" class="interactive-element is-clickable"
-           :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: el.zIndex }">
+           :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: el.zIndex, opacity: el.opacity !== undefined ? el.opacity : 1 }">
         
-        <div v-if="el.type === 'text'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight }">{{ el.content }}</div>
+        <div v-if="el.type === 'text'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign }">{{ el.content }}</div>
         
         <div v-else-if="el.type === 'shape'" class="el-shape" 
-             :style="{ backgroundColor: el.bgColor, borderRadius: el.borderRadius + 'px', border: el.borderWidth + 'px solid ' + el.borderColor, opacity: el.opacity }"></div>
+             :style="{ backgroundColor: el.bgColor, borderRadius: el.borderRadius + 'px', border: el.borderWidth + 'px solid ' + el.borderColor }"></div>
         
-        <div v-else-if="el.type === 'image'" class="el-image-container" style="width: 100%; height: 100%;">
-          <img v-if="el.src" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit, opacity: el.opacity }" />
+        <div v-else-if="el.type === 'image'" class="el-image-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
+          <img v-if="el.src" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit }" />
         </div>
         
-        <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;">
+        <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
           <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allowfullscreen></iframe>
           <video v-else :src="el.src" controls :autoplay="el.autoplay" :loop="el.loop" class="el-content-fitted" :style="{ objectFit: el.fit }"></video>
         </div>
@@ -1198,7 +1362,7 @@ const exportPresentation = () => {
         </div>
 
         <div v-else-if="el.type === 'link'" class="el-link" 
-             :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px' }"
+             :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), fontSize: (el.fontSize || 16) + 'px', fontWeight: el.fontWeight || 'bold', fontFamily: el.fontFamily || 'Arial' }"
              @click.stop="changePageTo(el.targetPage)">
           {{ el.text }}
         </div>
@@ -1225,12 +1389,11 @@ const exportPresentation = () => {
   </div>
 
   <script>
-    window.__APP_STATE = ${safeStateString};
-    window.__APP_CONFIGS = ${safeConfigString};
+    window.__APP_STATE = JSON.parse('${safeStateString}');
+    window.__APP_CONFIGS = JSON.parse('${safeConfigString}');
     window.__BASE_WIDTH = ${baseWidth.value};
     window.__BASE_HEIGHT = ${baseHeight.value};
     window.__DOC_TYPE = '${docType.value}';
-    // Se inserta el PDF completo en Base64 para que el archivo exportado sea autónomo
     window.__RAW_PDF_B64 = '${_PDF_BASE64_STORE}';
     
     const { createApp, ref, computed, onMounted, nextTick } = Vue;
@@ -1252,9 +1415,10 @@ const exportPresentation = () => {
         const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
         const currentBgImage = computed(() => slideConfigs.value[pageNum.value]?.bgImage ? 'url(' + slideConfigs.value[pageNum.value].bgImage + ')' : 'none');
 
-        const isYouTube = (url) => url && url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+        // EXPRESIÓN REGULAR CORREGIDA (DOBLE ESCAPE)
+        const isYouTube = (url) => url && url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
         const getYouTubeEmbedUrl = (url) => {
-          const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+          const match = url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
           return match && match[1] ? 'https://www.youtube-nocookie.com/embed/' + match[1] + '?rel=0' : '';
         };
 
@@ -1264,7 +1428,6 @@ const exportPresentation = () => {
           zoom.value = Math.min(wZoom, hZoom) * 0.95;
         };
 
-        // Lógica para renderizar el PDF guardado dentro del HTML
         let pdfDoc = null;
         const pdfCanvas = ref(null);
         
@@ -1534,7 +1697,7 @@ const exportPresentation = () => {
 .right-sidebar {
   border-right: none;
   border-left: 1px solid #30363d;
-  width: 280px;
+  width: 300px;
 }
 
 .panel-header {
@@ -1691,6 +1854,15 @@ const exportPresentation = () => {
   background: transparent;
 }
 
+.section-divider {
+  color: #c9d1d9;
+  font-weight: bold;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 8px;
+  margin-top: 20px;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+}
 .section-subtitle {
   color: #c9d1d9;
   font-weight: bold;
@@ -1705,6 +1877,19 @@ const exportPresentation = () => {
   border-radius: 4px;
   color: #c9d1d9;
   line-height: 1.4;
+}
+
+.align-buttons {
+  display: flex;
+  gap: 5px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  padding: 4px;
+  border-radius: 6px;
+}
+.align-buttons .tool-btn {
+  flex: 1;
+  font-size: 0.8rem;
 }
 
 .btn-primary,
@@ -1774,11 +1959,14 @@ const exportPresentation = () => {
 }
 
 /* CANVAS Y ELEMENTOS INTERACTIVOS */
+/* Se ha añadido user-select: none para evitar que el texto se seleccione durante el arrastre */
 .canvas-wrapper {
   position: relative;
   transform-origin: center center;
   transition: transform 0.1s ease-out;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  -webkit-user-select: none;
 }
 .canvas-wrapper.play-mode-active {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -1823,8 +2011,12 @@ const exportPresentation = () => {
   outline: 2px dashed #58a6ff;
   outline-offset: 2px;
 }
-.interactive-element.is-selected::after {
-  content: '';
+.interactive-element.is-clickable {
+  cursor: pointer;
+}
+
+/* Controlador de Redimensionamiento Visual */
+.resize-handle {
   position: absolute;
   bottom: -6px;
   right: -6px;
@@ -1833,9 +2025,7 @@ const exportPresentation = () => {
   background: #58a6ff;
   border-radius: 50%;
   cursor: nwse-resize;
-}
-.interactive-element.is-clickable {
-  cursor: pointer;
+  z-index: 100;
 }
 
 /* Contenidos de Elementos */
@@ -1948,9 +2138,9 @@ const exportPresentation = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
   text-align: center;
   padding: 0 10px;
+  box-sizing: border-box;
 }
 .el-accordion {
   width: 100%;
