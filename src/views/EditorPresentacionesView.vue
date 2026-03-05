@@ -85,60 +85,75 @@
             <span>Diapositivas</span>
             <span class="badge">{{ numPages }}</span>
           </div>
-          <div class="tree-view">
-            <div v-for="page in numPages" :key="page" class="tree-node">
-              <div
-                class="tree-node-title"
-                :class="{ 'is-active': pageNum === page }"
-                @click="changePageTo(page)"
-              >
-                <div class="slide-name-wrapper">
-                  <i class="ph ph-presentation-chart"></i> Diapositiva {{ page }}
-                </div>
-                <div class="slide-actions">
-                  <button
-                    class="slide-action-btn"
-                    @click.stop="moveSlide(page, 'up')"
-                    :disabled="page === 1"
-                    title="Subir"
-                  >
-                    <i class="ph ph-arrow-up"></i>
-                  </button>
-                  <button
-                    class="slide-action-btn"
-                    @click.stop="moveSlide(page, 'down')"
-                    :disabled="page === numPages"
-                    title="Bajar"
-                  >
-                    <i class="ph ph-arrow-down"></i>
-                  </button>
-                  <button
-                    class="slide-action-btn"
-                    @click.stop="duplicateSlide(page)"
-                    title="Duplicar"
-                  >
-                    <i class="ph ph-copy"></i>
-                  </button>
-                  <button
-                    class="slide-action-btn btn-trash"
-                    @click.stop="deleteSlide(page)"
-                    :disabled="numPages <= 1"
-                    title="Eliminar"
-                  >
-                    <i class="ph ph-trash"></i>
-                  </button>
-                </div>
-              </div>
-              <div class="tree-children" v-if="pageNum === page && currentPageElements.length > 0">
+          <div class="slides-preview-list">
+            <div
+              v-for="page in numPages"
+              :key="page"
+              class="thumb-item"
+              :class="{ 'is-active': pageNum === page }"
+              @click="changePageTo(page)"
+            >
+              <div class="thumb-num">{{ page }}</div>
+              <div class="thumb-card-wrapper">
                 <div
-                  v-for="el in currentPageElements"
-                  :key="el.id"
-                  class="tree-child"
-                  :class="{ 'is-selected': selectedElementId === el.id }"
-                  @click="selectElement(el.id)"
+                  class="thumb-card"
+                  :style="{
+                    backgroundColor: slideConfigs[page]?.bgColor || '#ffffff',
+                    backgroundImage: slideConfigs[page]?.bgImage
+                      ? `url(${slideConfigs[page].bgImage})`
+                      : pdfPageMap[page] && pdfThumbnails[pdfPageMap[page]]
+                        ? `url(${pdfThumbnails[pdfPageMap[page]]})`
+                        : 'none',
+                  }"
                 >
-                  <span class="icon"><i :class="`ph ${getIconClassForType(el.type)}`"></i></span>
-                  <span class="child-name">{{ el.name || el.type }}</span>
+                  <div class="thumb-actions">
+                    <button
+                      class="thumb-action-btn"
+                      @click.stop="moveSlide(page, 'up')"
+                      :disabled="page === 1"
+                      title="Subir"
+                    >
+                      <i class="ph ph-arrow-up"></i>
+                    </button>
+                    <button
+                      class="thumb-action-btn"
+                      @click.stop="moveSlide(page, 'down')"
+                      :disabled="page === numPages"
+                      title="Bajar"
+                    >
+                      <i class="ph ph-arrow-down"></i>
+                    </button>
+                    <button
+                      class="thumb-action-btn"
+                      @click.stop="duplicateSlide(page)"
+                      title="Duplicar"
+                    >
+                      <i class="ph ph-copy"></i>
+                    </button>
+                    <button
+                      class="thumb-action-btn btn-trash"
+                      @click.stop="deleteSlide(page)"
+                      :disabled="numPages <= 1"
+                      title="Eliminar"
+                    >
+                      <i class="ph ph-trash"></i>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="thumb-elements"
+                  v-if="pageNum === page && currentPageElements.length > 0"
+                >
+                  <div
+                    v-for="el in currentPageElements"
+                    :key="el.id"
+                    class="tree-child"
+                    :class="{ 'is-selected': selectedElementId === el.id }"
+                    @click.stop="selectElement(el.id)"
+                  >
+                    <span class="icon"><i :class="`ph ${getIconClassForType(el.type)}`"></i></span>
+                    <span class="child-name">{{ el.name || el.type }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -180,6 +195,14 @@
             </button>
             <button
               class="tool-btn large"
+              :class="{ active: activeTool === 'arrow' }"
+              @click="activeTool = 'arrow'"
+              title="Flecha / Línea"
+            >
+              <i class="ph ph-arrow-right"></i>
+            </button>
+            <button
+              class="tool-btn large"
               :class="{ active: activeTool === 'icon' }"
               @click="activeTool = 'icon'"
               title="Icono Vectorial"
@@ -194,7 +217,6 @@
             >
               <i class="ph ph-pencil-simple"></i>
             </button>
-
             <div class="tool-divider"></div>
 
             <button
@@ -221,7 +243,14 @@
             >
               <i class="ph ph-speaker-high"></i>
             </button>
-
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'magnifier' }"
+              @click="activeTool = 'magnifier'"
+              title="Lupa Mágica"
+            >
+              <i class="ph ph-magnifying-glass"></i>
+            </button>
             <div class="tool-divider"></div>
 
             <button
@@ -231,6 +260,56 @@
               title="Gráfico"
             >
               <i class="ph ph-chart-bar"></i>
+            </button>
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'poll' }"
+              @click="activeTool = 'poll'"
+              title="Encuesta Rápida"
+            >
+              <i class="ph ph-chart-pie-slice"></i>
+            </button>
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'rating' }"
+              @click="activeTool = 'rating'"
+              title="Puntuación / Estrellas"
+            >
+              <i class="ph ph-star-half"></i>
+            </button>
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'qrcode' }"
+              @click="activeTool = 'qrcode'"
+              title="Código QR"
+            >
+              <i class="ph ph-qr-code"></i>
+            </button>
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'progress' }"
+              @click="activeTool = 'progress'"
+              title="Barra de Progreso"
+            >
+              <i class="ph ph-sliders-horizontal"></i>
+            </button>
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'timer' }"
+              @click="activeTool = 'timer'"
+              title="Temporizador"
+            >
+              <i class="ph ph-timer"></i>
+            </button>
+            <div class="tool-divider"></div>
+
+            <button
+              class="tool-btn large"
+              :class="{ active: activeTool === 'codeblock' }"
+              @click="activeTool = 'codeblock'"
+              title="Bloque de Código"
+            >
+              <i class="ph ph-code"></i>
             </button>
             <button
               class="tool-btn large"
@@ -248,7 +327,6 @@
             >
               <i class="ph ph-cube"></i>
             </button>
-
             <div class="tool-divider"></div>
 
             <button
@@ -307,6 +385,9 @@
           <div v-show="hasDoc" class="canvas-wrapper" :class="{ 'play-mode-active': playMode }">
             <div
               class="canvas-shadow-box layer-engine"
+              :class="[
+                playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : '',
+              ]"
               :style="{
                 transform: `scale(${zoom})`,
                 width: `${baseWidth}px`,
@@ -342,22 +423,27 @@
               </div>
 
               <div
-                v-for="el in currentPageElements"
-                :key="el.id"
+                v-for="(el, index) in currentPageElements"
+                :key="el.id + (playMode ? renderTrigger : '')"
                 class="interactive-element"
-                :class="{
-                  'is-selected': selectedElementId === el.id && !playMode,
-                  'is-clickable': playMode && ['link', 'interactive', 'audio'].includes(el.type),
-                  'no-pointer': playMode && el.type === 'draw',
-                }"
+                :class="[
+                  {
+                    'is-selected': selectedElementId === el.id && !playMode,
+                    'is-clickable': playMode && ['link', 'interactive', 'audio'].includes(el.type),
+                    'no-pointer': playMode && el.type === 'draw',
+                  },
+                  playMode && el.animation && el.animation !== 'none' ? 'anim-' + el.animation : '',
+                ]"
                 :style="{
                   left: `${el.x}px`,
                   top: `${el.y}px`,
                   width: `${el.width}px`,
                   height: el.height === 'auto' ? 'auto' : `${el.height}px`,
                   zIndex: el.zIndex,
-                  opacity: el.opacity !== undefined ? el.opacity : 1,
+                  opacity: el.opacity ?? 1,
                   transform: `rotate(${el.rotation || 0}deg)`,
+                  animationDelay:
+                    playMode && el.animation && el.animation !== 'none' ? `${index * 0.1}s` : '0s',
                 }"
                 @mousedown.stop="startDrag($event, el)"
               >
@@ -371,6 +457,8 @@
                     fontFamily: el.fontFamily,
                     fontStyle: el.fontStyle,
                     textAlign: el.textAlign,
+                    textDecoration: el.textDecoration || 'none',
+                    textTransform: el.textTransform || 'none',
                     lineHeight: el.lineHeight || 1.2,
                     letterSpacing: `${el.letterSpacing || 0}px`,
                     textShadow: el.textShadow || 'none',
@@ -386,12 +474,55 @@
                   v-else-if="el.type === 'shape'"
                   class="el-shape"
                   :style="{
-                    backgroundColor: el.bgColor,
+                    background: el.isGlass
+                      ? 'rgba(255,255,255,0.1)'
+                      : el.gradientType && el.gradientType !== 'none'
+                        ? el.gradientType === 'linear'
+                          ? `linear-gradient(135deg, ${el.bgColor}, ${el.gradientColor})`
+                          : `radial-gradient(circle, ${el.bgColor}, ${el.gradientColor})`
+                        : el.bgColor,
                     borderRadius: `${el.borderRadius}px`,
-                    border: `${el.borderWidth}px solid ${el.borderColor}`,
+                    border: `${el.borderWidth}px ${el.borderStyle || 'solid'} ${el.borderColor}`,
                     boxShadow: el.boxShadow || 'none',
+                    backdropFilter: el.isGlass ? 'blur(10px)' : 'none',
+                    '-webkit-backdrop-filter': el.isGlass ? 'blur(10px)' : 'none',
                   }"
                 ></div>
+
+                <div
+                  v-else-if="el.type === 'arrow'"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    position: relative;
+                  "
+                >
+                  <div
+                    v-if="['start', 'both'].includes(el.arrowHead)"
+                    :style="{
+                      width: 0,
+                      height: 0,
+                      borderTop: `${el.strokeWidth * 1.5}px solid transparent`,
+                      borderBottom: `${el.strokeWidth * 1.5}px solid transparent`,
+                      borderRight: `${el.strokeWidth * 2}px solid ${el.color}`,
+                    }"
+                  ></div>
+                  <div
+                    :style="{ flex: 1, height: `${el.strokeWidth}px`, backgroundColor: el.color }"
+                  ></div>
+                  <div
+                    v-if="['end', 'both'].includes(el.arrowHead)"
+                    :style="{
+                      width: 0,
+                      height: 0,
+                      borderTop: `${el.strokeWidth * 1.5}px solid transparent`,
+                      borderBottom: `${el.strokeWidth * 1.5}px solid transparent`,
+                      borderLeft: `${el.strokeWidth * 2}px solid ${el.color}`,
+                    }"
+                  ></div>
+                </div>
 
                 <div
                   v-else-if="el.type === 'icon'"
@@ -403,7 +534,10 @@
                     borderRadius: `${el.borderRadius || 0}px`,
                   }"
                 >
-                  <i :class="`ph ph-${el.iconName}`"></i>
+                  <i
+                    :class="`ph ph-${el.iconName}`"
+                    :style="{ filter: el.textShadow ? `drop-shadow(${el.textShadow})` : 'none' }"
+                  ></i>
                 </div>
 
                 <div
@@ -442,6 +576,42 @@
                       stroke-linejoin="round"
                     />
                   </svg>
+                </div>
+
+                <div
+                  v-else-if="el.type === 'codeblock'"
+                  class="el-codeblock"
+                  :style="{
+                    backgroundColor: el.theme === 'dark' ? '#1e1e1e' : '#f5f5f5',
+                    color: el.theme === 'dark' ? '#d4d4d4' : '#333333',
+                    borderRadius: `${el.borderRadius}px`,
+                    padding: '15px',
+                    width: '100%',
+                    height: '100%',
+                    overflow: 'auto',
+                    border: `1px solid ${el.theme === 'dark' ? '#333' : '#ddd'}`,
+                    boxSizing: 'border-box',
+                  }"
+                >
+                  <div
+                    style="
+                      position: absolute;
+                      top: 0;
+                      right: 0;
+                      padding: 4px 8px;
+                      font-size: 0.7rem;
+                      font-family: sans-serif;
+                      background: rgba(128, 128, 128, 0.2);
+                      border-bottom-left-radius: 8px;
+                    "
+                  >
+                    {{ el.language }}
+                  </div>
+                  <pre
+                    style="margin: 0; white-space: pre-wrap; font-family: monospace"
+                    :style="{ fontSize: `${el.fontSize}px` }"
+                    >{{ el.content }}</pre
+                  >
                 </div>
 
                 <div
@@ -530,8 +700,8 @@
                           :key="'l' + i"
                           class="pie-legend-item"
                         >
-                          <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
-                          <span :style="{ color: el.color }"
+                          <span class="legend-dot" :style="{ backgroundColor: item.color }"></span
+                          ><span :style="{ color: el.color }"
                             >{{ item.label }}
                             <span v-if="el.showValues">({{ item.value }})</span></span
                           >
@@ -542,6 +712,134 @@
                 </div>
 
                 <div
+                  v-else-if="el.type === 'poll'"
+                  class="el-poll-wrapper"
+                  :style="{
+                    backgroundColor: el.bgColor,
+                    color: el.color,
+                    borderRadius: `${el.borderRadius}px`,
+                    padding: '15px',
+                    width: '100%',
+                    height: '100%',
+                    boxSizing: 'border-box',
+                  }"
+                >
+                  <h4 style="margin: 0 0 15px 0; text-align: center">{{ el.chartTitle }}</h4>
+                  <div v-for="(item, i) in el.chartData" :key="i" style="margin-bottom: 10px">
+                    <div
+                      style="
+                        display: flex;
+                        justify-content: space-between;
+                        font-size: 12px;
+                        margin-bottom: 4px;
+                      "
+                    >
+                      <span>{{ item.label }}</span>
+                      <span>{{ Math.round((item.value / getChartMax(el.chartData)) * 100) }}%</span>
+                    </div>
+                    <div
+                      style="
+                        width: 100%;
+                        height: 8px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border-radius: 4px;
+                        overflow: hidden;
+                      "
+                    >
+                      <div
+                        :style="{
+                          width:
+                            Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%',
+                          backgroundColor: item.color,
+                          height: '100%',
+                          transition: 'width 1s ease-out',
+                        }"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  v-else-if="el.type === 'qrcode'"
+                  style="width: 100%; height: 100%; padding: 10px; box-sizing: border-box"
+                  :style="{
+                    backgroundColor: el.bgColor,
+                    borderRadius: `${el.borderRadius || 0}px`,
+                  }"
+                >
+                  <img
+                    :src="`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(el.qrUrl || 'https://google.com')}&color=${el.color.replace('#', '')}&bgcolor=${el.bgColor.replace('#', '')}`"
+                    style="width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply"
+                    draggable="false"
+                  />
+                </div>
+
+                <div
+                  v-else-if="el.type === 'progress'"
+                  style="width: 100%; height: 100%; overflow: hidden"
+                  :style="{ backgroundColor: el.bgColor, borderRadius: `${el.borderRadius}px` }"
+                >
+                  <div
+                    :style="{
+                      width: `${el.progress}%`,
+                      backgroundColor: el.color,
+                      height: '100%',
+                      transition: 'width 0.5s ease',
+                    }"
+                  ></div>
+                </div>
+
+                <div
+                  v-else-if="el.type === 'rating'"
+                  class="el-rating"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 4px;
+                  "
+                  :style="{ color: el.color, fontSize: `${el.fontSize}px` }"
+                >
+                  <span
+                    v-for="s in el.maxStars"
+                    :key="s"
+                    @click.stop="playMode && el.isInteractive ? (el.rating = s) : null"
+                    :style="{
+                      cursor: playMode && el.isInteractive ? 'pointer' : 'default',
+                      opacity: s <= el.rating ? 1 : 0.3,
+                    }"
+                    >★</span
+                  >
+                </div>
+
+                <div
+                  v-else-if="el.type === 'timer'"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    font-variant-numeric: tabular-nums;
+                  "
+                  :style="{
+                    backgroundColor: el.bgColor,
+                    color: el.color,
+                    borderRadius: `${el.borderRadius}px`,
+                    fontSize: `${el.fontSize}px`,
+                  }"
+                >
+                  {{
+                    playMode && el.isRunning
+                      ? formatTime(el.timeLeft)
+                      : formatTime(el.duration * 60)
+                  }}
+                </div>
+
+                <div
                   v-else-if="el.type === 'image'"
                   class="el-image-container"
                   :style="{
@@ -549,6 +847,8 @@
                     border: `${el.borderWidth || 0}px solid ${el.borderColor || '#000'}`,
                     filter: `grayscale(${el.grayscale || 0}%) blur(${el.blur || 0}px) sepia(${el.sepia || 0}%)`,
                     overflow: 'hidden',
+                    width: '100%',
+                    height: '100%',
                   }"
                 >
                   <img
@@ -560,6 +860,34 @@
                   />
                   <div v-else class="placeholder-box">
                     <i class="ph ph-image" style="font-size: 2rem"></i>
+                  </div>
+                </div>
+
+                <div
+                  v-else-if="el.type === 'magnifier'"
+                  class="el-magnifier"
+                  :style="{
+                    borderRadius: '50%',
+                    border: `${el.borderWidth || 4}px solid ${el.borderColor || '#fff'}`,
+                    overflow: 'hidden',
+                    width: '100%',
+                    height: '100%',
+                    boxShadow: el.boxShadow || '0 10px 25px rgba(0,0,0,0.5)',
+                  }"
+                >
+                  <div
+                    v-if="el.src"
+                    :style="{
+                      width: '100%',
+                      height: '100%',
+                      backgroundImage: `url(${el.src})`,
+                      backgroundSize: `${el.zoomLevel * 100}%`,
+                      backgroundPosition: `${el.focusX}% ${el.focusY}%`,
+                      backgroundRepeat: 'no-repeat',
+                    }"
+                  ></div>
+                  <div v-else class="placeholder-box" style="border-radius: 50%">
+                    <i class="ph ph-magnifying-glass"></i>
                   </div>
                 </div>
 
@@ -675,7 +1003,7 @@
                     :style="{ backgroundColor: el.color, boxShadow: `0 0 15px ${el.color}` }"
                   ></div>
                   <div
-                    v-if="playMode && el.isOpen"
+                    v-if="el.isOpen"
                     class="interactive-modal"
                     :style="{
                       backgroundColor: el.modalBgColor || '#ffffff',
@@ -766,6 +1094,18 @@
               </button>
             </div>
 
+            <div class="prop-section" v-if="selectedElement.type !== 'draw'">
+              <div class="section-title">Animación (Entrada)</div>
+              <div class="prop-group mb-0">
+                <select v-model="selectedElement.animation" class="pro-input">
+                  <option value="none">Ninguna</option>
+                  <option value="fade-in">Desvanecer (Fade In)</option>
+                  <option value="slide-in">Entrar desde abajo (Slide)</option>
+                  <option value="bounce">Rebote (Bounce In)</option>
+                </select>
+              </div>
+            </div>
+
             <div
               class="prop-section"
               v-if="!['audio', 'interactive'].includes(selectedElement.type)"
@@ -773,30 +1113,34 @@
               <div class="section-title">Geometría y Posición</div>
               <div class="prop-row">
                 <div class="prop-group half">
-                  <label>X (px)</label>
-                  <input type="number" v-model="selectedElement.x" class="pro-input" />
+                  <label>X (px)</label
+                  ><input type="number" v-model="selectedElement.x" class="pro-input" />
                 </div>
                 <div class="prop-group half">
-                  <label>Y (px)</label>
-                  <input type="number" v-model="selectedElement.y" class="pro-input" />
+                  <label>Y (px)</label
+                  ><input type="number" v-model="selectedElement.y" class="pro-input" />
                 </div>
               </div>
               <div class="prop-row">
                 <div class="prop-group half">
-                  <label>Ancho (W)</label>
-                  <input type="number" v-model="selectedElement.width" class="pro-input" />
+                  <label>Ancho (W)</label
+                  ><input type="number" v-model="selectedElement.width" class="pro-input" />
                 </div>
                 <div class="prop-group half">
-                  <label>Alto (H)</label>
-                  <input
+                  <label>Alto (H)</label
+                  ><input
                     type="number"
                     v-model="selectedElement.height"
                     class="pro-input"
-                    :disabled="['text', 'accordion'].includes(selectedElement.type)"
+                    :disabled="
+                      ['text', 'accordion', 'arrow', 'rating', 'codeblock'].includes(
+                        selectedElement.type,
+                      )
+                    "
                   />
                 </div>
               </div>
-              <div class="prop-group">
+              <div class="prop-group" v-if="selectedElement.type !== 'rating'">
                 <label>Rotación (°)</label>
                 <div class="range-wrapper">
                   <input
@@ -816,15 +1160,15 @@
               <div class="section-title">Capa y Apariencia</div>
               <div class="prop-row">
                 <div class="prop-group half">
-                  <label>Z-Index</label>
-                  <input type="number" v-model="selectedElement.zIndex" class="pro-input" />
+                  <label>Z-Index</label
+                  ><input type="number" v-model="selectedElement.zIndex" class="pro-input" />
                 </div>
                 <div
                   class="prop-group half"
                   v-if="!['interactive', '3d', 'audio'].includes(selectedElement.type)"
                 >
-                  <label>Opacidad</label>
-                  <input
+                  <label>Opacidad</label
+                  ><input
                     type="number"
                     v-model="selectedElement.opacity"
                     min="0"
@@ -861,8 +1205,8 @@
                 </div>
                 <div class="prop-row">
                   <div class="prop-group half">
-                    <label>Tamaño</label>
-                    <input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                    <label>Tamaño</label
+                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
                   </div>
                   <div class="prop-group half">
                     <label>Color Text</label>
@@ -894,8 +1238,26 @@
                 </div>
                 <div class="prop-row">
                   <div class="prop-group half">
-                    <label>Interlineado</label>
-                    <input
+                    <label>Formato (Caps)</label>
+                    <select v-model="selectedElement.textTransform" class="pro-input">
+                      <option value="none">Normal</option>
+                      <option value="uppercase">MAYÚSCULAS</option>
+                      <option value="lowercase">minúsculas</option>
+                    </select>
+                  </div>
+                  <div class="prop-group half">
+                    <label>Decoración</label>
+                    <select v-model="selectedElement.textDecoration" class="pro-input">
+                      <option value="none">Ninguna</option>
+                      <option value="underline">Subrayado</option>
+                      <option value="line-through">Tachado</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Interlineado</label
+                    ><input
                       type="number"
                       v-model="selectedElement.lineHeight"
                       step="0.1"
@@ -903,8 +1265,8 @@
                     />
                   </div>
                   <div class="prop-group half">
-                    <label>Espaciado (px)</label>
-                    <input
+                    <label>Espaciado (px)</label
+                    ><input
                       type="number"
                       v-model="selectedElement.letterSpacing"
                       class="pro-input"
@@ -945,7 +1307,7 @@
                   </div>
                 </div>
                 <div class="prop-group">
-                  <label>Fondo de Caja (Opcional)</label>
+                  <label>Fondo de Caja</label>
                   <div class="color-picker-wrapper">
                     <input
                       type="color"
@@ -961,72 +1323,75 @@
                   </button>
                 </div>
                 <div class="prop-group">
-                  <label>Sombra CSS (ej: 2px 2px 4px #000)</label>
-                  <input
-                    type="text"
-                    v-model="selectedElement.textShadow"
-                    class="pro-input"
-                    placeholder="none"
-                  />
+                  <label>Sombra CSS o Resplandor</label>
+                  <select v-model="selectedElement.textShadow" class="pro-input mb-1">
+                    <option value="none">Ninguna</option>
+                    <option value="2px 2px 4px rgba(0,0,0,0.8)">Sombra Básica</option>
+                    <option :value="`0 0 10px ${selectedElement.color}`">
+                      Resplandor Neón (Glow)
+                    </option>
+                  </select>
                 </div>
               </div>
             </template>
 
-            <template v-if="selectedElement.type === 'shape'">
+            <template v-if="selectedElement.type === 'codeblock'">
               <div class="prop-section">
-                <div class="section-title">Estilo de Forma</div>
+                <div class="section-title">Bloque de Código</div>
                 <div class="prop-group">
-                  <label>Color de Fondo</label>
-                  <div class="color-picker-wrapper">
+                  <textarea
+                    v-model="selectedElement.content"
+                    class="pro-input"
+                    rows="6"
+                    placeholder="Pega tu código aquí..."
+                  ></textarea>
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Lenguaje</label>
                     <input
-                      type="color"
-                      v-model="selectedElement.bgColor"
-                      class="pro-color-picker"
+                      type="text"
+                      v-model="selectedElement.language"
+                      class="pro-input"
+                      placeholder="ej. Javascript"
                     />
+                  </div>
+                  <div class="prop-group half">
+                    <label>Tema</label>
+                    <select v-model="selectedElement.theme" class="pro-input">
+                      <option value="dark">Oscuro</option>
+                      <option value="light">Claro</option>
+                    </select>
                   </div>
                 </div>
                 <div class="prop-row">
                   <div class="prop-group half">
-                    <label>Radio Esquinas</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                    <label>Tamaño Fuente</label
+                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
                   </div>
                   <div class="prop-group half">
-                    <label>Grosor Borde</label>
-                    <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
-                  </div>
-                </div>
-                <div class="prop-group" v-if="selectedElement.borderWidth > 0">
-                  <label>Color del Borde</label>
-                  <div class="color-picker-wrapper">
-                    <input
-                      type="color"
-                      v-model="selectedElement.borderColor"
-                      class="pro-color-picker"
+                    <label>Redondeo</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
                     />
                   </div>
-                </div>
-                <div class="prop-group mt-2">
-                  <label>Sombra CSS (Box Shadow)</label>
-                  <input
-                    type="text"
-                    v-model="selectedElement.boxShadow"
-                    class="pro-input"
-                    placeholder="ej: 0 4px 10px rgba(0,0,0,0.5)"
-                  />
                 </div>
               </div>
             </template>
 
-            <template v-if="selectedElement.type === 'icon'">
+            <template v-if="['shape', 'icon', 'arrow'].includes(selectedElement.type)">
               <div class="prop-section">
-                <div class="section-title">Icono Vectorial</div>
-                <div class="prop-group">
+                <div class="section-title">Estilo Visual</div>
+
+                <div class="prop-group" v-if="selectedElement.type === 'icon'">
                   <label>Nombre (Phosphor Icons)</label>
                   <input
                     type="text"
                     v-model="selectedElement.iconName"
                     class="pro-input"
-                    placeholder="ej: heart, star, user"
+                    placeholder="ej: heart"
                   />
                   <a
                     href="https://phosphoricons.com/"
@@ -1036,10 +1401,39 @@
                     >Ver catálogo de iconos ↗</a
                   >
                 </div>
-                <div class="prop-row mt-2">
+
+                <div class="prop-row mt-2" v-if="selectedElement.type === 'icon'">
                   <div class="prop-group half">
-                    <label>Tamaño</label>
-                    <input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                    <label>Tamaño</label
+                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                  </div>
+                  <div class="prop-group half">
+                    <label>Color Icono</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.color"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="prop-group" v-if="selectedElement.type === 'shape'">
+                  <label>Color 1 (Principal)</label>
+                  <div class="color-picker-wrapper">
+                    <input
+                      type="color"
+                      v-model="selectedElement.bgColor"
+                      class="pro-color-picker"
+                    />
+                  </div>
+                </div>
+
+                <div class="prop-row" v-if="selectedElement.type === 'arrow'">
+                  <div class="prop-group half">
+                    <label>Grosor Línea</label
+                    ><input type="number" v-model="selectedElement.strokeWidth" class="pro-input" />
                   </div>
                   <div class="prop-group half">
                     <label>Color</label>
@@ -1052,7 +1446,46 @@
                     </div>
                   </div>
                 </div>
-                <div class="prop-row">
+                <div class="prop-group" v-if="selectedElement.type === 'arrow'">
+                  <label>Punta de flecha</label>
+                  <select v-model="selectedElement.arrowHead" class="pro-input">
+                    <option value="none">Ninguna (Línea)</option>
+                    <option value="end">Al final</option>
+                    <option value="start">Al inicio</option>
+                    <option value="both">Ambos lados</option>
+                  </select>
+                </div>
+
+                <div class="prop-row" v-if="selectedElement.type === 'shape'">
+                  <div class="prop-group half">
+                    <label>Efecto Fondo</label>
+                    <select v-model="selectedElement.gradientType" class="pro-input">
+                      <option value="none">Sólido</option>
+                      <option value="linear">Gradiente Lineal</option>
+                      <option value="radial">Gradiente Radial</option>
+                    </select>
+                  </div>
+                  <div
+                    class="prop-group half"
+                    v-if="selectedElement.gradientType && selectedElement.gradientType !== 'none'"
+                  >
+                    <label>Color 2</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.gradientColor"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <label class="checkbox-label mt-2 mb-2" v-if="selectedElement.type === 'shape'"
+                  ><input type="checkbox" v-model="selectedElement.isGlass" /> Efecto Cristal
+                  (Glassmorphism)</label
+                >
+
+                <div class="prop-row" v-if="selectedElement.type === 'icon'">
                   <div class="prop-group half">
                     <label>Fondo Caja</label>
                     <div class="color-picker-wrapper">
@@ -1064,116 +1497,284 @@
                     </div>
                   </div>
                   <div class="prop-group half">
-                    <label>Redondeo Caja</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                    <label>Redondeo</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
+                    />
+                  </div>
+                </div>
+
+                <div class="prop-row" v-if="selectedElement.type === 'shape'">
+                  <div class="prop-group half">
+                    <label>Radio Esquinas</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
+                    />
+                  </div>
+                  <div class="prop-group half">
+                    <label>Grosor Borde</label
+                    ><input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                  </div>
+                </div>
+
+                <div
+                  class="prop-row"
+                  v-if="selectedElement.type === 'shape' && selectedElement.borderWidth > 0"
+                >
+                  <div class="prop-group half">
+                    <label>Color Borde</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.borderColor"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                  <div class="prop-group half">
+                    <label>Estilo Borde</label>
+                    <select v-model="selectedElement.borderStyle" class="pro-input">
+                      <option value="solid">Sólido</option>
+                      <option value="dashed">Rayado</option>
+                      <option value="dotted">Puntos</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="prop-group mt-2" v-if="selectedElement.type === 'shape'">
+                  <label>Sombra CSS (Múltiples separadas por coma)</label
+                  ><input
+                    type="text"
+                    v-model="selectedElement.boxShadow"
+                    class="pro-input"
+                    placeholder="ej: 0 4px 10px rgba(0,0,0,0.5)"
+                  />
+                </div>
+              </div>
+            </template>
+
+            <template v-if="selectedElement.type === 'rating'">
+              <div class="prop-section">
+                <div class="section-title">Puntuación / Rating</div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Puntuación Inicial</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.rating"
+                      min="0"
+                      :max="selectedElement.maxStars"
+                      class="pro-input"
+                    />
+                  </div>
+                  <div class="prop-group half">
+                    <label>Estrellas Totales</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.maxStars"
+                      min="1"
+                      max="10"
+                      class="pro-input"
+                    />
+                  </div>
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Color</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.color"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                  <div class="prop-group half">
+                    <label>Tamaño Icono</label
+                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                  </div>
+                </div>
+                <label class="checkbox-label mt-2 mb-2"
+                  ><input type="checkbox" v-model="selectedElement.isInteractive" /> Editable en
+                  presentación</label
+                >
+              </div>
+            </template>
+
+            <template v-if="selectedElement.type === 'timer'">
+              <div class="prop-section">
+                <div class="section-title">Temporizador / Cuenta atrás</div>
+                <div class="prop-group">
+                  <label>Minutos Totales</label
+                  ><input
+                    type="number"
+                    v-model="selectedElement.duration"
+                    class="pro-input"
+                    min="1"
+                    max="120"
+                  />
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Color Texto</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.color"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                  <div class="prop-group half">
+                    <label>Color Fondo</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.bgColor"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Tamaño Fuente</label
+                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                  </div>
+                  <div class="prop-group half">
+                    <label>Redondeo</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
+                    />
                   </div>
                 </div>
               </div>
             </template>
 
-            <template v-if="selectedElement.type === 'image'">
+            <template v-if="selectedElement.type === 'progress'">
               <div class="prop-section">
-                <div class="section-title">Fuente de Imagen</div>
+                <div class="section-title">Barra de Progreso</div>
                 <div class="prop-group">
+                  <label>Porcentaje Actual ({{ selectedElement.progress }}%)</label>
+                  <input
+                    type="range"
+                    v-model="selectedElement.progress"
+                    min="0"
+                    max="100"
+                    class="w-100"
+                  />
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Color Relleno</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.color"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                  <div class="prop-group half">
+                    <label>Color Carril</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.bgColor"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="prop-group">
+                  <label>Redondeo Esquinas</label
+                  ><input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                </div>
+              </div>
+            </template>
+
+            <template v-if="selectedElement.type === 'qrcode'">
+              <div class="prop-section">
+                <div class="section-title">Código QR Dinámico</div>
+                <div class="prop-group">
+                  <label>URL o Texto a codificar</label
+                  ><input
+                    type="text"
+                    v-model="selectedElement.qrUrl"
+                    class="pro-input"
+                    placeholder="https://mi-web.com"
+                  />
+                </div>
+                <div class="prop-row">
+                  <div class="prop-group half">
+                    <label>Color Código</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.color"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                  <div class="prop-group half">
+                    <label>Fondo QR</label>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        v-model="selectedElement.bgColor"
+                        class="pro-color-picker"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="prop-group">
+                  <label>Redondeo Caja</label
+                  ><input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                </div>
+              </div>
+            </template>
+
+            <template
+              v-if="['image', 'video', 'iframe', '3d', 'magnifier'].includes(selectedElement.type)"
+            >
+              <div class="prop-section">
+                <div class="section-title">Fuente Multimedia</div>
+
+                <div
+                  class="prop-group file-upload-group"
+                  v-if="['image', 'video', '3d', 'magnifier'].includes(selectedElement.type)"
+                >
                   <label class="btn-ghost w-100 text-center block">
                     <input
                       type="file"
                       @change="handleLocalMediaUpload($event, selectedElement)"
-                      accept="image/*"
+                      :accept="
+                        ['image', 'magnifier'].includes(selectedElement.type)
+                          ? 'image/*'
+                          : selectedElement.type === 'video'
+                            ? 'video/mp4,video/webm'
+                            : '.glb,.gltf'
+                      "
                       hidden
                     />
                     <i class="ph ph-upload-simple"></i> Subir Archivo Local
                   </label>
                 </div>
-                <div class="prop-group">
-                  <label>O Enlace Externo (URL)</label>
-                  <input
-                    type="text"
-                    v-model="selectedElement.src"
-                    class="pro-input"
-                    placeholder="https://..."
-                  />
-                </div>
-                <div class="prop-group">
-                  <label>Ajuste de Recorte</label>
-                  <select v-model="selectedElement.fit" class="pro-input">
-                    <option value="contain">Contener (Ver entero)</option>
-                    <option value="cover">Cubrir (Recortar)</option>
-                    <option value="fill">Rellenar (Deformar)</option>
-                  </select>
-                </div>
-              </div>
-              <div class="prop-section">
-                <div class="section-title">Bordes y Filtros</div>
-                <div class="prop-row">
-                  <div class="prop-group half">
-                    <label>Radio</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
-                  </div>
-                  <div class="prop-group half">
-                    <label>Borde Px</label>
-                    <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
-                  </div>
-                </div>
-                <div class="prop-group" v-if="selectedElement.borderWidth > 0">
-                  <label>Color Borde</label>
-                  <div class="color-picker-wrapper">
-                    <input
-                      type="color"
-                      v-model="selectedElement.borderColor"
-                      class="pro-color-picker"
-                    />
-                  </div>
-                </div>
-                <div class="prop-group">
-                  <label>Blanco y Negro (%)</label>
-                  <input
-                    type="range"
-                    v-model="selectedElement.grayscale"
-                    min="0"
-                    max="100"
-                    class="w-100"
-                  />
-                </div>
-                <div class="prop-group">
-                  <label>Desenfoque (px)</label>
-                  <input
-                    type="range"
-                    v-model="selectedElement.blur"
-                    min="0"
-                    max="20"
-                    class="w-100"
-                  />
-                </div>
-                <div class="prop-group">
-                  <label>Sepia (%)</label>
-                  <input
-                    type="range"
-                    v-model="selectedElement.sepia"
-                    min="0"
-                    max="100"
-                    class="w-100"
-                  />
-                </div>
-              </div>
-            </template>
 
-            <template v-if="selectedElement.type === 'video'">
-              <div class="prop-section">
-                <div class="section-title">Fuente de Video</div>
-                <div class="prop-group">
-                  <label class="btn-ghost w-100 text-center block">
-                    <input
-                      type="file"
-                      @change="handleLocalMediaUpload($event, selectedElement)"
-                      accept="video/mp4,video/webm"
-                      hidden
-                    />
-                    <i class="ph ph-upload-simple"></i> Subir Video Local
-                  </label>
-                </div>
-                <div class="prop-group">
-                  <label>O Enlace Externo (Soporta YouTube)</label>
+                <div
+                  class="prop-group"
+                  :class="{
+                    'mt-2': ['image', 'video', '3d', 'magnifier'].includes(selectedElement.type),
+                  }"
+                >
+                  <label>{{
+                    selectedElement.type === 'iframe' ? 'URL del Iframe' : 'O Enlace Externo (URL)'
+                  }}</label>
                   <input
                     type="text"
                     v-model="selectedElement.src"
@@ -1181,7 +1782,61 @@
                     placeholder="https://..."
                   />
                 </div>
-                <div class="prop-group">
+
+                <template v-if="selectedElement.type === 'magnifier'">
+                  <div class="prop-group mt-2">
+                    <label>Nivel de Zoom ({{ selectedElement.zoomLevel }}x)</label>
+                    <input
+                      type="range"
+                      v-model="selectedElement.zoomLevel"
+                      min="1"
+                      max="5"
+                      step="0.5"
+                      class="w-100"
+                    />
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Enfoque X (%)</label
+                      ><input
+                        type="range"
+                        v-model="selectedElement.focusX"
+                        min="0"
+                        max="100"
+                        class="w-100"
+                      />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Enfoque Y (%)</label
+                      ><input
+                        type="range"
+                        v-model="selectedElement.focusY"
+                        min="0"
+                        max="100"
+                        class="w-100"
+                      />
+                    </div>
+                  </div>
+                </template>
+
+                <div class="prop-group mt-2" v-if="selectedElement.type === '3d'">
+                  <label>Imagen Entorno (HDR/URL)</label
+                  ><input
+                    type="text"
+                    v-model="selectedElement.envImage"
+                    class="pro-input"
+                    placeholder="Para reflejos reales"
+                  />
+                </div>
+                <label class="checkbox-label mt-2" v-if="selectedElement.type === '3d'"
+                  ><input type="checkbox" v-model="selectedElement.autoRotate" /> Auto-rotar</label
+                >
+                <label class="checkbox-label mt-2" v-if="selectedElement.type === '3d'"
+                  ><input type="checkbox" v-model="selectedElement.cameraControls" />
+                  Controles</label
+                >
+
+                <div class="prop-group" v-if="['image', 'video'].includes(selectedElement.type)">
                   <label>Ajuste</label>
                   <select v-model="selectedElement.fit" class="pro-input">
                     <option value="contain">Contener</option>
@@ -1190,18 +1845,33 @@
                   </select>
                 </div>
               </div>
-              <div class="prop-section">
-                <div class="section-title">Bordes</div>
-                <div class="prop-row">
+
+              <div
+                class="prop-section"
+                v-if="['image', 'video', 'iframe', 'magnifier'].includes(selectedElement.type)"
+              >
+                <div class="section-title">Bordes y Filtros</div>
+                <div class="prop-row" v-if="selectedElement.type !== 'magnifier'">
                   <div class="prop-group half">
-                    <label>Radio</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                    <label>Radio</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
+                    />
                   </div>
                   <div class="prop-group half">
-                    <label>Borde Px</label>
-                    <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                    <label>Borde Px</label
+                    ><input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
                   </div>
                 </div>
+                <div class="prop-row" v-else>
+                  <div class="prop-group half">
+                    <label>Grosor Marco</label
+                    ><input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                  </div>
+                </div>
+
                 <div class="prop-group" v-if="selectedElement.borderWidth > 0">
                   <label>Color Borde</label>
                   <div class="color-picker-wrapper">
@@ -1212,8 +1882,45 @@
                     />
                   </div>
                 </div>
+
+                <template v-if="selectedElement.type === 'image'">
+                  <div class="prop-group">
+                    <label>Blanco y Negro (%)</label
+                    ><input
+                      type="range"
+                      v-model="selectedElement.grayscale"
+                      min="0"
+                      max="100"
+                      class="w-100"
+                    />
+                  </div>
+                  <div class="prop-group">
+                    <label>Desenfoque (px)</label
+                    ><input
+                      type="range"
+                      v-model="selectedElement.blur"
+                      min="0"
+                      max="20"
+                      class="w-100"
+                    />
+                  </div>
+                  <div class="prop-group">
+                    <label>Sepia (%)</label
+                    ><input
+                      type="range"
+                      v-model="selectedElement.sepia"
+                      min="0"
+                      max="100"
+                      class="w-100"
+                    />
+                  </div>
+                </template>
               </div>
-              <div class="prop-section" v-if="!isYouTube(selectedElement.src)">
+
+              <div
+                class="prop-section"
+                v-if="selectedElement.type === 'video' && !isYouTube(selectedElement.src)"
+              >
                 <div class="section-title">Reproducción</div>
                 <label class="checkbox-label"
                   ><input type="checkbox" v-model="selectedElement.autoplay" />
@@ -1234,8 +1941,8 @@
                 <div class="section-title">Rotulador</div>
                 <div class="prop-row">
                   <div class="prop-group half">
-                    <label>Grosor (px)</label>
-                    <input
+                    <label>Grosor (px)</label
+                    ><input
                       type="number"
                       v-model="selectedElement.brushSize"
                       class="pro-input"
@@ -1260,12 +1967,12 @@
               </div>
             </template>
 
-            <template v-if="selectedElement.type === 'chart'">
+            <template v-if="['chart', 'poll'].includes(selectedElement.type)">
               <div class="prop-section">
-                <div class="section-title">Estilo del Gráfico</div>
+                <div class="section-title">Estilo Visual</div>
                 <div class="prop-group">
-                  <label>Título Superior</label>
-                  <input type="text" v-model="selectedElement.chartTitle" class="pro-input" />
+                  <label>Título Superior</label
+                  ><input type="text" v-model="selectedElement.chartTitle" class="pro-input" />
                 </div>
                 <div class="prop-row">
                   <div class="prop-group half">
@@ -1289,7 +1996,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="prop-row">
+                <div class="prop-row" v-if="selectedElement.type === 'chart'">
                   <div class="prop-group half">
                     <label>Diseño</label>
                     <select v-model="selectedElement.chartType" class="pro-input">
@@ -1300,11 +2007,20 @@
                     </select>
                   </div>
                   <div class="prop-group half">
-                    <label>Radio Cajas</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                    <label>Radio Cajas</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
+                    />
                   </div>
                 </div>
-                <div class="prop-row mt-2">
+                <div class="prop-group" v-if="selectedElement.type === 'poll'">
+                  <label>Radio Cajas</label
+                  ><input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                </div>
+
+                <div class="prop-row mt-2" v-if="selectedElement.type === 'chart'">
                   <label class="checkbox-label half"
                     ><input type="checkbox" v-model="selectedElement.showValues" /> Valores</label
                   >
@@ -1389,8 +2105,8 @@
                   </label>
                 </div>
                 <div class="prop-group mt-2">
-                  <label>O URL Externa</label>
-                  <input
+                  <label>O URL Externa</label
+                  ><input
                     type="text"
                     v-model="selectedElement.src"
                     class="pro-input"
@@ -1420,92 +2136,14 @@
                   </div>
                 </div>
                 <div class="prop-group">
-                  <label>Redondeo (0 = Cuadrado, 50 = Círculo)</label>
-                  <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                  <label>Redondeo</label
+                  ><input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
                 </div>
                 <label class="checkbox-label mt-2"
                   ><input type="checkbox" v-model="selectedElement.loop" /> Bucle (Loop)</label
                 >
                 <label class="checkbox-label mt-2"
-                  ><input type="checkbox" v-model="selectedElement.autoplay" /> Autoplay en
-                  Presentación</label
-                >
-              </div>
-            </template>
-
-            <template v-if="selectedElement.type === 'iframe'">
-              <div class="prop-section">
-                <div class="section-title">Incrustación Web</div>
-                <div class="prop-group">
-                  <label>URL / Enlace (src)</label>
-                  <input
-                    type="text"
-                    v-model="selectedElement.src"
-                    class="pro-input"
-                    placeholder="https://..."
-                  />
-                </div>
-                <div class="prop-row mt-4">
-                  <div class="prop-group half">
-                    <label>Redondeo</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
-                  </div>
-                  <div class="prop-group half">
-                    <label>Borde Px</label>
-                    <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
-                  </div>
-                </div>
-                <div class="prop-group" v-if="selectedElement.borderWidth > 0">
-                  <label>Color Borde</label>
-                  <div class="color-picker-wrapper">
-                    <input
-                      type="color"
-                      v-model="selectedElement.borderColor"
-                      class="pro-color-picker"
-                    />
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            <template v-if="selectedElement.type === '3d'">
-              <div class="prop-section">
-                <div class="section-title">Modelo 3D (.glb, .gltf)</div>
-                <div class="prop-group file-upload-group">
-                  <label class="btn-ghost w-100 text-center block">
-                    <input
-                      type="file"
-                      @change="handleLocalMediaUpload($event, selectedElement)"
-                      accept=".glb,.gltf"
-                      hidden
-                    />
-                    <i class="ph ph-upload-simple"></i> Subir Archivo Local
-                  </label>
-                </div>
-                <div class="prop-group mt-2">
-                  <label>O Enlace Externo (URL)</label>
-                  <input
-                    type="text"
-                    v-model="selectedElement.src"
-                    class="pro-input"
-                    placeholder="https://..."
-                  />
-                </div>
-                <div class="prop-group mt-2">
-                  <label>Imagen Entorno (HDR/URL)</label>
-                  <input
-                    type="text"
-                    v-model="selectedElement.envImage"
-                    class="pro-input"
-                    placeholder="Para reflejos reales"
-                  />
-                </div>
-                <label class="checkbox-label mt-2"
-                  ><input type="checkbox" v-model="selectedElement.autoRotate" /> Auto-rotar</label
-                >
-                <label class="checkbox-label mt-2"
-                  ><input type="checkbox" v-model="selectedElement.cameraControls" /> Controles de
-                  cámara</label
+                  ><input type="checkbox" v-model="selectedElement.autoplay" /> Autoplay</label
                 >
               </div>
             </template>
@@ -1543,12 +2181,12 @@
                   </div>
                 </div>
                 <div class="prop-group">
-                  <label>Título Principal</label>
-                  <input type="text" v-model="selectedElement.modalTitle" class="pro-input" />
+                  <label>Título Principal</label
+                  ><input type="text" v-model="selectedElement.modalTitle" class="pro-input" />
                 </div>
                 <div class="prop-group">
-                  <label>Contenido (Acepta HTML)</label>
-                  <textarea
+                  <label>Contenido HTML</label
+                  ><textarea
                     v-model="selectedElement.contentHtml"
                     class="pro-input"
                     rows="5"
@@ -1561,12 +2199,12 @@
               <div class="prop-section">
                 <div class="section-title">Botón de Navegación</div>
                 <div class="prop-group">
-                  <label>Texto del Botón</label>
-                  <input type="text" v-model="selectedElement.text" class="pro-input" />
+                  <label>Texto del Botón</label
+                  ><input type="text" v-model="selectedElement.text" class="pro-input" />
                 </div>
                 <div class="prop-group">
-                  <label>Saltar a Diapositiva (1 - {{ numPages }})</label>
-                  <input
+                  <label>Saltar a Diapositiva</label
+                  ><input
                     type="number"
                     v-model="selectedElement.targetPage"
                     min="1"
@@ -1574,7 +2212,6 @@
                     class="pro-input"
                   />
                 </div>
-
                 <div class="prop-row mt-4">
                   <div class="prop-group half">
                     <label>Color Fondo</label>
@@ -1599,12 +2236,16 @@
                 </div>
                 <div class="prop-row">
                   <div class="prop-group half">
-                    <label>Redondeo</label>
-                    <input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
+                    <label>Redondeo</label
+                    ><input
+                      type="number"
+                      v-model="selectedElement.borderRadius"
+                      class="pro-input"
+                    />
                   </div>
                   <div class="prop-group half">
-                    <label>Borde Px</label>
-                    <input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
+                    <label>Borde Px</label
+                    ><input type="number" v-model="selectedElement.borderWidth" class="pro-input" />
                   </div>
                 </div>
                 <div class="prop-group" v-if="selectedElement.borderWidth > 0">
@@ -1617,10 +2258,9 @@
                     />
                   </div>
                 </div>
-
                 <div class="prop-row mt-2">
                   <div class="prop-group half">
-                    <label>Fuente Text</label>
+                    <label>Fuente</label>
                     <select
                       v-model="selectedElement.fontFamily"
                       class="pro-input"
@@ -1632,8 +2272,8 @@
                     </select>
                   </div>
                   <div class="prop-group half">
-                    <label>Tamaño</label>
-                    <input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                    <label>Tamaño</label
+                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
                   </div>
                 </div>
               </div>
@@ -1687,7 +2327,7 @@
                     v-model="item.content"
                     class="pro-input"
                     rows="2"
-                    placeholder="Contenido profundo..."
+                    placeholder="Contenido..."
                   ></textarea>
                   <button
                     class="btn-text-danger mt-1"
@@ -1715,8 +2355,17 @@
             </p>
 
             <div class="prop-section text-left mt-4">
-              <div class="section-title">Fondo Base</div>
+              <div class="section-title">Fondo Base y Transición</div>
               <div class="prop-group mt-2">
+                <label>Transición de Entrada</label>
+                <select v-model="slideConfigs[pageNum].transition" class="pro-input">
+                  <option value="none">Ninguna</option>
+                  <option value="fade">Desvanecer (Fade)</option>
+                  <option value="slide">Deslizar (Slide)</option>
+                  <option value="zoom">Acercar (Zoom)</option>
+                </select>
+              </div>
+              <div class="prop-group mt-4">
                 <label>Color Sólido</label>
                 <div class="color-picker-wrapper">
                   <input
@@ -1780,6 +2429,7 @@ const workspaceRef = ref<HTMLElement | null>(null)
 
 let _RAW_PDF_DOC: any = null
 let _PDF_BASE64_STORE: string = ''
+let timerInterval: ReturnType<typeof setInterval> | null = null
 
 const docType = ref<'pdf' | 'blank'>('blank')
 const hasDoc = ref(false)
@@ -1789,6 +2439,9 @@ const numPages = ref(0)
 const zoom = ref(1.0)
 const isConverting = ref(false)
 
+const renderTrigger = ref(0)
+const activeTransition = ref('none')
+
 type ToolType =
   | 'select'
   | 'text'
@@ -1797,6 +2450,7 @@ type ToolType =
   | 'image'
   | 'video'
   | 'shape'
+  | 'arrow'
   | 'link'
   | 'accordion'
   | 'icon'
@@ -1804,14 +2458,24 @@ type ToolType =
   | 'chart'
   | 'iframe'
   | 'audio'
+  | 'qrcode'
+  | 'progress'
+  | 'timer'
+  | 'codeblock'
+  | 'magnifier'
+  | 'poll'
+  | 'rating'
 const activeTool = ref<ToolType>('select')
 const baseWidth = ref(1280)
 const baseHeight = ref(720)
 
-// ESTADOS DE DIAPOSITIVAS Y NUEVO MAPA DE PÁGINAS PDF
+// ESTADOS DE DIAPOSITIVAS Y MAPAS
 const documentState = ref<Record<number, any[]>>({})
-const slideConfigs = ref<Record<number, { bgColor: string; bgImage: string | null }>>({})
-const pdfPageMap = ref<Record<number, number>>({}) // MAPEA diapositiva_virtual -> página_pdf_real
+const slideConfigs = ref<
+  Record<number, { bgColor: string; bgImage: string | null; transition: string }>
+>({})
+const pdfPageMap = ref<Record<number, number>>({})
+const pdfThumbnails = ref<Record<number, string>>({})
 const selectedElementId = ref<string | null>(null)
 
 const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
@@ -1826,6 +2490,297 @@ const currentBgImage = computed(() =>
     ? `url(${slideConfigs.value[pageNum.value].bgImage})`
     : 'none',
 )
+
+// --- MAPA DE ICONOS DE LA BARRA LATERAL ---
+const ICON_MAP: Record<string, string> = {
+  text: 'ph-text-t',
+  shape: 'ph-square',
+  arrow: 'ph-arrow-right',
+  image: 'ph-image',
+  video: 'ph-video-camera',
+  '3d': 'ph-cube',
+  interactive: 'ph-lightning',
+  link: 'ph-link',
+  accordion: 'ph-list-dashes',
+  icon: 'ph-star',
+  draw: 'ph-pencil-simple',
+  chart: 'ph-chart-bar',
+  iframe: 'ph-globe',
+  audio: 'ph-speaker-high',
+  qrcode: 'ph-qr-code',
+  progress: 'ph-sliders-horizontal',
+  timer: 'ph-timer',
+  codeblock: 'ph-code',
+  magnifier: 'ph-magnifying-glass',
+  poll: 'ph-chart-pie-slice',
+  rating: 'ph-star-half',
+}
+const getIconClassForType = (type: string) => ICON_MAP[type] || 'ph-file'
+
+// --- FÁBRICA DE ELEMENTOS (NUEVAS HERRAMIENTAS Y ESTILOS) ---
+const ELEMENT_DEFAULTS: Record<string, any> = {
+  link: {
+    name: 'Botón',
+    width: 180,
+    height: 45,
+    text: 'Ir a página...',
+    targetPage: 1,
+    bgColor: '#2ea043',
+    color: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 0,
+    borderColor: '#ffffff',
+    fontFamily: 'Arial',
+    fontSize: 14,
+    fontWeight: 'bold',
+    animation: 'none',
+  },
+  accordion: {
+    name: 'Acordeón',
+    width: 300,
+    height: 'auto',
+    bgColor: '#21262d',
+    color: '#c9d1d9',
+    items: [{ title: 'Sección 1', content: 'Detalle...', isOpen: false }],
+    animation: 'none',
+  },
+  text: {
+    name: 'Texto',
+    width: 300,
+    height: 'auto',
+    content: 'Escribe aquí...',
+    color: '#c9d1d9',
+    fontSize: 32,
+    fontWeight: '400',
+    fontFamily: 'Arial, sans-serif',
+    fontStyle: 'normal',
+    textAlign: 'left',
+    textTransform: 'none',
+    textDecoration: 'none',
+    lineHeight: 1.2,
+    letterSpacing: 0,
+    textShadow: 'none',
+    textBgColor: 'transparent',
+    animation: 'none',
+  },
+  shape: {
+    name: 'Forma',
+    width: 150,
+    height: 150,
+    bgColor: '#2f81f7',
+    gradientType: 'none',
+    gradientColor: '#000000',
+    borderRadius: 8,
+    borderWidth: 0,
+    borderStyle: 'solid',
+    borderColor: '#ffffff',
+    boxShadow: 'none',
+    isGlass: false,
+    animation: 'none',
+  },
+  arrow: {
+    name: 'Flecha',
+    width: 200,
+    height: 'auto',
+    color: '#58a6ff',
+    strokeWidth: 4,
+    arrowHead: 'end',
+    animation: 'none',
+  },
+  image: {
+    name: 'Imagen',
+    width: 250,
+    height: 250,
+    src: '',
+    fit: 'contain',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: '#000000',
+    grayscale: 0,
+    blur: 0,
+    sepia: 0,
+    animation: 'none',
+  },
+  video: {
+    name: 'Vídeo',
+    width: 400,
+    height: 225,
+    src: '',
+    fit: 'cover',
+    autoplay: false,
+    loop: false,
+    muted: false,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: '#000000',
+    animation: 'none',
+  },
+  '3d': {
+    name: 'Modelo 3D',
+    width: 300,
+    height: 300,
+    src: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+    autoRotate: true,
+    cameraControls: true,
+    envImage: '',
+    animation: 'none',
+  },
+  interactive: {
+    name: 'Hotspot',
+    width: 40,
+    height: 40,
+    color: '#2f81f7',
+    modalTitle: 'Info',
+    contentHtml: '<p>Edita el HTML.</p>',
+    isOpen: false,
+    modalBgColor: '#ffffff',
+    modalTextColor: '#333333',
+    animation: 'none',
+  },
+  icon: {
+    name: 'Icono',
+    width: 60,
+    height: 60,
+    color: '#c9d1d9',
+    bgColor: 'transparent',
+    borderRadius: 0,
+    iconName: 'star',
+    fontSize: 60,
+    animation: 'none',
+  },
+  chart: {
+    name: 'Gráfico',
+    width: 350,
+    height: 250,
+    color: '#c9d1d9',
+    bgColor: '#FFFFFF',
+    chartType: 'bar',
+    chartTitle: 'Datos',
+    showValues: true,
+    showLegend: true,
+    borderRadius: 8,
+    chartData: [
+      { label: 'Ene', value: 30, color: '#58a6ff' },
+      { label: 'Feb', value: 60, color: '#2ea043' },
+      { label: 'Mar', value: 40, color: '#da3633' },
+    ],
+    animation: 'none',
+  },
+  iframe: {
+    name: 'Iframe',
+    width: 400,
+    height: 300,
+    src: '',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    animation: 'none',
+  },
+  audio: {
+    name: 'Audio',
+    width: 60,
+    height: 60,
+    src: '',
+    bgColor: '#da3633',
+    color: '#ffffff',
+    borderRadius: 50,
+    loop: false,
+    autoplay: false,
+    isPlaying: false,
+    animation: 'none',
+  },
+  draw: {
+    name: 'Pizarra',
+    width: 400,
+    height: 300,
+    brushSize: 4,
+    brushColor: '#ff0000',
+    lines: [],
+    animation: 'none',
+  },
+  qrcode: {
+    name: 'Código QR',
+    width: 150,
+    height: 150,
+    qrUrl: 'https://',
+    color: '#000000',
+    bgColor: '#ffffff',
+    borderRadius: 8,
+    animation: 'none',
+  },
+  progress: {
+    name: 'Progreso',
+    width: 300,
+    height: 30,
+    progress: 50,
+    color: '#58a6ff',
+    bgColor: '#21262d',
+    borderRadius: 15,
+    animation: 'none',
+  },
+  timer: {
+    name: 'Temporizador',
+    width: 200,
+    height: 80,
+    duration: 5,
+    color: '#ffffff',
+    bgColor: '#da3633',
+    fontSize: 48,
+    borderRadius: 8,
+    animation: 'none',
+    timeLeft: 300,
+    isRunning: false,
+  },
+  codeblock: {
+    name: 'Código',
+    width: 400,
+    height: 'auto',
+    content: 'console.log("Hello World");',
+    language: 'javascript',
+    theme: 'dark',
+    fontSize: 14,
+    borderRadius: 8,
+    animation: 'none',
+  },
+  magnifier: {
+    name: 'Lupa',
+    width: 150,
+    height: 150,
+    src: '',
+    zoomLevel: 2,
+    focusX: 50,
+    focusY: 50,
+    borderWidth: 4,
+    borderColor: '#ffffff',
+    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+    animation: 'none',
+  },
+  poll: {
+    name: 'Encuesta',
+    width: 350,
+    height: 'auto',
+    color: '#c9d1d9',
+    bgColor: '#21262d',
+    chartTitle: '¿Qué prefieres?',
+    borderRadius: 8,
+    chartData: [
+      { label: 'Opción A', value: 75, color: '#58a6ff' },
+      { label: 'Opción B', value: 25, color: '#da3633' },
+    ],
+    animation: 'none',
+  },
+  rating: {
+    name: 'Puntuación',
+    width: 200,
+    height: 'auto',
+    rating: 3,
+    maxStars: 5,
+    color: '#ffbb00',
+    fontSize: 24,
+    animation: 'none',
+    isInteractive: true,
+  },
+}
 
 // --- LIFECYCLE E INTERACCIÓN ---
 onMounted(() => {
@@ -1845,100 +2800,80 @@ onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown)
 })
 
-onUnmounted(() => document.removeEventListener('keydown', handleGlobalKeydown))
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown)
+  if (timerInterval) clearInterval(timerInterval)
+})
 
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && playMode.value) togglePlayMode()
-  if (playMode.value) {
-    if (e.key === 'ArrowRight' || e.key === ' ') {
-      e.preventDefault()
-      changePageTo(pageNum.value + 1)
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      changePageTo(pageNum.value - 1)
-    }
+  if (playMode.value && ['ArrowRight', ' ', 'ArrowLeft'].includes(e.key)) {
+    e.preventDefault()
+    changePageTo(pageNum.value + (e.key === 'ArrowLeft' ? -1 : 1))
   }
 }
 
 // --- UTILS ---
-const isYouTube = (url: string) =>
-  url &&
-  url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
+const YT_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
+const isYouTube = (url: string) => url && YT_REGEX.test(url)
 const getYouTubeEmbedUrl = (url: string) => {
-  const match = url.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/,
-  )
+  const match = url.match(YT_REGEX)
   return match && match[1] ? `https://www.youtube-nocookie.com/embed/${match[1]}?rel=0` : ''
 }
-
-const getIconForType = (type: string) => {
-  const icons: any = {
-    text: 'T',
-    shape: '🟥',
-    image: '🖼️',
-    video: '🎥',
-    '3d': '🧊',
-    interactive: '⚡',
-    link: '🔗',
-    accordion: '📑',
-    icon: '🎨',
-    draw: '✏️',
-    chart: '📊',
-    iframe: '🌐',
-    audio: '🎵',
-  }
-  return icons[type] || '📄'
-}
-const getIconClassForType = (type: string) => {
-  const icons: any = {
-    text: 'ph-text-t',
-    shape: 'ph-square',
-    image: 'ph-image',
-    video: 'ph-video-camera',
-    '3d': 'ph-cube',
-    interactive: 'ph-lightning',
-    link: 'ph-link',
-    accordion: 'ph-list-dashes',
-    icon: 'ph-star',
-    draw: 'ph-pencil-simple',
-    chart: 'ph-chart-bar',
-    iframe: 'ph-globe',
-    audio: 'ph-speaker-high',
-  }
-  return icons[type] || 'ph-file'
+const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')
+  const s = (seconds % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
 }
 
 const initializeConfigs = () => {
   for (let i = 1; i <= numPages.value; i++) {
     if (!documentState.value[i]) documentState.value[i] = []
-    if (!slideConfigs.value[i]) slideConfigs.value[i] = { bgColor: '#ffffff', bgImage: null }
-    if (pdfPageMap.value[i] === undefined) pdfPageMap.value[i] = i // Guardamos que la diapositiva 1 tiene el pdf de la página 1.
+    if (!slideConfigs.value[i])
+      slideConfigs.value[i] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+    if (pdfPageMap.value[i] === undefined) pdfPageMap.value[i] = i
   }
 }
 
-const getChartValues = (data: any[]) => {
-  if (!data || !data.length) return [10, 50, 30]
-  return data.map((d) => parseFloat(d.value) || 0)
-}
-const getChartMax = (data: any[]) => {
-  const vals = getChartValues(data)
-  const max = Math.max(...vals)
-  return max > 0 ? max : 1
-}
+const getChartMax = (data: any[]) =>
+  Math.max(...(data || []).map((d: any) => parseFloat(d.value) || 0), 1)
 const getPieGradient = (data: any[]) => {
   if (!data || !data.length) return 'transparent'
-  const total = data.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0) || 1
+  const total = data.reduce((sum: number, d: any) => sum + (parseFloat(d.value) || 0), 0) || 1
   let currentAngle = 0
-  const stops = data.map((d) => {
-    const pct = ((parseFloat(d.value) || 0) / total) * 100
-    const stop = `${d.color} ${currentAngle}% ${currentAngle + pct}%`
-    currentAngle += pct
-    return stop
-  })
-  return `conic-gradient(${stops.join(', ')})`
+  return `conic-gradient(${data
+    .map((d: any) => {
+      const pct = ((parseFloat(d.value) || 0) / total) * 100
+      const stop = `${d.color} ${currentAngle}% ${currentAngle + pct}%`
+      currentAngle += pct
+      return stop
+    })
+    .join(', ')})`
 }
 
-// --- ARCHIVOS Y API CONVERT ---
+// --- ARCHIVOS, PDF Y THUMBNAILS ---
+const generatePdfThumbnails = async () => {
+  if (!_RAW_PDF_DOC) return
+  for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
+    try {
+      const page = await _RAW_PDF_DOC.getPage(i)
+      const viewport = page.getViewport({ scale: 0.25 })
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        await page.render({ canvasContext: ctx, viewport }).promise
+        pdfThumbnails.value[i] = canvas.toDataURL('image/jpeg', 0.8)
+      }
+    } catch (e) {}
+  }
+}
+
 const handleFileUpload = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -1952,17 +2887,17 @@ const processPdfFile = async (file: File | Blob) => {
   docType.value = 'pdf'
   const reader = new FileReader()
   reader.onload = async (e) => {
-    const dataUrl = e.target?.result as string
-    _PDF_BASE64_STORE = dataUrl.split(',')[1]
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const loadingTask = pdfjsLib.getDocument({ data: bytes })
+    _PDF_BASE64_STORE = (e.target?.result as string).split(',')[1]
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
     _RAW_PDF_DOC = markRaw(await loadingTask.promise)
     numPages.value = _RAW_PDF_DOC.numPages
     hasDoc.value = true
     documentState.value = {}
     slideConfigs.value = {}
     pdfPageMap.value = {}
+    pdfThumbnails.value = {}
     initializeConfigs()
+    await generatePdfThumbnails()
     await renderPage(1)
     setTimeout(fitToScreen, 100)
   }
@@ -1975,26 +2910,28 @@ const convertPptxToPdfViaAPI = async (file: File) => {
   reader.readAsDataURL(file)
   reader.onload = async () => {
     try {
-      const base64Data = (reader.result as string).split(',')[1]
-      const CONVERT_API_SECRET = 'DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ'
       const response = await fetch(
-        `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=${CONVERT_API_SECRET}`,
+        `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            Parameters: [{ Name: 'File', FileValue: { Name: file.name, Data: base64Data } }],
+            Parameters: [
+              {
+                Name: 'File',
+                FileValue: { Name: file.name, Data: (reader.result as string).split(',')[1] },
+              },
+            ],
           }),
         },
       )
       if (!response.ok) throw new Error('Fallo API')
-      const result = await response.json()
-      const pdfBase64 = result.Files[0].FileData
-      const byteCharacters = atob(pdfBase64)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i)
-      await processPdfFile(new Blob([new Uint8Array(byteNumbers)], { type: 'application/pdf' }))
-    } catch (error) {
+      const pdfBase64 = (await response.json()).Files[0].FileData
+      const byteChars = atob(pdfBase64)
+      const byteNums = new Uint8Array(byteChars.length)
+      for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i)
+      await processPdfFile(new Blob([byteNums], { type: 'application/pdf' }))
+    } catch {
       alert('Error al convertir el PowerPoint. Verifica tu API Key.')
     } finally {
       isConverting.value = false
@@ -2004,18 +2941,14 @@ const convertPptxToPdfViaAPI = async (file: File) => {
 
 const renderPage = async (num: number) => {
   await nextTick()
-  if (!pdfCanvas.value) return
   const canvas = pdfCanvas.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  const dpr = window.devicePixelRatio || 2
+  const ctx = canvas?.getContext('2d')
+  if (!canvas || !ctx) return
 
   const actualPdfPage = pdfPageMap.value[num]
-
   if (
     docType.value === 'pdf' &&
     _RAW_PDF_DOC &&
-    actualPdfPage &&
     actualPdfPage > 0 &&
     actualPdfPage <= _RAW_PDF_DOC.numPages
   ) {
@@ -2023,6 +2956,7 @@ const renderPage = async (num: number) => {
     const viewport = page.getViewport({ scale: 1.0 })
     baseWidth.value = viewport.width
     baseHeight.value = viewport.height
+    const dpr = window.devicePixelRatio || 2
     canvas.width = viewport.width * dpr
     canvas.height = viewport.height * dpr
     canvas.style.width = `${viewport.width}px`
@@ -2031,7 +2965,6 @@ const renderPage = async (num: number) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     await page.render({ canvasContext: ctx, viewport }).promise
   } else {
-    // Para proyectos en blanco o diapositivas agregadas manualmente, simplemente limpiamos
     ctx.clearRect(0, 0, canvas.width, canvas.height)
   }
 }
@@ -2047,6 +2980,7 @@ const createBlankProject = () => {
   documentState.value = {}
   slideConfigs.value = {}
   pdfPageMap.value = {}
+  pdfThumbnails.value = {}
   initializeConfigs()
   hasDoc.value = true
   renderPage(1)
@@ -2055,97 +2989,83 @@ const createBlankProject = () => {
 
 // --- GESTIÓN DE PÁGINAS ---
 const deleteSlide = (page: number) => {
-  if (numPages.value <= 1) {
-    alert('No puedes eliminar la única diapositiva del proyecto.')
-    return
-  }
-  if (confirm(`¿Estás seguro de eliminar la Diapositiva ${page}?`)) {
-    for (let i = page; i < numPages.value; i++) {
-      documentState.value[i] = documentState.value[i + 1] || []
-      slideConfigs.value[i] = slideConfigs.value[i + 1] || { bgColor: '#ffffff', bgImage: null }
-      pdfPageMap.value[i] = pdfPageMap.value[i + 1] || 0
-    }
-    delete documentState.value[numPages.value]
-    delete slideConfigs.value[numPages.value]
-    delete pdfPageMap.value[numPages.value]
-    numPages.value -= 1
+  if (numPages.value <= 1) return alert('No puedes eliminar la única diapositiva del proyecto.')
+  if (!confirm(`¿Estás seguro de eliminar la Diapositiva ${page}?`)) return
 
-    if (pageNum.value > numPages.value) changePageTo(numPages.value)
-    else renderPage(pageNum.value)
+  for (let i = page; i < numPages.value; i++) {
+    documentState.value[i] = documentState.value[i + 1] || []
+    slideConfigs.value[i] = slideConfigs.value[i + 1] || {
+      bgColor: '#ffffff',
+      bgImage: null,
+      transition: 'none',
+    }
+    pdfPageMap.value[i] = pdfPageMap.value[i + 1] || 0
   }
+  delete documentState.value[numPages.value]
+  delete slideConfigs.value[numPages.value]
+  delete pdfPageMap.value[numPages.value]
+  numPages.value -= 1
+  changePageTo(Math.min(pageNum.value, numPages.value))
 }
 
 const duplicateSlide = (page: number) => {
-  for (let i = numPages.value; i >= page + 1; i--) {
+  for (let i = numPages.value; i > page; i--) {
     documentState.value[i + 1] = documentState.value[i]
     slideConfigs.value[i + 1] = slideConfigs.value[i]
     pdfPageMap.value[i + 1] = pdfPageMap.value[i]
   }
-
-  const clonedElements = (documentState.value[page] || []).map((el) => ({
+  documentState.value[page + 1] = (documentState.value[page] || []).map((el) => ({
     ...el,
     id: `el_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
   }))
-  const clonedConfig = { ...slideConfigs.value[page] }
-
-  documentState.value[page + 1] = clonedElements
-  slideConfigs.value[page + 1] = clonedConfig
+  slideConfigs.value[page + 1] = { ...slideConfigs.value[page] }
   pdfPageMap.value[page + 1] = pdfPageMap.value[page]
-
   numPages.value += 1
   changePageTo(page + 1)
 }
 
 const swapSlides = (p1: number, p2: number) => {
-  const tempState = documentState.value[p1]
-  const tempConfig = slideConfigs.value[p1]
-  const tempMap = pdfPageMap.value[p1]
-
-  documentState.value[p1] = documentState.value[p2]
-  slideConfigs.value[p1] = slideConfigs.value[p2]
-  pdfPageMap.value[p1] = pdfPageMap.value[p2]
-
-  documentState.value[p2] = tempState
-  slideConfigs.value[p2] = tempConfig
-  pdfPageMap.value[p2] = tempMap
+  ;[documentState.value[p1], documentState.value[p2]] = [
+    documentState.value[p2],
+    documentState.value[p1],
+  ]
+  ;[slideConfigs.value[p1], slideConfigs.value[p2]] = [
+    slideConfigs.value[p2],
+    slideConfigs.value[p1],
+  ]
+  ;[pdfPageMap.value[p1], pdfPageMap.value[p2]] = [pdfPageMap.value[p2], pdfPageMap.value[p1]]
 }
 
 const moveSlide = (page: number, direction: 'up' | 'down') => {
-  if (direction === 'up' && page > 1) {
-    swapSlides(page, page - 1)
-    if (pageNum.value === page) changePageTo(page - 1)
-    else if (pageNum.value === page - 1) changePageTo(page)
-    else renderPage(pageNum.value)
-  } else if (direction === 'down' && page < numPages.value) {
-    swapSlides(page, page + 1)
-    if (pageNum.value === page) changePageTo(page + 1)
-    else if (pageNum.value === page + 1) changePageTo(page)
+  const targetPage = direction === 'up' ? page - 1 : page + 1
+  if (targetPage >= 1 && targetPage <= numPages.value) {
+    swapSlides(page, targetPage)
+    if (pageNum.value === page || pageNum.value === targetPage) changePageTo(targetPage)
     else renderPage(pageNum.value)
   }
 }
 
 const addNewSlide = () => {
   numPages.value += 1
-  if (!documentState.value[numPages.value]) {
-    documentState.value[numPages.value] = []
-  }
-  if (!slideConfigs.value[numPages.value]) {
-    slideConfigs.value[numPages.value] = { bgColor: '#ffffff', bgImage: null }
-  }
-  // Mapeamos a "0" para que renderice un canvas en blanco y no intente buscarlo en el PDF original
-  pdfPageMap.value[numPages.value] = 0
+  documentState.value[numPages.value] = []
+  slideConfigs.value[numPages.value] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+  pdfPageMap.value[numPages.value] = 0 // Lienzo en blanco
   changePageTo(numPages.value)
 }
 
-const changePageTo = (num: number) => {
-  if (num < 1 || num > numPages.value) return
-  pageNum.value = num
-  selectedElementId.value = null
-  renderPage(num)
+const changePageTo = async (num: number) => {
+  if (num >= 1 && num <= numPages.value) {
+    pageNum.value = num
+    selectedElementId.value = null
+    renderTrigger.value++
+    activeTransition.value = 'none'
+    await nextTick()
+    if (workspaceRef.value) void workspaceRef.value.offsetWidth
+    activeTransition.value = slideConfigs.value[num]?.transition || 'none'
+    renderPage(num)
+  }
 }
-const changeZoom = (delta: number) => {
-  zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4))
-}
+const changeZoom = (delta: number) => (zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4)))
 const fitToScreen = () => {
   if (workspaceRef.value)
     zoom.value = Math.max(0.2, (workspaceRef.value.clientHeight - 80) / baseHeight.value)
@@ -2158,157 +3078,16 @@ const handleCanvasClick = (e: MouseEvent) => {
     return
   }
   const rect = (e.target as HTMLElement).getBoundingClientRect()
-  const rawX = (e.clientX - rect.left) / zoom.value
-  const rawY = (e.clientY - rect.top) / zoom.value
 
-  const newElement: any = {
+  const newElement = {
     id: `el_${Date.now()}`,
-    x: rawX,
-    y: rawY,
+    x: (e.clientX - rect.left) / zoom.value,
+    y: (e.clientY - rect.top) / zoom.value,
     zIndex: currentPageElements.value.length + 10,
     type: activeTool.value,
     opacity: 1,
     rotation: 0,
-  }
-
-  if (activeTool.value === 'link') {
-    newElement.name = 'Botón'
-    newElement.width = 180
-    newElement.height = 45
-    newElement.text = 'Ir a página...'
-    newElement.targetPage = 1
-    newElement.bgColor = '#2ea043'
-    newElement.color = '#ffffff'
-    newElement.borderRadius = 8
-    newElement.borderWidth = 0
-    newElement.borderColor = '#ffffff'
-    newElement.fontFamily = 'Arial'
-    newElement.fontSize = 14
-    newElement.fontWeight = 'bold'
-  } else if (activeTool.value === 'accordion') {
-    newElement.name = 'Acordeón'
-    newElement.width = 300
-    newElement.height = 'auto'
-    newElement.bgColor = '#21262d'
-    newElement.color = '#c9d1d9'
-    newElement.items = [{ title: 'Sección 1', content: 'Detalle...', isOpen: false }]
-  } else if (activeTool.value === 'text') {
-    newElement.name = 'Texto'
-    newElement.width = 300
-    newElement.height = 'auto'
-    newElement.content = 'Escribe aquí...'
-    newElement.color = '#c9d1d9'
-    newElement.fontSize = 32
-    newElement.fontWeight = '400'
-    newElement.fontFamily = 'Arial, sans-serif'
-    newElement.fontStyle = 'normal'
-    newElement.textAlign = 'left'
-    newElement.lineHeight = 1.2
-    newElement.letterSpacing = 0
-    newElement.textShadow = 'none'
-    newElement.textBgColor = 'transparent'
-  } else if (activeTool.value === 'shape') {
-    newElement.name = 'Forma'
-    newElement.width = 150
-    newElement.height = 150
-    newElement.bgColor = '#2f81f7'
-    newElement.borderRadius = 8
-    newElement.borderWidth = 0
-    newElement.borderColor = '#ffffff'
-    newElement.boxShadow = 'none'
-  } else if (activeTool.value === 'image') {
-    newElement.name = 'Imagen'
-    newElement.width = 250
-    newElement.height = 250
-    newElement.src = ''
-    newElement.fit = 'contain'
-    newElement.borderRadius = 0
-    newElement.borderWidth = 0
-    newElement.borderColor = '#000000'
-    newElement.grayscale = 0
-    newElement.blur = 0
-    newElement.sepia = 0
-  } else if (activeTool.value === 'video') {
-    newElement.name = 'Vídeo'
-    newElement.width = 400
-    newElement.height = 225
-    newElement.src = ''
-    newElement.fit = 'cover'
-    newElement.autoplay = false
-    newElement.loop = false
-    newElement.muted = false
-    newElement.borderRadius = 0
-    newElement.borderWidth = 0
-    newElement.borderColor = '#000000'
-  } else if (activeTool.value === '3d') {
-    newElement.name = 'Modelo 3D'
-    newElement.width = 300
-    newElement.height = 300
-    newElement.src = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb'
-    newElement.autoRotate = true
-    newElement.cameraControls = true
-    newElement.envImage = ''
-  } else if (activeTool.value === 'interactive') {
-    newElement.name = 'Hotspot'
-    newElement.width = 40
-    newElement.height = 40
-    newElement.color = '#2f81f7'
-    newElement.modalTitle = 'Info'
-    newElement.contentHtml = '<p>Edita el HTML.</p>'
-    newElement.isOpen = false
-    newElement.modalBgColor = '#ffffff'
-    newElement.modalTextColor = '#333333'
-  } else if (activeTool.value === 'icon') {
-    newElement.name = 'Icono'
-    newElement.width = 60
-    newElement.height = 60
-    newElement.color = '#c9d1d9'
-    newElement.bgColor = 'transparent'
-    newElement.borderRadius = 0
-    newElement.iconName = 'star'
-    newElement.fontSize = 60
-  } else if (activeTool.value === 'chart') {
-    newElement.name = 'Gráfico'
-    newElement.width = 350
-    newElement.height = 250
-    newElement.color = '#c9d1d9'
-    newElement.bgColor = '#FFFFFF'
-    newElement.chartType = 'bar'
-    newElement.chartTitle = 'Datos'
-    newElement.showValues = true
-    newElement.showLegend = true
-    newElement.borderRadius = 8
-    newElement.chartData = [
-      { label: 'Ene', value: 30, color: '#58a6ff' },
-      { label: 'Feb', value: 60, color: '#2ea043' },
-      { label: 'Mar', value: 40, color: '#da3633' },
-    ]
-  } else if (activeTool.value === 'iframe') {
-    newElement.name = 'Iframe'
-    newElement.width = 400
-    newElement.height = 300
-    newElement.src = ''
-    newElement.borderRadius = 8
-    newElement.borderWidth = 1
-    newElement.borderColor = '#30363d'
-  } else if (activeTool.value === 'audio') {
-    newElement.name = 'Audio'
-    newElement.width = 60
-    newElement.height = 60
-    newElement.src = ''
-    newElement.bgColor = '#da3633'
-    newElement.color = '#ffffff'
-    newElement.borderRadius = 50
-    newElement.loop = false
-    newElement.autoplay = false
-    newElement.isPlaying = false
-  } else if (activeTool.value === 'draw') {
-    newElement.name = 'Pizarra'
-    newElement.width = 400
-    newElement.height = 300
-    newElement.brushSize = 4
-    newElement.brushColor = '#ff0000'
-    newElement.lines = []
+    ...(ELEMENT_DEFAULTS[activeTool.value] || {}),
   }
 
   if (!documentState.value[pageNum.value]) documentState.value[pageNum.value] = []
@@ -2317,19 +3096,15 @@ const handleCanvasClick = (e: MouseEvent) => {
   activeTool.value = 'select'
 }
 
-const addAccordionSection = () => {
-  if (selectedElement.value && selectedElement.value.type === 'accordion')
-    selectedElement.value.items.push({ title: 'Nueva', content: '...', isOpen: false })
-}
+const addAccordionSection = () =>
+  selectedElement.value?.items.push({ title: 'Nueva', content: '...', isOpen: false })
 const removeBackgroundImage = () => {
   if (slideConfigs.value[pageNum.value]) {
     slideConfigs.value[pageNum.value].bgImage = null
     renderPage(pageNum.value)
   }
 }
-const clearDrawCanvas = (el: any) => {
-  el.lines = []
-}
+const clearDrawCanvas = (el: any) => (el.lines = [])
 
 // BASE64 AL SUBIR ARCHIVOS LOCALES
 const handleLocalMediaUpload = (event: Event, el: any) => {
@@ -2354,16 +3129,18 @@ const setSlideBackgroundImage = (e: Event) => {
 }
 
 // --- DIBUJO SVG ---
-let isDrawingSVG = false
-let currentLine: any = null
+let isDrawingSVG = false,
+  currentLine: any = null
 const startSvgDraw = (e: MouseEvent, el: any) => {
   if (playMode.value) return
   e.preventDefault()
   isDrawingSVG = true
   const rect = (e.target as SVGSVGElement).getBoundingClientRect()
-  const x = (e.clientX - rect.left) / zoom.value
-  const y = (e.clientY - rect.top) / zoom.value
-  currentLine = { color: el.brushColor || '#ff0000', size: el.brushSize || 4, points: [{ x, y }] }
+  currentLine = {
+    color: el.brushColor || '#ff0000',
+    size: el.brushSize || 4,
+    points: [{ x: (e.clientX - rect.left) / zoom.value, y: (e.clientY - rect.top) / zoom.value }],
+  }
   if (!el.lines) el.lines = []
   el.lines.push(currentLine)
 }
@@ -2371,9 +3148,10 @@ const doSvgDraw = (e: MouseEvent, el: any) => {
   if (!isDrawingSVG || !currentLine || playMode.value) return
   e.preventDefault()
   const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
-  const x = (e.clientX - rect.left) / zoom.value
-  const y = (e.clientY - rect.top) / zoom.value
-  currentLine.points.push({ x, y })
+  currentLine.points.push({
+    x: (e.clientX - rect.left) / zoom.value,
+    y: (e.clientY - rect.top) / zoom.value,
+  })
 }
 const stopSvgDraw = () => {
   isDrawingSVG = false
@@ -2383,8 +3161,7 @@ const stopSvgDraw = () => {
 // --- AUDIO ---
 const playAudio = (el: any) => {
   if (!playMode.value) return
-  const audioEls = document.querySelectorAll('audio')
-  audioEls.forEach((a) => {
+  document.querySelectorAll('audio').forEach((a) => {
     if (a.src !== el.src) a.pause()
   })
   currentPageElements.value.forEach((item) => {
@@ -2392,29 +3169,22 @@ const playAudio = (el: any) => {
   })
   const audioEl = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement
   if (audioEl) {
-    if (el.isPlaying) {
-      audioEl.pause()
-      el.isPlaying = false
-    } else {
-      audioEl.play()
-      el.isPlaying = true
-    }
+    el.isPlaying ? audioEl.pause() : audioEl.play()
+    el.isPlaying = !el.isPlaying
   }
 }
 
 // --- ARRASTRE Y REDIMENSIÓN ---
-let isDragging = false
-let isResizing = false
-let startX = 0,
-  startY = 0
-let initialElX = 0,
-  initialElY = 0
-let initialWidth = 0,
+let isDragging = false,
+  isResizing = false,
+  startX = 0,
+  startY = 0,
+  initialElX = 0,
+  initialElY = 0,
+  initialWidth = 0,
   initialHeight = 0
-
 const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
-  if (playMode.value || isResizing) return
-  if (el.type === 'draw' && !isHandle) return
+  if (playMode.value || isResizing || (el.type === 'draw' && !isHandle)) return
   e.preventDefault()
   selectedElementId.value = el.id
   if (activeTool.value !== 'select') return
@@ -2479,47 +3249,60 @@ const selectElement = (id: string) => {
   activeTool.value = 'select'
 }
 
+// --- PLAY MODE & TIMERS ---
 const togglePlayMode = async () => {
   playMode.value = !playMode.value
   selectedElementId.value = null
+  renderTrigger.value++
+
+  if (timerInterval) clearInterval(timerInterval)
+
   Object.values(documentState.value).forEach((pageItems) => {
     pageItems.forEach((el) => {
       if (el.type === 'interactive') el.isOpen = false
       if (el.type === 'accordion') el.items.forEach((item: any) => (item.isOpen = false))
+      if (el.type === 'timer') {
+        el.timeLeft = el.duration * 60
+        el.isRunning = playMode.value
+      }
       if (el.type === 'audio') {
         el.isPlaying = false
         const a = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement
         if (a) {
           a.pause()
-          if (playMode.value && el.autoplay) {
+          if (playMode.value && el.autoplay)
             a.play()
               .then(() => (el.isPlaying = true))
-              .catch((err) => console.log('Autoplay bloquedo', err))
-          }
+              .catch(() => {})
         }
       }
     })
   })
+
+  if (playMode.value) {
+    activeTransition.value = slideConfigs.value[pageNum.value]?.transition || 'none'
+    timerInterval = setInterval(() => {
+      Object.values(documentState.value).forEach((pageItems) => {
+        pageItems.forEach((el) => {
+          if (el.type === 'timer' && el.isRunning && el.timeLeft > 0) el.timeLeft--
+        })
+      })
+    }, 1000)
+  } else {
+    activeTransition.value = 'none'
+  }
+
   await nextTick()
   fitToScreen()
 }
 
 // --- EXPORTACIÓN HTML ---
 const exportPresentation = () => {
-  if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank') {
-    alert('El proyecto está vacío.')
-    return
-  }
+  if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank')
+    return alert('El proyecto está vacío.')
 
-  const safeStateString = JSON.stringify(documentState.value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-  const safeConfigString = JSON.stringify(slideConfigs.value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-  const safeMapString = JSON.stringify(pdfPageMap.value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
+  const safeJson = (data: any) =>
+    JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -2577,111 +3360,173 @@ const exportPresentation = () => {
     .pie-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
     .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    
+    .slide-trans-fade { animation: transFade 0.6s ease-out forwards; }
+    .slide-trans-slide { animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+    .slide-trans-zoom { animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+    @keyframes transFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes transSlide { from { translate: 50px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+    @keyframes transZoom { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
+    .anim-fade-in { animation: animFadeIn 0.8s ease-out both; }
+    .anim-slide-in { animation: animSlideIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
+    .anim-bounce { animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
+    @keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes animSlideIn { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+    @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
   </style>
 </head>
 <body>
-  <script type="application/json" id="app-state-data">${safeStateString}<\/script>
-  <script type="application/json" id="app-configs-data">${safeConfigString}<\/script>
-  <script type="application/json" id="app-pdf-map">${safeMapString}<\/script>
+  <script type="application/json" id="app-state-data">${safeJson(documentState.value)}<\/script>
+  <script type="application/json" id="app-configs-data">${safeJson(slideConfigs.value)}<\/script>
+  <script type="application/json" id="app-pdf-map">${safeJson(pdfPageMap.value)}<\/script>
   <script type="application/json" id="app-pdf-data">${_PDF_BASE64_STORE}<\/script>
 
   <div id="app">
-    <div class="canvas-wrapper" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', transform: 'scale(' + zoom + ')', backgroundColor: currentBgColor, backgroundImage: currentBgImage }">
-      <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
-      
-      <div v-for="el in currentPageElements" :key="el.id" class="interactive-element is-clickable"
-           :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: el.zIndex, opacity: el.opacity !== undefined ? el.opacity : 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)' }">
-        
-        <div v-if="el.type === 'text'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '10px' : '0', borderRadius: '4px' }">{{ el.content }}</div>
-        
-        <div v-else-if="el.type === 'shape'" class="el-shape" :style="{ backgroundColor: el.bgColor, borderRadius: el.borderRadius + 'px', border: el.borderWidth + 'px solid ' + el.borderColor, boxShadow: el.boxShadow || 'none' }"></div>
-        
-        <div v-else-if="el.type === 'icon'" class="el-icon" :style="{ color: el.color, fontSize: el.fontSize + 'px', backgroundColor: el.bgColor || 'transparent', borderRadius: (el.borderRadius || 0) + 'px' }"><i :class="'ph ph-' + el.iconName"></i></div>
-        
-        <div v-else-if="el.type === 'draw'" class="el-draw-board" style="width: 100%; height: 100%;">
-           <svg style="width: 100%; height: 100%; display: block; overflow: visible;">
-              <polyline v-for="(line, idx) in el.lines" :key="idx" :points="line.points.map(p => p.x+','+p.y).join(' ')" :stroke="line.color" :stroke-width="line.size" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-           </svg>
-        </div>
+    <div class="canvas-wrapper play-mode-active" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', transform: 'scale(' + zoom + ')' }">
+      <div class="canvas-shadow-box layer-engine" :class="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :style="{ width: '100%', height: '100%', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
+          <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
+          
+          <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
+               :class="el.animation && el.animation !== 'none' ? 'anim-' + el.animation : ''"
+               :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: el.zIndex, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: el.animation && el.animation !== 'none' ? (index * 0.1) + 's' : '0s' }">
+            
+            <div v-if="el.type === 'text'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '10px' : '0', borderRadius: '4px' }">{{ el.content }}</div>
+            
+            <div v-else-if="el.type === 'shape'" class="el-shape" :style="{ background: el.isGlass ? 'rgba(255,255,255,0.1)' : (el.gradientType && el.gradientType !== 'none' ? (el.gradientType === 'linear' ? 'linear-gradient(135deg, ' + el.bgColor + ', ' + el.gradientColor + ')' : 'radial-gradient(circle, ' + el.bgColor + ', ' + el.gradientColor + ')') : el.bgColor), borderRadius: el.borderRadius + 'px', border: el.borderWidth + 'px ' + (el.borderStyle || 'solid') + ' ' + el.borderColor, boxShadow: el.boxShadow || 'none', backdropFilter: el.isGlass ? 'blur(10px)' : 'none', WebkitBackdropFilter: el.isGlass ? 'blur(10px)' : 'none' }"></div>
+            
+            <div v-else-if="el.type === 'arrow'" style="width: 100%; height: 100%; display: flex; align-items: center; position: relative;">
+               <div v-if="['start', 'both'].includes(el.arrowHead)" :style="{ width: 0, height: 0, borderTop: (el.strokeWidth * 1.5) + 'px solid transparent', borderBottom: (el.strokeWidth * 1.5) + 'px solid transparent', borderRight: (el.strokeWidth * 2) + 'px solid ' + el.color }"></div>
+               <div :style="{ flex: 1, height: el.strokeWidth + 'px', backgroundColor: el.color }"></div>
+               <div v-if="['end', 'both'].includes(el.arrowHead)" :style="{ width: 0, height: 0, borderTop: (el.strokeWidth * 1.5) + 'px solid transparent', borderBottom: (el.strokeWidth * 1.5) + 'px solid transparent', borderLeft: (el.strokeWidth * 2) + 'px solid ' + el.color }"></div>
+            </div>
 
-        <div v-else-if="el.type === 'chart'" class="el-chart" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 8) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), padding: '15px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }">
-          <div style="text-align: center; font-weight: bold; margin-bottom: 10px;" :style="{ color: el.color }">{{ el.chartTitle }}</div>
-          <div v-if="el.chartType === 'bar'" class="chart-bar-container">
-            <div v-for="(item, i) in el.chartData" :key="i" class="bar-col">
-              <span v-if="el.showValues" class="chart-value" :style="{ color: el.color }">{{ item.value }}</span>
-              <div class="bar-fill" :style="{ height: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }" :title="item.value"></div>
-              <span v-if="el.showLegend" class="chart-label" :style="{ color: el.color }">{{ item.label }}</span>
+            <div v-else-if="el.type === 'icon'" class="el-icon" :style="{ color: el.color, fontSize: el.fontSize + 'px', backgroundColor: el.bgColor || 'transparent', borderRadius: (el.borderRadius || 0) + 'px' }"><i :class="'ph ph-' + el.iconName" :style="{ filter: el.textShadow ? 'drop-shadow(' + el.textShadow + ')' : 'none' }"></i></div>
+            
+            <div v-else-if="el.type === 'draw'" class="el-draw-board" style="width: 100%; height: 100%;">
+               <svg style="width: 100%; height: 100%; display: block; overflow: visible;">
+                  <polyline v-for="(line, idx) in el.lines" :key="idx" :points="line.points.map(p => p.x+','+p.y).join(' ')" :stroke="line.color" :stroke-width="line.size" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+               </svg>
             </div>
-          </div>
-          <div v-if="el.chartType === 'hbar'" class="chart-hbar-container">
-            <div v-for="(item, i) in el.chartData" :key="'h'+i" class="hbar-row">
-              <span v-if="el.showLegend" class="chart-label hbar-lbl" :style="{ color: el.color }">{{ item.label }}</span>
-              <div class="hbar-track"><div class="hbar-fill" :style="{ width: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }"></div></div>
-              <span v-if="el.showValues" class="chart-value hbar-val" :style="{ color: el.color }">{{ item.value }}</span>
+
+            <div v-else-if="el.type === 'codeblock'" class="el-codeblock" :style="{ backgroundColor: el.theme === 'dark' ? '#1e1e1e' : '#f5f5f5', color: el.theme === 'dark' ? '#d4d4d4' : '#333333', borderRadius: el.borderRadius + 'px', padding: '15px', width: '100%', height: '100%', overflow: 'auto', border: '1px solid ' + (el.theme === 'dark' ? '#333' : '#ddd'), boxSizing: 'border-box' }">
+              <div style="position: absolute; top: 0; right: 0; padding: 4px 8px; font-size: 0.7rem; font-family: sans-serif; background: rgba(128,128,128,0.2); border-bottom-left-radius: 8px;">{{ el.language }}</div>
+              <pre style="margin: 0; white-space: pre-wrap; font-family: monospace;" :style="{ fontSize: el.fontSize + 'px' }">{{ el.content }}</pre>
             </div>
-          </div>
-          <div v-if="el.chartType === 'pie' || el.chartType === 'donut'" class="chart-pie-container">
-            <div class="pie-circle" :style="{ width: Math.min(el.width, el.height)*0.5 + 'px', height: Math.min(el.width, el.height)*0.5 + 'px', background: getPieGradient(el.chartData) }">
-              <div v-if="el.chartType === 'donut'" class="donut-hole" :style="{ backgroundColor: el.bgColor }"></div>
+
+            <div v-else-if="el.type === 'chart'" class="el-chart" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 8) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), padding: '15px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }">
+              <div style="text-align: center; font-weight: bold; margin-bottom: 10px;" :style="{ color: el.color }">{{ el.chartTitle }}</div>
+              <div v-if="el.chartType === 'bar'" class="chart-bar-container">
+                <div v-for="(item, i) in el.chartData" :key="i" class="bar-col">
+                  <span v-if="el.showValues" class="chart-value" :style="{ color: el.color }">{{ item.value }}</span>
+                  <div class="bar-fill" :style="{ height: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }" :title="item.value"></div>
+                  <span v-if="el.showLegend" class="chart-label" :style="{ color: el.color }">{{ item.label }}</span>
+                </div>
+              </div>
+              <div v-if="el.chartType === 'hbar'" class="chart-hbar-container">
+                <div v-for="(item, i) in el.chartData" :key="'h'+i" class="hbar-row">
+                  <span v-if="el.showLegend" class="chart-label hbar-lbl" :style="{ color: el.color }">{{ item.label }}</span>
+                  <div class="hbar-track"><div class="hbar-fill" :style="{ width: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }"></div></div>
+                  <span v-if="el.showValues" class="chart-value hbar-val" :style="{ color: el.color }">{{ item.value }}</span>
+                </div>
+              </div>
+              <div v-if="el.chartType === 'pie' || el.chartType === 'donut'" class="chart-pie-container">
+                <div class="pie-circle" :style="{ width: Math.min(el.width, el.height)*0.5 + 'px', height: Math.min(el.width, el.height)*0.5 + 'px', background: getPieGradient(el.chartData) }">
+                  <div v-if="el.chartType === 'donut'" class="donut-hole" :style="{ backgroundColor: el.bgColor }"></div>
+                </div>
+                <div v-if="el.showLegend" class="pie-legend">
+                  <div v-for="(item, i) in el.chartData" :key="'l'+i" class="pie-legend-item">
+                    <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
+                    <span :style="{ color: el.color }">{{ item.label }} <span v-if="el.showValues">({{ item.value }})</span></span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div v-if="el.showLegend" class="pie-legend">
-              <div v-for="(item, i) in el.chartData" :key="'l'+i" class="pie-legend-item">
-                <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
-                <span :style="{ color: el.color }">{{ item.label }} <span v-if="el.showValues">({{ item.value }})</span></span>
+
+            <div v-else-if="el.type === 'poll'" class="el-poll-wrapper" :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px', padding: '15px', width: '100%', height: '100%', boxSizing: 'border-box' }">
+              <h4 style="margin: 0 0 15px 0; text-align: center;">{{ el.chartTitle }}</h4>
+              <div v-for="(item, i) in el.chartData" :key="i" style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                  <span>{{ item.label }}</span>
+                  <span>{{ Math.round((item.value / getChartMax(el.chartData)) * 100) }}%</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden;">
+                  <div :style="{ width: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color, height: '100%', transition: 'width 1s ease-out' }"></div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="el.type === 'image'" class="el-image-container" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), filter: 'grayscale('+(el.grayscale||0)+'%) blur('+(el.blur||0)+'px) sepia('+(el.sepia||0)+'%)', overflow: 'hidden', width: '100%', height: '100%' }">
+              <img v-if="el.src" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit }" />
+            </div>
+
+            <div v-else-if="el.type === 'qrcode'" style="width: 100%; height: 100%; padding: 10px; box-sizing: border-box;" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px' }">
+              <img :src="'https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=' + encodeURIComponent(el.qrUrl || 'https://google.com') + '&color=' + el.color.replace('#','') + '&bgcolor=' + el.bgColor.replace('#','')" style="width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply;" draggable="false" />
+            </div>
+
+            <div v-else-if="el.type === 'progress'" style="width: 100%; height: 100%; overflow: hidden;" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px' }">
+              <div :style="{ width: (el.progress || 0) + '%', backgroundColor: el.color, height: '100%', transition: 'width 0.5s ease' }"></div>
+            </div>
+
+            <div v-else-if="el.type === 'rating'" class="el-rating" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;" :style="{ color: el.color, fontSize: el.fontSize + 'px' }">
+               <span v-for="s in el.maxStars" :key="s" @click.stop="el.isInteractive ? el.rating = s : null" :style="{ cursor: el.isInteractive ? 'pointer' : 'default', opacity: s <= el.rating ? 1 : 0.3 }">★</span>
+            </div>
+
+            <div v-else-if="el.type === 'timer'" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-variant-numeric: tabular-nums;"
+                 :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: (el.borderRadius || 0) + 'px', fontSize: (el.fontSize || 48) + 'px' }">
+              {{ formatTime(el.timeLeft !== undefined ? el.timeLeft : el.duration * 60) }}
+            </div>
+
+            <div v-else-if="el.type === 'magnifier'" class="el-magnifier" :style="{ borderRadius: '50%', border: (el.borderWidth || 4) + 'px solid ' + (el.borderColor || '#fff'), overflow: 'hidden', width: '100%', height: '100%', boxShadow: el.boxShadow || '0 10px 25px rgba(0,0,0,0.5)' }">
+              <div v-if="el.src" :style="{ width: '100%', height: '100%', backgroundImage: 'url(' + el.src + ')', backgroundSize: (el.zoomLevel * 100) + '%', backgroundPosition: el.focusX + '% ' + el.focusY + '%', backgroundRepeat: 'no-repeat' }"></div>
+              <div v-else class="placeholder-box" style="border-radius: 50%"><i class="ph ph-magnifying-glass"></i></div>
+            </div>
+            
+            <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
+              <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allowfullscreen></iframe>
+              <video v-else :src="el.src" controls :autoplay="el.autoplay" :loop="el.loop" :muted="el.muted" class="el-content-fitted" :style="{ objectFit: el.fit }"></video>
+            </div>
+
+            <div v-else-if="el.type === 'iframe'" class="el-iframe-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
+              <iframe v-if="el.src" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+            
+            <div v-else-if="el.type === '3d'" class="el-3d" style="width: 100%; height: 100%;">
+              <model-viewer v-if="el.src" :src="el.src" :auto-rotate="el.autoRotate" :camera-controls="el.cameraControls" :environment-image="el.envImage" style="width: 100%; height: 100%;"></model-viewer>
+            </div>
+            
+            <div v-else-if="el.type === 'interactive'" class="el-interactive" @click.stop="triggerInteraction(el)">
+              <div class="hotspot-pulse" :style="{ backgroundColor: el.color, boxShadow: '0 0 15px ' + el.color }"></div>
+              <div v-if="el.isOpen" class="interactive-modal" :style="{ backgroundColor: el.modalBgColor || '#ffffff', color: el.modalTextColor || '#333333' }" @click.stop>
+                <h4 class="modal-title" :style="{ borderBottomColor: el.modalTextColor || '#333333' }">{{ el.modalTitle }}</h4>
+                <p v-html="el.contentHtml"></p>
+              </div>
+            </div>
+
+            <div v-else-if="el.type === 'audio'" class="el-audio-btn" @click.stop="playAudio(el)">
+              <div class="audio-visual" :class="{ 'is-playing': el.isPlaying }" :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px' }">
+                <i class="ph" :class="el.isPlaying ? 'ph-pause' : 'ph-speaker-high'"></i>
+              </div>
+              <audio v-if="el.src" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="el.autoplay"></audio>
+            </div>
+
+            <div v-else-if="el.type === 'link'" class="el-link" 
+                 :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), fontSize: (el.fontSize || 16) + 'px', fontWeight: el.fontWeight || 'bold', fontFamily: el.fontFamily || 'Arial' }"
+                 @click.stop="changePageTo(el.targetPage)">
+              {{ el.text }}
+            </div>
+
+            <div v-else-if="el.type === 'accordion'" class="el-accordion" :style="{ backgroundColor: el.bgColor, color: el.color }">
+              <div v-for="(item, idx) in el.items" :key="idx" class="accordion-item" :style="{ borderBottomColor: el.color }">
+                <div class="accordion-header" @click.stop="item.isOpen = !item.isOpen">
+                  <span>{{ item.title }}</span>
+                  <span>{{ item.isOpen ? '▲' : '▼' }}</span>
+                </div>
+                <div v-show="item.isOpen" class="accordion-content">
+                  {{ item.content }}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <div v-else-if="el.type === 'image'" class="el-image-container" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), filter: 'grayscale('+(el.grayscale||0)+'%) blur('+(el.blur||0)+'px) sepia('+(el.sepia||0)+'%)', overflow: 'hidden', width: '100%', height: '100%' }">
-          <img v-if="el.src" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit }" />
-        </div>
-        
-        <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-          <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allowfullscreen></iframe>
-          <video v-else :src="el.src" controls :autoplay="el.autoplay" :loop="el.loop" :muted="el.muted" class="el-content-fitted" :style="{ objectFit: el.fit }"></video>
-        </div>
-
-        <div v-else-if="el.type === 'iframe'" class="el-iframe-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-          <iframe v-if="el.src" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
-        </div>
-        
-        <div v-else-if="el.type === '3d'" class="el-3d" style="width: 100%; height: 100%;">
-          <model-viewer v-if="el.src" :src="el.src" :auto-rotate="el.autoRotate" :camera-controls="el.cameraControls" :environment-image="el.envImage" style="width: 100%; height: 100%;"></model-viewer>
-        </div>
-        
-        <div v-else-if="el.type === 'interactive'" class="el-interactive" @click.stop="triggerInteraction(el)">
-          <div class="hotspot-pulse" :style="{ backgroundColor: el.color, boxShadow: '0 0 15px ' + el.color }"></div>
-          <div v-if="el.isOpen" class="interactive-modal" :style="{ backgroundColor: el.modalBgColor || '#ffffff', color: el.modalTextColor || '#333333' }" @click.stop>
-            <h4 class="modal-title" :style="{ borderBottomColor: el.modalTextColor || '#333333' }">{{ el.modalTitle }}</h4>
-            <p v-html="el.contentHtml"></p>
-          </div>
-        </div>
-
-        <div v-else-if="el.type === 'audio'" class="el-audio-btn" @click.stop="playAudio(el)">
-          <div class="audio-visual" :class="{ 'is-playing': el.isPlaying }" :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px' }">
-            <i class="ph" :class="el.isPlaying ? 'ph-pause' : 'ph-speaker-high'"></i>
-          </div>
-          <audio v-if="el.src" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="el.autoplay"></audio>
-        </div>
-
-        <div v-else-if="el.type === 'link'" class="el-link" 
-             :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), fontSize: (el.fontSize || 16) + 'px', fontWeight: el.fontWeight || 'bold', fontFamily: el.fontFamily || 'Arial' }"
-             @click.stop="changePageTo(el.targetPage)">
-          {{ el.text }}
-        </div>
-
-        <div v-else-if="el.type === 'accordion'" class="el-accordion" :style="{ backgroundColor: el.bgColor, color: el.color }">
-          <div v-for="(item, idx) in el.items" :key="idx" class="accordion-item" :style="{ borderBottomColor: el.color }">
-            <div class="accordion-header" @click.stop="item.isOpen = !item.isOpen">
-              <span>{{ item.title }}</span>
-              <span>{{ item.isOpen ? '▲' : '▼' }}</span>
-            </div>
-            <div v-show="item.isOpen" class="accordion-content">
-              {{ item.content }}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
     
@@ -2702,16 +3547,12 @@ const exportPresentation = () => {
         const pdfPageMap = ref(JSON.parse(document.getElementById('app-pdf-map').textContent || '{}'));
         const rawPdfB64 = document.getElementById('app-pdf-data').textContent;
         
-        const baseWidth = ref(${baseWidth.value});
-        const baseHeight = ref(${baseHeight.value});
-        const docType = ref('${docType.value}');
+        const baseWidth = ref(${baseWidth.value}); const baseHeight = ref(${baseHeight.value}); const docType = ref('${docType.value}');
+        const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
         
-        const pageNum = ref(1);
-        const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1));
-        const zoom = ref(1.0);
-        
+        const renderTrigger = ref(0); const activeTransition = ref('none');
+
         const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
-        
         const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
         const currentBgImage = computed(() => slideConfigs.value[pageNum.value]?.bgImage ? 'url(' + slideConfigs.value[pageNum.value].bgImage + ')' : 'none');
 
@@ -2721,40 +3562,36 @@ const exportPresentation = () => {
           return match && match[1] ? 'https://www.youtube-nocookie.com/embed/' + match[1] + '?rel=0' : '';
         };
 
+        const formatTime = (seconds) => {
+          const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+          const s = (seconds % 60).toString().padStart(2, '0');
+          return m + ':' + s;
+        };
+
         const getChartValues = (data) => { if(!data || !data.length) return [10, 50, 30]; return data.map(d => parseFloat(d.value) || 0); };
-        const getChartMax = (data) => { const vals = getChartValues(data); const max = Math.max(...vals); return max > 0 ? max : 1; };
+        const getChartMax = (data) => Math.max(...getChartValues(data), 1);
         const getPieGradient = (data) => {
           if(!data || !data.length) return 'transparent';
           const total = data.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0) || 1;
           let currentAngle = 0;
-          const stops = data.map(d => {
+          return 'conic-gradient(' + data.map(d => {
             const pct = ((parseFloat(d.value) || 0) / total) * 100;
             const stop = d.color + ' ' + currentAngle + '% ' + (currentAngle + pct) + '%';
-            currentAngle += pct;
-            return stop;
-          });
-          return 'conic-gradient(' + stops.join(', ') + ')';
+            currentAngle += pct; return stop;
+          }).join(', ') + ')';
         }
 
-        const fitToScreen = () => {
-          const wZoom = window.innerWidth / baseWidth.value;
-          const hZoom = window.innerHeight / baseHeight.value;
-          zoom.value = Math.min(wZoom, hZoom) * 0.95;
-        };
+        const fitToScreen = () => { zoom.value = Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95; };
 
-        let pdfDoc = null;
-        const pdfCanvas = ref(null);
+        let pdfDoc = null; const pdfCanvas = ref(null);
         
         const initPdf = async () => {
             if (docType.value === 'pdf' && rawPdfB64) {
                 const pdfData = atob(rawPdfB64);
                 const uint8Array = new Uint8Array(pdfData.length);
-                for (let i = 0; i < pdfData.length; i++) {
-                    uint8Array[i] = pdfData.charCodeAt(i);
-                }
+                for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-                pdfDoc = await loadingTask.promise;
+                pdfDoc = await pdfjsLib.getDocument({ data: uint8Array }).promise;
                 renderPdfPage(pageNum.value);
             }
         };
@@ -2762,54 +3599,16 @@ const exportPresentation = () => {
         const renderPdfPage = async (num) => {
             await nextTick();
             if (docType.value !== 'pdf' || !pdfDoc || !pdfCanvas.value) return;
-            const canvas = pdfCanvas.value;
-            const ctx = canvas.getContext('2d');
-            const dpr = window.devicePixelRatio || 2;
-            
+            const canvas = pdfCanvas.value; const ctx = canvas.getContext('2d'); const dpr = window.devicePixelRatio || 2;
             const actualPdfPage = pdfPageMap.value[num];
-            
-            // Si la página se marcó como vacía o excede, borramos el canvas en lugar de lanzar error
-            if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                return;
-            }
-
+            if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
             const page = await pdfDoc.getPage(actualPdfPage);
             const viewport = page.getViewport({ scale: 1.0 });
-            
-            canvas.width = viewport.width * dpr;
-            canvas.height = viewport.height * dpr;
-            canvas.style.width = viewport.width + 'px';
-            canvas.style.height = viewport.height + 'px';
+            canvas.width = viewport.width * dpr; canvas.height = viewport.height * dpr;
+            canvas.style.width = viewport.width + 'px'; canvas.style.height = viewport.height + 'px';
             ctx.scale(dpr, dpr);
-            
             await page.render({ canvasContext: ctx, viewport }).promise;
         }
-
-        const changePageTo = (num) => {
-          if(num >= 1 && num <= numPages.value) {
-            pageNum.value = num;
-            closeAllInteractives();
-            if(docType.value === 'pdf') renderPdfPage(num);
-          }
-        };
-
-        const triggerInteraction = (el) => {
-          currentPageElements.value.forEach(item => { if(item.id !== el.id && item.type === 'interactive') item.isOpen = false });
-          el.isOpen = !el.isOpen;
-        };
-
-        const playAudio = (el) => {
-          const audioEls = document.querySelectorAll('audio');
-          audioEls.forEach(a => { if(a.src !== el.src) a.pause() });
-          currentPageElements.value.forEach(item => { if(item.type === 'audio' && item.id !== el.id) item.isPlaying = false; });
-          
-          const audioEl = document.querySelector('audio[src="'+el.src+'"]');
-          if(audioEl) {
-            if(el.isPlaying) { audioEl.pause(); el.isPlaying = false; }
-            else { audioEl.play(); el.isPlaying = true; }
-          }
-        };
 
         const closeAllInteractives = () => {
           Object.values(documentState.value).forEach(pageItems => {
@@ -2821,21 +3620,61 @@ const exportPresentation = () => {
           });
         };
 
+        const changePageTo = async (num) => {
+          if(num >= 1 && num <= numPages.value) {
+            pageNum.value = num; closeAllInteractives();
+            renderTrigger.value++;
+            activeTransition.value = 'none';
+            await nextTick();
+            void document.body.offsetWidth; // force reflow
+            activeTransition.value = slideConfigs.value[num]?.transition || 'none';
+            
+            // Reiniciar temporizadores
+            Object.values(documentState.value).forEach(pageItems => {
+              pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
+            });
+
+            if(docType.value === 'pdf') renderPdfPage(num);
+          }
+        };
+
+        const triggerInteraction = (el) => {
+          currentPageElements.value.forEach(item => { if(item.id !== el.id && item.type === 'interactive') item.isOpen = false });
+          el.isOpen = !el.isOpen;
+        };
+
+        const playAudio = (el) => {
+          document.querySelectorAll('audio').forEach(a => { if(a.src !== el.src) a.pause() });
+          currentPageElements.value.forEach(item => { if(item.type === 'audio' && item.id !== el.id) item.isPlaying = false; });
+          const audioEl = document.querySelector('audio[src="'+el.src+'"]');
+          if(audioEl) { if(el.isPlaying) { audioEl.pause(); el.isPlaying = false; } else { audioEl.play(); el.isPlaying = true; } }
+        };
+
         onMounted(() => {
-          fitToScreen();
-          initPdf();
-          window.addEventListener('resize', fitToScreen);
+          activeTransition.value = slideConfigs.value[1]?.transition || 'none';
+          
+          // Inicializar temporizadores al abrir
+          Object.values(documentState.value).forEach(pageItems => {
+            pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
+          });
+
+          setInterval(() => {
+            Object.values(documentState.value).forEach(pageItems => {
+              pageItems.forEach(el => { if (el.type === 'timer' && el.isRunning && el.timeLeft > 0) el.timeLeft--; });
+            });
+          }, 1000);
+
+          fitToScreen(); initPdf(); window.addEventListener('resize', fitToScreen);
           document.addEventListener('keydown', (e) => {
-            if(e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changePageTo(pageNum.value + 1); }
+            if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
             if(e.key === 'ArrowLeft') { e.preventDefault(); changePageTo(pageNum.value - 1); }
           });
         });
 
         return { 
           baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements,
-          currentBgColor, currentBgImage, pdfCanvas,
-          changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl,
-          getChartValues, getChartMax, getPieGradient, playAudio
+          currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, 
+          getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime
         };
       }
     }).mount('#app');
@@ -2843,8 +3682,7 @@ const exportPresentation = () => {
 </body>
 </html>`
 
-  const blob = new Blob([htmlContent], { type: 'text/html' })
-  const url = URL.createObjectURL(blob)
+  const url = URL.createObjectURL(new Blob([htmlContent], { type: 'text/html' }))
   const a = document.createElement('a')
   a.href = url
   a.download = 'presentacion_interactiva.html'
@@ -2857,7 +3695,6 @@ const exportPresentation = () => {
 /* =========================================
    DISEÑO PROFESIONAL OSCURO (TIPO EDITOR)
    ========================================= */
-
 .pro-editor-app {
   display: flex;
   flex-direction: column;
@@ -2867,8 +3704,6 @@ const exportPresentation = () => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
 }
-
-/* HEADER Y OVERLAY DE CARGA */
 .loading-overlay {
   position: fixed;
   top: 0;
@@ -2897,7 +3732,6 @@ const exportPresentation = () => {
     transform: rotate(360deg);
   }
 }
-
 .pro-header {
   display: flex;
   justify-content: space-between;
@@ -2976,7 +3810,6 @@ const exportPresentation = () => {
   padding: 2px 6px;
   border-radius: 4px;
 }
-
 .zoom-controls {
   display: flex;
   align-items: center;
@@ -2998,7 +3831,6 @@ const exportPresentation = () => {
   background: #30363d;
   margin: 0 5px;
 }
-
 .btn-play {
   display: flex;
   align-items: center;
@@ -3044,8 +3876,6 @@ const exportPresentation = () => {
   background: #f85149;
   transform: translate(-50%, -2px);
 }
-
-/* CONTROLES DE NAVEGACIÓN EN PLAY MODE */
 .play-nav-overlay {
   position: fixed;
   bottom: 30px;
@@ -3091,7 +3921,6 @@ const exportPresentation = () => {
   font-weight: normal;
 }
 
-/* WORKSPACE LAYOUT */
 .pro-workspace {
   display: flex;
   flex: 1;
@@ -3111,7 +3940,6 @@ const exportPresentation = () => {
   border-left: 1px solid #30363d;
   width: 320px;
 }
-
 .panel-header {
   padding: 16px;
   font-weight: 600;
@@ -3175,7 +4003,6 @@ const exportPresentation = () => {
   margin: 8px 0;
   flex-shrink: 0;
 }
-
 .pro-canvas-area {
   flex: 1;
   background-color: #010409;
@@ -3188,101 +4015,129 @@ const exportPresentation = () => {
   background-size: 20px 20px;
 }
 
-/* TREE VIEW (LEFT SIDEBAR) */
-.tree-view {
-  padding: 10px 0;
-  flex: 1;
-  overflow-y: auto;
-}
-.tree-node-title {
+/* SIDEBAR DE MINIATURAS */
+.slides-preview-list {
   display: flex;
-  justify-content: space-between; /* Modificado para separar el título de las acciones */
-  align-items: center;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.2s;
-  color: #c9d1d9;
+  flex-direction: column;
+  gap: 15px;
+  padding: 15px;
+  overflow-y: auto;
+  flex: 1;
 }
-.tree-node-title:hover {
+.thumb-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 8px;
+  transition: background 0.2s;
+}
+.thumb-item:hover {
   background: #21262d;
 }
-.tree-node-title i {
-  font-size: 1.2rem;
-  color: #8b949e;
+.thumb-item.is-active {
+  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid #58a6ff;
 }
-/* Nuevos estilos para los botones de acción */
-.slide-actions {
+.thumb-num {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #8b949e;
+  margin-top: 5px;
+  min-width: 15px;
+}
+.thumb-item.is-active .thumb-num {
+  color: #58a6ff;
+}
+.thumb-card-wrapper {
+  flex: 1;
   display: flex;
-  gap: 2px;
+  flex-direction: column;
+  gap: 5px;
+}
+.thumb-card {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+}
+.thumb-actions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
   opacity: 0;
   transition: opacity 0.2s;
+  backdrop-filter: blur(2px);
 }
-.tree-node-title:hover .slide-actions {
+.thumb-card:hover .thumb-actions {
   opacity: 1;
 }
-.slide-action-btn {
-  background: transparent;
+.thumb-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   border: none;
-  color: #8b949e;
+  background: #30363d;
+  color: white;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: 0.2s;
+  font-size: 0.9rem;
 }
-.slide-action-btn:hover:not(:disabled) {
-  background: #30363d;
-  color: #c9d1d9;
+.thumb-action-btn:hover:not(:disabled) {
+  background: #58a6ff;
+  transform: scale(1.1);
 }
-.slide-action-btn.btn-trash:hover:not(:disabled) {
-  background: rgba(218, 54, 51, 0.2);
-  color: #ff7b72;
+.thumb-action-btn.btn-trash:hover:not(:disabled) {
+  background: #ff7b72;
 }
-.slide-action-btn:disabled {
-  opacity: 0.2;
+.thumb-action-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+  background: #30363d !important;
+  color: #8b949e !important;
+  transform: scale(1) !important;
 }
-
-.tree-node-title.is-active {
-  background: rgba(88, 166, 255, 0.1);
-  border-left: 3px solid #58a6ff;
-  color: #58a6ff;
-}
-.tree-node-title.is-active .slide-name-wrapper i {
-  color: #58a6ff;
-}
-.tree-node-title.is-active i {
-  color: #58a6ff;
-}
-.tree-children {
-  padding: 5px 0 5px 15px;
+.thumb-elements {
+  padding: 5px 0 0 5px;
   background: transparent;
 }
+
 .tree-child {
-  padding: 8px 16px 8px 30px;
-  font-size: 0.85rem;
+  padding: 6px 10px;
+  font-size: 0.8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: #8b949e;
-  border-radius: 0 6px 6px 0;
-  margin-right: 10px;
+  border-radius: 4px;
   transition: 0.2s;
 }
 .tree-child .icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 .tree-child:hover {
-  background: #21262d;
+  background: #30363d;
   color: #c9d1d9;
 }
 .tree-child.is-selected {
-  background: #30363d;
+  background: #58a6ff;
   color: #fff;
   font-weight: 500;
 }
@@ -3292,17 +4147,6 @@ const exportPresentation = () => {
   background: #161b22;
 }
 
-.slide-name-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.slide-name-wrapper i {
-  font-size: 1.2rem;
-  color: #8b949e;
-}
-
-/* INSPECTOR Y CONFIG (RIGHT SIDEBAR) */
 .panel-content {
   padding: 20px;
 }
@@ -3340,7 +4184,6 @@ const exportPresentation = () => {
   gap: 6px;
   letter-spacing: 0.5px;
 }
-
 .prop-section {
   background: #0d1117;
   border: 1px solid #30363d;
@@ -3359,7 +4202,6 @@ const exportPresentation = () => {
   align-items: center;
   gap: 8px;
 }
-
 .prop-group {
   margin-bottom: 15px;
 }
@@ -3385,7 +4227,6 @@ const exportPresentation = () => {
   width: 50%;
   margin-bottom: 0;
 }
-
 .pro-input {
   width: 100%;
   background: #161b22;
@@ -3407,7 +4248,6 @@ const exportPresentation = () => {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .color-picker-wrapper {
   display: flex;
   align-items: center;
@@ -3438,7 +4278,6 @@ const exportPresentation = () => {
   color: #c9d1d9;
   font-family: monospace;
 }
-
 .range-wrapper {
   display: flex;
   align-items: center;
@@ -3450,7 +4289,6 @@ const exportPresentation = () => {
   min-width: 35px;
   text-align: right;
 }
-
 .info-box {
   background: rgba(88, 166, 255, 0.1);
   border-left: 3px solid #58a6ff;
@@ -3460,7 +4298,6 @@ const exportPresentation = () => {
   line-height: 1.5;
   font-size: 0.85rem;
 }
-
 .align-buttons {
   display: flex;
   gap: 4px;
@@ -3474,7 +4311,6 @@ const exportPresentation = () => {
   font-size: 1rem;
   border-radius: 4px;
 }
-
 .btn-primary,
 .btn-secondary,
 .btn-ghost,
@@ -3548,13 +4384,11 @@ const exportPresentation = () => {
 .btn-text-danger:hover {
   text-decoration: underline;
 }
-
 .large-btn {
   padding: 12px 24px;
   font-size: 1rem;
   border-radius: 8px;
 }
-
 .w-100 {
   width: 100%;
 }
@@ -3590,8 +4424,6 @@ const exportPresentation = () => {
   font-size: 0.85rem;
   cursor: pointer;
 }
-
-/* CANVAS Y ELEMENTOS INTERACTIVOS */
 .canvas-wrapper {
   position: relative;
   transform-origin: center center;
@@ -3604,7 +4436,6 @@ const exportPresentation = () => {
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.9);
 }
-
 .layer-engine {
   position: relative;
   overflow: hidden;
@@ -3634,7 +4465,6 @@ const exportPresentation = () => {
   z-index: 0;
   background: rgba(0, 0, 0, 0.2);
 }
-
 .interactive-element {
   position: absolute;
   box-sizing: border-box;
@@ -3650,7 +4480,6 @@ const exportPresentation = () => {
 .interactive-element.no-pointer {
   pointer-events: none;
 }
-
 .resize-handle {
   position: absolute;
   bottom: -5px;
@@ -3664,8 +4493,6 @@ const exportPresentation = () => {
   z-index: 100;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
-
-/* Contenidos de Elementos */
 .el-text {
   width: 100%;
   height: 100%;
@@ -3727,8 +4554,6 @@ const exportPresentation = () => {
   height: 100%;
   position: relative;
 }
-
-/* Pizarra SVG */
 .el-draw-board {
   width: 100%;
   height: 100%;
@@ -3752,8 +4577,6 @@ const exportPresentation = () => {
   border-radius: 4px;
   z-index: 10;
 }
-
-/* Gráficos */
 .el-chart-wrapper {
   display: flex;
   flex-direction: column;
@@ -3879,8 +4702,6 @@ const exportPresentation = () => {
   border-radius: 3px;
   display: inline-block;
 }
-
-/* Hotspot */
 .el-interactive {
   width: 100%;
   height: 100%;
@@ -3933,8 +4754,6 @@ const exportPresentation = () => {
   padding-bottom: 8px;
   font-weight: 800;
 }
-
-/* Links y Acordeones */
 .el-link {
   width: 100%;
   height: 100%;
@@ -3952,7 +4771,6 @@ const exportPresentation = () => {
 .el-link:active {
   transform: scale(0.97);
 }
-
 .el-accordion {
   width: 100%;
   height: 100%;
@@ -3994,8 +4812,6 @@ const exportPresentation = () => {
   margin-bottom: 12px;
   border: 1px solid #30363d;
 }
-
-/* Audio */
 .el-audio-btn {
   width: 100%;
   height: 100%;
@@ -4028,8 +4844,6 @@ const exportPresentation = () => {
     box-shadow: 0 0 0 15px rgba(255, 255, 255, 0);
   }
 }
-
-/* PANTALLA VACÍA */
 .empty-workspace {
   width: 100%;
   height: 100%;
@@ -4073,5 +4887,89 @@ const exportPresentation = () => {
   font-size: 0.9rem;
   font-weight: bold;
   text-transform: uppercase;
+}
+
+/* TRANSICIONES DE DIAPOSITIVA */
+.slide-trans-fade {
+  animation: transFade 0.6s ease-out forwards;
+}
+.slide-trans-slide {
+  animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.slide-trans-zoom {
+  animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes transFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes transSlide {
+  from {
+    translate: 100px 0;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+@keyframes transZoom {
+  from {
+    scale: 0.95;
+    opacity: 0;
+  }
+  to {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+/* ANIMACIONES DE ELEMENTOS (Entradas) */
+.anim-fade-in {
+  animation: animFadeIn 0.8s ease-out both;
+}
+.anim-slide-in {
+  animation: animSlideIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+.anim-bounce {
+  animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes animFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes animSlideIn {
+  from {
+    translate: 0 50px;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+@keyframes animBounce {
+  0% {
+    scale: 0.5;
+    opacity: 0;
+  }
+  50% {
+    scale: 1.05;
+    opacity: 1;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
 }
 </style>
