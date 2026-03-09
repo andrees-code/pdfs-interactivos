@@ -12,7 +12,7 @@
               <input
                 type="file"
                 @change="handleFileUpload"
-                accept=".pdf, .pptx, .ppsx, .potx"
+                accept=".pdf, .pptx, .ppsx, .potx, .html"
                 hidden
                 :disabled="isConverting"
               />
@@ -1504,20 +1504,121 @@
             <div class="empty-icon-wrapper"><i class="ph ph-magic-wand"></i></div>
             <h3>Comienza a crear</h3>
             <p>Diseña desde cero o importa un documento existente para añadirle interactividad.</p>
-            <div class="button-group mt-4">
-              <button class="btn-primary large-btn" @click="createBlankProject">
+            <div
+              class="button-group mt-4"
+              style="display: flex; flex-direction: column; gap: 10px; align-items: center"
+            >
+              <button class="btn-primary large-btn w-100" @click="showNewProjectModal = true">
                 <i class="ph ph-file-plus"></i> Proyecto en Blanco
               </button>
-              <div class="divider-text">o</div>
-              <label class="btn-secondary large-btn">
+              <div class="divider-text" style="color: #8b949e; font-size: 0.9rem; margin: 5px 0">
+                o
+              </div>
+              <label
+                class="btn-secondary large-btn w-100"
+                style="margin: 0; text-align: center; display: flex"
+              >
                 <input
                   type="file"
                   @change="handleFileUpload"
-                  accept=".pdf, .pptx, .ppsx, .potx"
+                  accept=".pdf, .pptx, .ppsx, .potx, .html"
                   hidden
                 />
-                <i class="ph ph-upload-simple"></i> Subir PDF / PPTX
+                <i class="ph ph-upload-simple"></i> Subir PDF / PPTX / HTML
               </label>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="showNewProjectModal"
+          class="loading-overlay"
+          style="z-index: 10001; backdrop-filter: blur(5px)"
+        >
+          <div class="new-project-modal">
+            <div class="modal-header">
+              <h3>Crear Nuevo Proyecto</h3>
+              <button class="btn-icon-danger" @click="showNewProjectModal = false">
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+
+            <div class="prop-group mt-4">
+              <label>Tamaño del Lienzo</label>
+              <select v-model="projectConfigs.preset" class="pro-input">
+                <option value="hd">16:9 HD (1280x720)</option>
+                <option value="fhd">16:9 Full HD (1920x1080)</option>
+                <option value="sd">4:3 Estándar (1024x768)</option>
+                <option value="square">Cuadrado (1080x1080)</option>
+                <option value="custom">Personalizado...</option>
+              </select>
+            </div>
+
+            <div class="prop-row" v-if="projectConfigs.preset === 'custom'">
+              <div class="prop-group half">
+                <label>Ancho (px)</label>
+                <input type="number" v-model="projectConfigs.width" class="pro-input" />
+              </div>
+              <div class="prop-group half">
+                <label>Alto (px)</label>
+                <input type="number" v-model="projectConfigs.height" class="pro-input" />
+              </div>
+            </div>
+
+            <div class="prop-group mt-4">
+              <label>Seleccionar Plantilla</label>
+              <div class="template-grid">
+                <div
+                  class="template-card"
+                  :class="{ 'is-active': projectConfigs.template === 'blank' }"
+                  @click="projectConfigs.template = 'blank'"
+                >
+                  <i class="ph ph-file-dashed"></i>
+                  <span>En Blanco</span>
+                </div>
+                <div
+                  class="template-card"
+                  :class="{ 'is-active': projectConfigs.template === 'modern' }"
+                  @click="projectConfigs.template = 'modern'"
+                >
+                  <i class="ph ph-presentation-chart"></i>
+                  <span>Moderna</span>
+                </div>
+                <div
+                  class="template-card"
+                  :class="{ 'is-active': projectConfigs.template === 'dark' }"
+                  @click="projectConfigs.template = 'dark'"
+                >
+                  <i class="ph ph-moon"></i>
+                  <span>Oscura</span>
+                </div>
+                <div
+                  class="template-card"
+                  :class="{ 'is-active': projectConfigs.template === 'custom' }"
+                  @click="projectConfigs.template = 'custom'"
+                >
+                  <i class="ph ph-user"></i>
+                  <span>Mi Plantilla</span>
+                </div>
+              </div>
+              <div
+                v-if="projectConfigs.template === 'custom'"
+                class="info-box mt-2"
+                style="
+                  font-size: 0.75rem;
+                  background: rgba(88, 166, 255, 0.1);
+                  border-left: 2px solid #58a6ff;
+                  padding: 8px;
+                "
+              >
+                <i class="ph ph-info"></i> Diseña la Diapositiva 1. Al añadir nuevas diapositivas,
+                se duplicará su diseño y elementos actuando como maestro.
+              </div>
+            </div>
+
+            <div class="modal-actions mt-4 pt-4">
+              <button class="btn-ghost" @click="showNewProjectModal = false">Cancelar</button>
+              <button class="btn-primary" @click="confirmCreateProject">Crear Proyecto</button>
             </div>
           </div>
         </div>
@@ -3404,6 +3505,7 @@ const pageNum = ref(1)
 const numPages = ref(0)
 const zoom = ref(1.0)
 const isConverting = ref(false)
+const isCustomTemplateMode = ref(false)
 
 const renderTrigger = ref(0)
 const activeTransition = ref('none')
@@ -3439,6 +3541,15 @@ type ToolType =
 const activeTool = ref<ToolType>('select')
 const baseWidth = ref(1280)
 const baseHeight = ref(720)
+
+// --- CONFIGURACIÓN DE NUEVO PROYECTO ---
+const showNewProjectModal = ref(false)
+const projectConfigs = ref({
+  preset: 'hd',
+  width: 1280,
+  height: 720,
+  template: 'blank',
+})
 
 // ESTADOS DE DIAPOSITIVAS Y MAPAS
 const documentState = ref<Record<number, any[]>>({})
@@ -3513,7 +3624,6 @@ const addMapNode = (el: any, parentId: string | null) => {
 
 const removeMapNode = (el: any, nodeId: string) => {
   if (!nodeId) return
-  // Función recursiva para eliminar hijos
   const getChildrenIds = (pid: string): string[] => {
     const children = el.nodes.filter((n: any) => n.parentId === pid).map((n: any) => n.id)
     return children.concat(...children.map(getChildrenIds))
@@ -4075,9 +4185,11 @@ const handleFileUpload = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   const fileExtension = file.name.split('.').pop()?.toLowerCase()
+
   if (fileExtension === 'pdf') await processPdfFile(file)
   else if (['pptx', 'ppsx', 'potx'].includes(fileExtension || ''))
     await convertPptxToPdfViaAPI(file)
+  else if (fileExtension === 'html') await processHtmlFile(file)
 }
 
 const processPdfFile = async (file: File | Blob) => {
@@ -4136,6 +4248,73 @@ const convertPptxToPdfViaAPI = async (file: File) => {
   }
 }
 
+const processHtmlFile = (file: File) => {
+  const reader = new FileReader()
+  reader.onload = async (e) => {
+    try {
+      const htmlText = e.target?.result as string
+
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(htmlText, 'text/html')
+
+      const stateDataNode = doc.getElementById('app-state-data')
+      const configsDataNode = doc.getElementById('app-configs-data')
+
+      if (!stateDataNode || !configsDataNode) {
+        throw new Error('El archivo HTML no es un proyecto válido de PresentPro.')
+      }
+
+      documentState.value = JSON.parse(stateDataNode.textContent || '{}')
+      slideConfigs.value = JSON.parse(configsDataNode.textContent || '{}')
+
+      const pdfMapNode = doc.getElementById('app-pdf-map')
+      if (pdfMapNode) pdfPageMap.value = JSON.parse(pdfMapNode.textContent || '{}')
+
+      const metaNode = doc.getElementById('app-meta-data')
+      if (metaNode) {
+        const meta = JSON.parse(metaNode.textContent || '{}')
+        baseWidth.value = meta.baseWidth || 1280
+        baseHeight.value = meta.baseHeight || 720
+        docType.value = meta.docType || 'blank'
+      } else {
+        const widthMatch = htmlText.match(/const baseWidth = ref\((.*?)\);/)
+        const heightMatch = htmlText.match(/const baseHeight = ref\((.*?)\);/)
+        const docTypeMatch = htmlText.match(/const docType = ref\('(.*?)'\);/)
+        baseWidth.value = widthMatch ? parseInt(widthMatch[1]) : 1280
+        baseHeight.value = heightMatch ? parseInt(heightMatch[1]) : 720
+        docType.value = (docTypeMatch ? docTypeMatch[1] : 'blank') as 'pdf' | 'blank'
+      }
+
+      const pdfDataNode = doc.getElementById('app-pdf-data')
+      _PDF_BASE64_STORE = pdfDataNode?.textContent || ''
+
+      numPages.value = Math.max(...Object.keys(documentState.value).map(Number), 1)
+      pageNum.value = 1
+      hasDoc.value = true
+
+      if (docType.value === 'pdf' && _PDF_BASE64_STORE) {
+        const pdfData = atob(_PDF_BASE64_STORE)
+        const uint8Array = new Uint8Array(pdfData.length)
+        for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i)
+
+        const loadingTask = pdfjsLib.getDocument({ data: uint8Array })
+        _RAW_PDF_DOC = markRaw(await loadingTask.promise)
+        await generatePdfThumbnails()
+      } else {
+        _RAW_PDF_DOC = null
+        pdfThumbnails.value = {}
+      }
+
+      await renderPage(1)
+      setTimeout(fitToScreen, 100)
+    } catch (error) {
+      console.error(error)
+      alert('Error al importar. ¿Estás seguro de que es un archivo exportado por PresentPro?')
+    }
+  }
+  reader.readAsText(file)
+}
+
 const renderPage = async (num: number) => {
   await nextTick()
   const canvas = pdfCanvas.value
@@ -4166,22 +4345,135 @@ const renderPage = async (num: number) => {
   }
 }
 
-const createBlankProject = () => {
+// --- CREACIÓN DE PROYECTO (MODAL) ---
+const confirmCreateProject = () => {
   _RAW_PDF_DOC = null
   _PDF_BASE64_STORE = ''
   docType.value = 'blank'
   numPages.value = 1
   pageNum.value = 1
-  baseWidth.value = 1280
-  baseHeight.value = 720
+
+  if (projectConfigs.value.preset === 'hd') {
+    baseWidth.value = 1280
+    baseHeight.value = 720
+  } else if (projectConfigs.value.preset === 'fhd') {
+    baseWidth.value = 1920
+    baseHeight.value = 1080
+  } else if (projectConfigs.value.preset === 'sd') {
+    baseWidth.value = 1024
+    baseHeight.value = 768
+  } else if (projectConfigs.value.preset === 'square') {
+    baseWidth.value = 1080
+    baseHeight.value = 1080
+  } else {
+    baseWidth.value = projectConfigs.value.width || 1280
+    baseHeight.value = projectConfigs.value.height || 720
+  }
+
+  isCustomTemplateMode.value = projectConfigs.value.template === 'custom'
+
   documentState.value = {}
   slideConfigs.value = {}
   pdfPageMap.value = {}
   pdfThumbnails.value = {}
+
+  applyTemplate(projectConfigs.value.template)
+
   initializeConfigs()
   hasDoc.value = true
+  showNewProjectModal.value = false
   renderPage(1)
   setTimeout(fitToScreen, 100)
+}
+
+const createTemplateElement = (type: ToolType, overrides: any) => {
+  return {
+    id: `el_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+    type,
+    opacity: 1,
+    rotation: 0,
+    mixBlendMode: 'normal',
+    isHidden: false,
+    isLocked: false,
+    groupId: null,
+    ...(ELEMENT_DEFAULTS[type] || {}),
+    ...overrides,
+  }
+}
+
+const applyTemplate = (templateId: string) => {
+  const w = baseWidth.value
+  const h = baseHeight.value
+
+  if (templateId === 'blank') {
+    documentState.value[1] = []
+    slideConfigs.value[1] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+  } else if (templateId === 'modern') {
+    documentState.value[1] = [
+      createTemplateElement('shape', {
+        width: w,
+        height: 180,
+        bgColor: '#2563eb',
+        x: 0,
+        y: 0,
+        borderRadius: 0,
+        borderStyle: 'none',
+      }),
+      createTemplateElement('text', {
+        content: 'Título de la Presentación',
+        color: '#ffffff',
+        fontSize: 48,
+        fontWeight: '800',
+        x: 50,
+        y: 55,
+        width: w - 100,
+      }),
+      createTemplateElement('text', {
+        content: 'Añade tu subtítulo aquí',
+        color: '#333333',
+        fontSize: 24,
+        x: 50,
+        y: 220,
+      }),
+      createTemplateElement('shape', {
+        width: 100,
+        height: 8,
+        bgColor: '#10b981',
+        x: 50,
+        y: 280,
+        borderRadius: 4,
+        borderStyle: 'none',
+      }),
+    ]
+    slideConfigs.value[1] = { bgColor: '#f8fafc', bgImage: null, transition: 'fade' }
+  } else if (templateId === 'dark') {
+    documentState.value[1] = [
+      createTemplateElement('text', {
+        content: 'DISEÑO ELEGANTE',
+        color: '#ffffff',
+        fontSize: 64,
+        fontWeight: '400',
+        letterSpacing: 10,
+        textAlign: 'center',
+        width: w,
+        x: 0,
+        y: h / 2 - 80,
+      }),
+      createTemplateElement('text', {
+        content: 'Minimalismo en su máxima expresión',
+        color: '#8b949e',
+        fontSize: 20,
+        textAlign: 'center',
+        width: w,
+        x: 0,
+        y: h / 2 + 20,
+      }),
+    ]
+    slideConfigs.value[1] = { bgColor: '#0d1117', bgImage: null, transition: 'slide' }
+  } else if (templateId === 'custom') {
+    documentState.value[1] = []
+    slideConfigs.value[1] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+  }
 }
 
 // --- GESTIÓN DE PÁGINAS ---
@@ -4244,8 +4536,27 @@ const moveSlide = (page: number, direction: 'up' | 'down') => {
 
 const addNewSlide = () => {
   numPages.value += 1
-  documentState.value[numPages.value] = []
-  slideConfigs.value[numPages.value] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+
+  if (isCustomTemplateMode.value) {
+    const masterElements = documentState.value[1] || []
+    const masterConfig = slideConfigs.value[1] || {
+      bgColor: '#ffffff',
+      bgImage: null,
+      transition: 'none',
+    }
+
+    documentState.value[numPages.value] = JSON.parse(JSON.stringify(masterElements)).map(
+      (el: any) => ({
+        ...el,
+        id: `el_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      }),
+    )
+    slideConfigs.value[numPages.value] = JSON.parse(JSON.stringify(masterConfig))
+  } else {
+    documentState.value[numPages.value] = []
+    slideConfigs.value[numPages.value] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+  }
+
   pdfPageMap.value[numPages.value] = 0 // Lienzo en blanco
   changePageTo(numPages.value)
 }
@@ -4685,6 +4996,7 @@ const exportPresentation = () => {
   </style>
 </head>
 <body>
+  <script type="application/json" id="app-meta-data">{"baseWidth": ${baseWidth.value}, "baseHeight": ${baseHeight.value}, "docType": "${docType.value}"}<\/script>
   <script type="application/json" id="app-state-data">${safeJson(documentState.value)}<\/script>
   <script type="application/json" id="app-configs-data">${safeJson(slideConfigs.value)}<\/script>
   <script type="application/json" id="app-pdf-map">${safeJson(pdfPageMap.value)}<\/script>
@@ -5842,6 +6154,9 @@ const exportPresentation = () => {
 .mt-4 {
   margin-top: 20px;
 }
+.pt-4 {
+  padding-top: 20px;
+}
 .mb-1 {
   margin-bottom: 5px;
 }
@@ -6407,6 +6722,74 @@ const exportPresentation = () => {
   font-size: 1rem;
   margin: 0;
   line-height: 1.6;
+}
+
+/* ESTILOS DEL NUEVO MODAL (PLANTILLAS Y TAMAÑO) */
+.new-project-modal {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 30px;
+  width: 450px;
+  max-width: 90vw;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 15px;
+}
+.modal-header h3 {
+  margin: 0;
+  color: #c9d1d9;
+  font-size: 1.25rem;
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+.template-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.template-card:hover {
+  border-color: #58a6ff;
+  background: rgba(88, 166, 255, 0.05);
+}
+.template-card.is-active {
+  border-color: #58a6ff;
+  background: rgba(88, 166, 255, 0.1);
+  box-shadow: 0 0 0 1px #58a6ff;
+}
+.template-card i {
+  font-size: 2rem;
+  color: #8b949e;
+}
+.template-card.is-active i {
+  color: #58a6ff;
+}
+.template-card span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #30363d;
 }
 
 /* MAPA MENTAL ESTILOS */
