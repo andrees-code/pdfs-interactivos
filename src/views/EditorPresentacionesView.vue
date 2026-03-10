@@ -398,15 +398,25 @@
             </div>
           </div>
 
-          <main class="pro-canvas-area" ref="workspaceRef">
-            <div class="canvas-wrapper" :class="{ 'play-mode-active': playMode }">
+          <main 
+            class="pro-canvas-area" 
+            ref="workspaceRef"
+            @wheel="handleCanvasWheel"
+            @mousedown="handleCanvasPanStart"
+            :class="{ 'is-panning': isPanning, 'space-pressed': isSpacePressed }"
+          >
+            <div 
+              class="canvas-wrapper" 
+              :class="{ 'play-mode-active': playMode }"
+              :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }"
+            >
               <div
                 class="canvas-shadow-box layer-engine"
                 :class="[
                   playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : '',
                 ]"
                 :style="{
-                  transform: `scale(${zoom})`,
+                  /* ELIMINADO: transform: scale(zoom) (Ahora lo gestiona el contenedor padre) */
                   width: `${baseWidth}px`,
                   height: `${baseHeight}px`,
                   backgroundColor: currentBgColor,
@@ -3425,6 +3435,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 // --- ESTADO GENERAL ---
 const pdfCanvas = ref<HTMLCanvasElement | null>(null)
 const workspaceRef = ref<HTMLElement | null>(null)
+// --- ESTADO DE NAVEGACIÓN (PAN Y ZOOM) ---
+const panX = ref(0)
+const panY = ref(0)
+const isPanning = ref(false)
+const isSpacePressed = ref(false)
 
 let _RAW_PDF_DOC: any = null
 let _PDF_BASE64_STORE: string = ''
@@ -4035,7 +4050,37 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     changePageTo(pageNum.value + (e.key === 'ArrowLeft' ? -1 : 1))
   }
+
+  // NUEVO: Detectar barra espaciadora para mover lienzo
+  if (e.code === 'Space' && !playMode.value) {
+    const target = e.target as HTMLElement;
+    // Prevenir activación si estamos escribiendo en un input o textarea
+    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
+      isSpacePressed.value = true;
+      e.preventDefault(); // Evita que la página haga scroll nativo
+    }
+  }
 }
+
+const handleGlobalKeyup = (e: KeyboardEvent) => {
+  if (e.code === 'Space') {
+    isSpacePressed.value = false;
+  }
+}
+
+// Asegúrate de registrar el nuevo listener en onMounted y onUnmounted:
+onMounted(() => {
+  // ... resto de tu código onMounted
+  document.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('keyup', handleGlobalKeyup)
+})
+
+onUnmounted(() => {
+  // ... resto de tu código onUnmounted
+  document.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('keyup', handleGlobalKeyup)
+})
+
 
 // --- UTILS ---
 const YT_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
@@ -4509,13 +4554,60 @@ const changeZoom = (delta: number) => (zoom.value = Math.max(0.2, Math.min(zoom.
 
 const fitToScreen = () => {
   if (workspaceRef.value) {
-    // Calculamos el zoom para que entre perfectamente a lo ancho Y a lo alto dejando un pequeño margen
     const scaleX = (workspaceRef.value.clientWidth - 60) / baseWidth.value
     const scaleY = (workspaceRef.value.clientHeight - 60) / baseHeight.value
     zoom.value = Math.max(0.1, Math.min(scaleX, scaleY))
+    
+    // NUEVO: Centrar el lienzo nuevamente
+    panX.value = 0;
+    panY.value = 0;
   }
 }
 
+// --- LÓGICA DE NAVEGACIÓN DEL LIENZO ---
+const handleCanvasWheel = (e: WheelEvent) => {
+  if (playMode.value) return;
+
+  if (e.ctrlKey || e.metaKey) {
+    // Zoom con Ctrl + Rueda
+    e.preventDefault();
+    const zoomDelta = e.deltaY * -0.002; // Ajusta la sensibilidad aquí
+    zoom.value = Math.max(0.1, Math.min(zoom.value + zoomDelta, 4));
+  } else {
+    // Desplazamiento libre (Pan) con trackpad o rueda normal
+    panX.value -= e.deltaX;
+    panY.value -= e.deltaY;
+  }
+};
+
+const handleCanvasPanStart = (e: MouseEvent) => {
+  if (playMode.value) return;
+
+  // Se activa con el botón central del ratón (1) o con la barra espaciadora + Click izquierdo (0)
+  if (e.button === 1 || (e.button === 0 && isSpacePressed.value)) {
+    e.preventDefault();
+    isPanning.value = true;
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialPanX = panX.value;
+    const initialPanY = panY.value;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      panX.value = initialPanX + (moveEvent.clientX - startX);
+      panY.value = initialPanY + (moveEvent.clientY - startY);
+    };
+
+    const onMouseUp = () => {
+      isPanning.value = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+};
 // --- CREACIÓN Y SELECCIÓN DE ELEMENTOS ---
 const handleCanvasClick = (e: MouseEvent) => {
   if (playMode.value || activeTool.value === 'select') {
@@ -5184,9 +5276,13 @@ const exportPresentation = () => {
         const pdfPageMap = ref(JSON.parse(document.getElementById('app-pdf-map').textContent || '{}'));
         const rawPdfB64 = document.getElementById('app-pdf-data').textContent;
         
-        const baseWidth = ref(\${baseWidth.value}); const baseHeight = ref(\${baseHeight.value}); const docType = ref('\${docType.value}');
-        const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
+        // LEER LOS DATOS DESDE EL JSON INYECTADO PARA EVITAR ERRORES DE SINTAXIS
+        const metaData = JSON.parse(document.getElementById('app-meta-data').textContent);
+        const baseWidth = ref(metaData.baseWidth); 
+        const baseHeight = ref(metaData.baseHeight); 
+        const docType = ref(metaData.docType);
         
+        const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
         const renderTrigger = ref(0); const activeTransition = ref('none');
 
         const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
@@ -5623,8 +5719,19 @@ const exportPresentation = () => {
   display: flex;
   justify-content: center;
   align-items: center;
+  cursor: grab !important;
   background-image: radial-gradient(#30363d 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+.pro-canvas-area.is-panning {
+  cursor: grabbing !important;
+}
+/* Fuerza el cursor de agarre incluso si pasas por encima de otros elementos */
+.pro-canvas-area.space-pressed *,
+.pro-canvas-area.is-panning * {
+  cursor: inherit !important;
+  pointer-events: none; /* Evita interacciones accidentales al hacer pan */
 }
 
 /* PANELES LATERALES MÁS COMPACTOS */
