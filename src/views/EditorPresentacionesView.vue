@@ -1,58 +1,17 @@
 <template>
   <div>
     <div class="pro-editor-app">
-      <header class="pro-header">
-        <div class="header-left">
-          <div class="pro-logo">
-            <span class="logo-icon">🚀</span>
-            <span class="logo-text">Present<span class="text-accent">Pro</span></span>
-          </div>
-          <div class="file-menu">
-            <label class="menu-item" :class="{ 'is-loading': isConverting }">
-              <input
-                type="file"
-                @change="handleFileUpload"
-                accept=".pdf, .pptx, .ppsx, .potx, .html"
-                hidden
-                :disabled="isConverting"
-              />
-              <i class="ph ph-upload-simple"></i>
-              {{ isConverting ? 'Convirtiendo...' : 'Importar Archivo' }}
-            </label>
-            <button
-              class="menu-item btn-export"
-              :disabled="!hasDoc || isConverting"
-              @click="exportPresentation"
-            >
-              <i class="ph ph-export"></i> Exportar Web
-            </button>
-          </div>
-        </div>
-
-        <div class="header-center" v-if="hasDoc">
-          <div class="zoom-controls">
-            <button @click="changeZoom(-0.1)" class="tool-btn" title="Alejar">
-              <i class="ph ph-minus"></i>
-            </button>
-            <span class="zoom-level">{{ Math.round(zoom * 100) }}%</span>
-            <button @click="changeZoom(0.1)" class="tool-btn" title="Acercar">
-              <i class="ph ph-plus"></i>
-            </button>
-            <div class="divider-vertical"></div>
-            <button @click="fitToScreen" class="tool-btn" title="Ajustar a pantalla">
-              <i class="ph ph-corners-out"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="header-right" v-if="hasDoc">
-          <button class="btn-play" :class="{ 'is-active': playMode }" @click="togglePlayMode">
-            <i class="ph" :class="playMode ? 'ph-stop' : 'ph-play'"></i>
-            {{ playMode ? 'Detener Presentación' : 'Iniciar Presentación' }}
-          </button>
-        </div>
-      </header>
-
+      <EditorHeader 
+        :is-converting="isConverting"
+        :has-doc="hasDoc"
+        :zoom="zoom"
+        :play-mode="playMode"
+        @file-upload="handleFileUpload"
+        @export="exportPresentation"
+        @change-zoom="changeZoom"
+        @fit-screen="fitToScreen"
+        @toggle-play="togglePlayMode"
+      />
       <div v-if="isConverting" class="loading-overlay">
         <div class="spinner"></div>
         <h2>Procesando Documento</h2>
@@ -1782,7 +1741,6 @@
                   <select
                     v-model="selectedElement.mixBlendMode"
                     class="pro-input"
-                    style="padding: 4px"
                   >
                     <option value="normal">Normal</option>
                     <option value="multiply">Multiplicar</option>
@@ -1894,7 +1852,7 @@
                   v-if="activeMapNode.parentId"
                   @click="removeMapNode(selectedElement, activeMapNodeId)"
                 >
-                  <i class="ph ph-trash"></i> Eliminar Nodo (y sus hijos)
+                  <i class="ph ph-trash"></i> Eliminar Nodo
                 </button>
               </div>
               <div class="prop-section empty-state" v-else style="padding: 20px 10px">
@@ -1985,13 +1943,12 @@
                   </div>
                 </div>
 
-                <div class="prop-row mt-2">
+                <div class="prop-row">
                   <div class="prop-group half">
                     <label>Fuente</label>
                     <select
                       v-model="selectedElement.fontFamily"
                       class="pro-input"
-                      style="padding: 4px"
                     >
                       <option value="Helvetica, Arial, sans-serif">Helvetica</option>
                       <option value="Georgia">Georgia</option>
@@ -2109,11 +2066,11 @@
                     :value="selectedElement.items.join('\n')"
                     @input="updateListItems(selectedElement, $event)"
                     class="pro-input"
-                    rows="6"
+                    rows="5"
                   ></textarea>
                 </div>
 
-                <div class="prop-row mt-2">
+                <div class="prop-row">
                   <div class="prop-group half">
                     <label>Color Texto</label>
                     <div class="color-picker-wrapper">
@@ -2148,23 +2105,11 @@
 
             <template v-if="selectedElement.type === 'checkbox'">
               <div class="prop-section">
-                <div class="section-title">Lista de Tareas (Checkboxes)</div>
-
-                <div class="prop-group section-divider">Items (Tareas)</div>
+                <div class="section-title">Lista de Tareas</div>
                 <div
                   v-for="(item, idx) in selectedElement.items"
                   :key="idx"
                   class="accordion-edit-item"
-                  style="
-                    background: rgba(255, 255, 255, 0.05);
-                    padding: 8px;
-                    border-radius: 6px;
-                    margin-bottom: 8px;
-                    border: 1px solid #30363d;
-                    display: flex;
-                    gap: 8px;
-                    align-items: center;
-                  "
                 >
                   <input type="checkbox" v-model="item.checked" style="accent-color: #58a6ff" />
                   <input
@@ -2185,7 +2130,7 @@
                   <i class="ph ph-plus"></i> Añadir Tarea
                 </button>
 
-                <div class="prop-row mt-4">
+                <div class="prop-row mt-2">
                   <div class="prop-group half">
                     <label>Color Texto</label>
                     <div class="color-picker-wrapper">
@@ -2209,15 +2154,15 @@
                 </div>
                 <div class="prop-row">
                   <div class="prop-group half">
-                    <label>Tamaño</label
-                    ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
+                    <label>Tamaño</label>
+                    <input type="number" v-model="selectedElement.fontSize" class="pro-input" />
                   </div>
                   <div class="prop-group half">
-                    <label>Espaciado Y</label
-                    ><input type="number" v-model="selectedElement.itemSpacing" class="pro-input" />
+                    <label>Espaciado Y</label>
+                    <input type="number" v-model="selectedElement.itemSpacing" class="pro-input" />
                   </div>
                 </div>
-                <label class="checkbox-label mt-2 mb-2"
+                <label class="checkbox-label"
                   ><input type="checkbox" v-model="selectedElement.strikeThrough" /> Tachar texto al
                   completar</label
                 >
@@ -2454,7 +2399,7 @@
                     target="_blank"
                     class="help-link mt-1"
                     style="display: block; font-size: 10px; color: #58a6ff"
-                    >Ver catálogo de iconos ↗</a
+                    >Ver catálogo ↗</a
                   >
                 </div>
 
@@ -2536,12 +2481,11 @@
                   </div>
                 </div>
 
-                <label class="checkbox-label mt-2 mb-2" v-if="selectedElement.type === 'shape'"
-                  ><input type="checkbox" v-model="selectedElement.isGlass" /> Cristal
-                  (Glassmorphism)</label
+                <label class="checkbox-label" v-if="selectedElement.type === 'shape'"
+                  ><input type="checkbox" v-model="selectedElement.isGlass" /> Cristal</label
                 >
 
-                <div class="prop-row" v-if="selectedElement.type === 'icon'">
+                <div class="prop-row mt-2" v-if="selectedElement.type === 'icon'">
                   <div class="prop-group half">
                     <label>Fondo Caja</label>
                     <div class="color-picker-wrapper">
@@ -2562,7 +2506,7 @@
                   </div>
                 </div>
 
-                <div class="prop-row" v-if="selectedElement.type === 'shape'">
+                <div class="prop-row mt-2" v-if="selectedElement.type === 'shape'">
                   <div class="prop-group half">
                     <label>Radio Esquinas</label
                     ><input
@@ -2600,7 +2544,7 @@
                     </select>
                   </div>
                 </div>
-                <div class="prop-group mt-2" v-if="selectedElement.type === 'shape'">
+                <div class="prop-group" v-if="selectedElement.type === 'shape'">
                   <label>Sombra CSS</label
                   ><input
                     type="text"
@@ -2653,7 +2597,7 @@
                     ><input type="number" v-model="selectedElement.fontSize" class="pro-input" />
                   </div>
                 </div>
-                <label class="checkbox-label mt-2 mb-2"
+                <label class="checkbox-label"
                   ><input type="checkbox" v-model="selectedElement.isInteractive" /> Editable en
                   presentación</label
                 >
@@ -2662,7 +2606,7 @@
 
             <template v-if="selectedElement.type === 'timer'">
               <div class="prop-section">
-                <div class="section-title">Temporizador / Cuenta atrás</div>
+                <div class="section-title">Temporizador</div>
                 <div class="prop-group">
                   <label>Minutos Totales</label
                   ><input
@@ -2802,7 +2746,7 @@
                 <div class="section-title">Fuente Multimedia</div>
 
                 <div
-                  class="prop-group file-upload-group"
+                  class="prop-group"
                   v-if="['image', 'video', '3d', 'magnifier'].includes(selectedElement.type)"
                 >
                   <label class="btn-ghost w-100 text-center block">
@@ -2818,18 +2762,13 @@
                       "
                       hidden
                     />
-                    <i class="ph ph-upload-simple"></i> Subir Archivo Local
+                    <i class="ph ph-upload-simple"></i> Subir Archivo
                   </label>
                 </div>
 
-                <div
-                  class="prop-group"
-                  :class="{
-                    'mt-2': ['image', 'video', '3d', 'magnifier'].includes(selectedElement.type),
-                  }"
-                >
+                <div class="prop-group mt-2">
                   <label>{{
-                    selectedElement.type === 'iframe' ? 'URL del Iframe' : 'O Enlace Externo (URL)'
+                    selectedElement.type === 'iframe' ? 'URL del Iframe' : 'O Enlace Externo'
                   }}</label>
                   <input
                     type="text"
@@ -2840,7 +2779,7 @@
                 </div>
 
                 <template v-if="selectedElement.type === 'magnifier'">
-                  <div class="prop-group mt-2">
+                  <div class="prop-group">
                     <label>Nivel de Zoom ({{ selectedElement.zoomLevel }}x)</label>
                     <input
                       type="range"
@@ -2875,7 +2814,7 @@
                   </div>
                 </template>
 
-                <div class="prop-group mt-2" v-if="selectedElement.type === '3d'">
+                <div class="prop-group" v-if="selectedElement.type === '3d'">
                   <label>Imagen Entorno (HDR/URL)</label
                   ><input
                     type="text"
@@ -2986,8 +2925,7 @@
                   ><input type="checkbox" v-model="selectedElement.loop" /> Bucle</label
                 >
                 <label class="checkbox-label mt-2"
-                  ><input type="checkbox" v-model="selectedElement.muted" /> Silenciado
-                  (Muted)</label
+                  ><input type="checkbox" v-model="selectedElement.muted" /> Silenciado</label
                 >
               </div>
             </template>
@@ -3076,7 +3014,7 @@
                   ><input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
                 </div>
 
-                <div class="prop-row mt-2" v-if="selectedElement.type === 'chart'">
+                <div class="prop-row" v-if="selectedElement.type === 'chart'">
                   <label class="checkbox-label half"
                     ><input type="checkbox" v-model="selectedElement.showValues" /> Valores</label
                   >
@@ -3192,7 +3130,7 @@
                     </div>
                   </div>
                   <div class="prop-group half">
-                    <label>Color Icono/Texto</label>
+                    <label>Color Icono</label>
                     <div class="color-picker-wrapper">
                       <input
                         type="color"
@@ -3206,10 +3144,10 @@
                   <label>Redondeo (Bordes)</label
                   ><input type="number" v-model="selectedElement.borderRadius" class="pro-input" />
                 </div>
-                <label class="checkbox-label mt-2"
+                <label class="checkbox-label"
                   ><input type="checkbox" v-model="selectedElement.loop" /> Bucle (Loop)</label
                 >
-                <label class="checkbox-label mt-2"
+                <label class="checkbox-label mt-1"
                   ><input type="checkbox" v-model="selectedElement.autoplay" /> Autoplay</label
                 >
               </div>
@@ -3217,7 +3155,7 @@
 
             <template v-if="selectedElement.type === 'interactive'">
               <div class="prop-section">
-                <div class="section-title">Hotspot (Punto Interactivo)</div>
+                <div class="section-title">Hotspot Interactivo</div>
                 <div class="prop-group">
                   <label>Color del Pulso</label>
                   <div class="color-picker-wrapper">
@@ -3256,7 +3194,7 @@
                   ><textarea
                     v-model="selectedElement.contentHtml"
                     class="pro-input"
-                    rows="5"
+                    rows="4"
                   ></textarea>
                 </div>
               </div>
@@ -3279,7 +3217,7 @@
                     class="pro-input"
                   />
                 </div>
-                <div class="prop-row mt-4">
+                <div class="prop-row mt-2">
                   <div class="prop-group half">
                     <label>Color Fondo</label>
                     <div class="color-picker-wrapper">
@@ -3325,7 +3263,7 @@
                     />
                   </div>
                 </div>
-                <div class="prop-row mt-2">
+                <div class="prop-row">
                   <div class="prop-group half">
                     <label>Fuente</label>
                     <select
@@ -3376,13 +3314,6 @@
                   v-for="(item, index) in selectedElement.items"
                   :key="index"
                   class="accordion-edit-item"
-                  style="
-                    background: rgba(255, 255, 255, 0.05);
-                    padding: 10px;
-                    border-radius: 6px;
-                    margin-bottom: 10px;
-                    border: 1px solid #30363d;
-                  "
                 >
                   <input
                     type="text"
@@ -3400,7 +3331,7 @@
                     class="btn-text-danger mt-1"
                     @click="selectedElement.items.splice(index, 1)"
                   >
-                    <i class="ph ph-x"></i> Eliminar Sección
+                    <i class="ph ph-x"></i> Eliminar
                   </button>
                 </div>
                 <button class="btn-ghost w-100 mt-2" @click="addAccordionSection">
@@ -3432,7 +3363,7 @@
                   <option value="zoom">Acercar (Zoom)</option>
                 </select>
               </div>
-              <div class="prop-group mt-4">
+              <div class="prop-group mt-2">
                 <label>Color Sólido</label>
                 <div class="color-picker-wrapper">
                   <input
@@ -3444,7 +3375,7 @@
                   <span class="color-hex">{{ slideConfigs[pageNum].bgColor.toUpperCase() }}</span>
                 </div>
               </div>
-              <div class="prop-group mt-4">
+              <div class="prop-group mt-2">
                 <label>Imagen de Fondo</label>
                 <label class="btn-ghost w-100 text-center block">
                   <input type="file" @change="setSlideBackgroundImage" accept="image/*" hidden />
@@ -3453,7 +3384,7 @@
                 </label>
                 <button
                   v-if="slideConfigs[pageNum].bgImage"
-                  class="btn-text-danger w-100 mt-2"
+                  class="btn-text-danger w-100 mt-1"
                   @click="removeBackgroundImage"
                 >
                   Eliminar imagen actual
@@ -3484,6 +3415,7 @@
 <script setup lang="ts">
 import { ref, computed, markRaw, onMounted, onUnmounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
+import EditorHeader from '@/components/EditorHeader.vue'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.js',
@@ -4574,9 +4506,14 @@ const changePageTo = async (num: number) => {
   }
 }
 const changeZoom = (delta: number) => (zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4)))
+
 const fitToScreen = () => {
-  if (workspaceRef.value)
-    zoom.value = Math.max(0.2, (workspaceRef.value.clientHeight - 80) / baseHeight.value)
+  if (workspaceRef.value) {
+    // Calculamos el zoom para que entre perfectamente a lo ancho Y a lo alto dejando un pequeño margen
+    const scaleX = (workspaceRef.value.clientWidth - 60) / baseWidth.value
+    const scaleY = (workspaceRef.value.clientHeight - 60) / baseHeight.value
+    zoom.value = Math.max(0.1, Math.min(scaleX, scaleY))
+  }
 }
 
 // --- CREACIÓN Y SELECCIÓN DE ELEMENTOS ---
@@ -5247,7 +5184,7 @@ const exportPresentation = () => {
         const pdfPageMap = ref(JSON.parse(document.getElementById('app-pdf-map').textContent || '{}'));
         const rawPdfB64 = document.getElementById('app-pdf-data').textContent;
         
-        const baseWidth = ref(${baseWidth.value}); const baseHeight = ref(${baseHeight.value}); const docType = ref('${docType.value}');
+        const baseWidth = ref(\${baseWidth.value}); const baseHeight = ref(\${baseHeight.value}); const docType = ref('\${docType.value}');
         const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
         
         const renderTrigger = ref(0); const activeTransition = ref('none');
@@ -5400,7 +5337,11 @@ const exportPresentation = () => {
 .pro-editor-app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
   background-color: #0d1117;
   color: #c9d1d9;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -5434,14 +5375,15 @@ const exportPresentation = () => {
     transform: rotate(360deg);
   }
 }
+/* pro-header existe por el componente hijo pero lo dejamos listo por si acaso */
 .pro-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 55px;
+  height: 48px;
   background-color: #161b22;
   border-bottom: 1px solid #30363d;
-  padding: 0 20px;
+  padding: 0 16px;
   flex-shrink: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 10;
@@ -5451,10 +5393,10 @@ const exportPresentation = () => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
 }
 .pro-logo {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -5466,7 +5408,7 @@ const exportPresentation = () => {
 }
 .file-menu {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 .menu-item {
   display: flex;
@@ -5475,9 +5417,9 @@ const exportPresentation = () => {
   background: transparent;
   border: 1px solid #30363d;
   color: #c9d1d9;
-  padding: 6px 14px;
+  padding: 4px 10px;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -5514,9 +5456,9 @@ const exportPresentation = () => {
   border: 1px solid #30363d;
 }
 .zoom-level {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  min-width: 50px;
+  min-width: 45px;
   text-align: center;
 }
 .divider-vertical {
@@ -5532,10 +5474,11 @@ const exportPresentation = () => {
   background: #2ea043;
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
+  font-size: 0.85rem;
   transition: all 0.2s;
 }
 .btn-play:hover {
@@ -5552,7 +5495,7 @@ const exportPresentation = () => {
 }
 .play-nav-overlay {
   position: fixed;
-  bottom: 30px;
+  bottom: 25px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(22, 27, 34, 0.9);
@@ -5572,8 +5515,8 @@ const exportPresentation = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: #30363d;
   color: white;
   border: none;
@@ -5595,22 +5538,25 @@ const exportPresentation = () => {
   font-weight: normal;
 }
 
+/* EVITA SCROLL GENERAL */
 .pro-workspace {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 .center-workspace {
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  min-width: 0;
   background-color: #010409;
 }
 .pro-top-toolbar {
   display: flex;
-  gap: 15px;
-  padding: 10px 20px;
+  gap: 10px;
+  padding: 6px 15px;
   background-color: #161b22;
   border-bottom: 1px solid #30363d;
   overflow-x: auto;
@@ -5618,25 +5564,25 @@ const exportPresentation = () => {
   align-items: center;
 }
 .pro-top-toolbar::-webkit-scrollbar {
-  height: 6px;
+  height: 4px;
 }
 .pro-top-toolbar::-webkit-scrollbar-thumb {
   background: #30363d;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 .toolbar-category {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   border-right: 1px solid #30363d;
-  padding-right: 15px;
+  padding-right: 12px;
 }
 .toolbar-category:last-child {
   border-right: none;
   padding-right: 0;
 }
 .category-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
   color: #8b949e;
   text-transform: uppercase;
@@ -5644,12 +5590,12 @@ const exportPresentation = () => {
 }
 .category-tools {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 .tool-btn {
-  font-size: 1.2rem;
-  width: 36px;
-  height: 36px;
+  font-size: 1.1rem;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5657,7 +5603,7 @@ const exportPresentation = () => {
   border: none;
   color: #8b949e;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 .tool-btn:hover {
@@ -5668,6 +5614,8 @@ const exportPresentation = () => {
   background: rgba(88, 166, 255, 0.15);
   color: #58a6ff;
 }
+
+/* ÁREA DEL LIENZO */
 .pro-canvas-area {
   flex: 1;
   position: relative;
@@ -5679,8 +5627,9 @@ const exportPresentation = () => {
   background-size: 20px 20px;
 }
 
+/* PANELES LATERALES MÁS COMPACTOS */
 .pro-sidebar {
-  width: 280px;
+  width: 240px; /* Reducido de 280px para dar más espacio a la diapositiva */
   background-color: #161b22;
   border-right: 1px solid #30363d;
   display: flex;
@@ -5691,12 +5640,12 @@ const exportPresentation = () => {
 .right-sidebar {
   border-right: none;
   border-left: 1px solid #30363d;
-  width: 320px;
+  width: 280px; /* Reducido de 320px para equilibrar paneles */
 }
 .panel-header {
-  padding: 16px;
+  padding: 12px 15px; /* Padding reducido */
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   border-bottom: 1px solid #30363d;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -5708,12 +5657,12 @@ const exportPresentation = () => {
 .badge {
   background: #30363d;
   color: #c9d1d9;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 10px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 .sidebar-footer {
-  padding: 16px;
+  padding: 12px 15px;
   border-top: 1px solid #30363d;
   background: #161b22;
 }
@@ -5722,18 +5671,18 @@ const exportPresentation = () => {
 .slides-preview-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  padding: 15px;
+  gap: 12px;
+  padding: 12px 15px;
   overflow-y: auto;
   flex: 1;
 }
 .thumb-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 6px;
+  padding: 6px;
   transition: background 0.2s;
 }
 .thumb-item:hover {
@@ -5744,7 +5693,7 @@ const exportPresentation = () => {
   border: 1px solid #58a6ff;
 }
 .thumb-num {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: bold;
   color: #8b949e;
   margin-top: 5px;
@@ -5762,7 +5711,7 @@ const exportPresentation = () => {
 .thumb-card {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid #30363d;
   background-size: cover;
   background-position: center;
@@ -5780,7 +5729,7 @@ const exportPresentation = () => {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   opacity: 0;
   transition: opacity 0.2s;
   backdrop-filter: blur(2px);
@@ -5789,8 +5738,8 @@ const exportPresentation = () => {
   opacity: 1;
 }
 .thumb-action-btn {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   background: #30363d;
@@ -5800,7 +5749,7 @@ const exportPresentation = () => {
   align-items: center;
   justify-content: center;
   transition: 0.2s;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 .thumb-action-btn:hover:not(:disabled) {
   background: #58a6ff;
@@ -5818,26 +5767,26 @@ const exportPresentation = () => {
 }
 
 .thumb-elements {
-  padding: 5px 0 0 0px;
+  padding: 4px 0 0 0;
   background: transparent;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 .tree-child {
-  padding: 6px 8px;
-  font-size: 0.8rem;
+  padding: 4px 6px;
+  font-size: 0.75rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #8b949e;
   border-radius: 4px;
   transition: 0.2s;
   border: 1px solid transparent;
 }
 .tree-child .icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 .tree-child:hover {
   background: #30363d;
@@ -5851,7 +5800,7 @@ const exportPresentation = () => {
 .drag-handle {
   cursor: grab;
   opacity: 0.5;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 .drag-handle:hover {
   opacity: 1;
@@ -5876,7 +5825,7 @@ const exportPresentation = () => {
   border: none;
   color: #8b949e;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.9rem;
   padding: 2px;
   border-radius: 4px;
   transition: 0.2s;
@@ -5890,77 +5839,77 @@ const exportPresentation = () => {
 }
 
 .panel-content {
-  padding: 20px;
+  padding: 15px; /* Reducido de 20px */
 }
 .empty-state {
   text-align: center;
   color: #8b949e;
-  padding-top: 40px;
-  font-size: 0.9rem;
+  padding-top: 30px;
+  font-size: 0.85rem;
 }
 .empty-icon-wrapper {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   background: #21262d;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 15px auto;
+  margin: 0 auto 12px auto;
 }
 .element-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 .badge-type {
   background: rgba(88, 166, 255, 0.15);
   color: #58a6ff;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   letter-spacing: 0.5px;
 }
 .prop-section {
   background: #0d1117;
   border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 15px;
+  border-radius: 6px;
+  padding: 12px; /* Reducido de 15px */
+  margin-bottom: 12px; /* Reducido de 15px */
 }
 .section-title {
   color: #c9d1d9;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .prop-group {
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 .prop-group:last-child {
   margin-bottom: 0;
 }
 .prop-group label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #8b949e;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-weight: 500;
 }
 .prop-row {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 .prop-row:last-child {
   margin-bottom: 0;
@@ -5974,11 +5923,11 @@ const exportPresentation = () => {
   background: #161b22;
   border: 1px solid #30363d;
   color: #c9d1d9;
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 6px 8px; /* Reducido */
+  border-radius: 4px;
   box-sizing: border-box;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   transition: border-color 0.2s;
 }
 .pro-input:focus {
@@ -5993,18 +5942,18 @@ const exportPresentation = () => {
 .color-picker-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #161b22;
   border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 4px 10px;
+  border-radius: 4px;
+  padding: 2px 8px;
 }
 .pro-color-picker {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   background: transparent;
 }
@@ -6013,54 +5962,54 @@ const exportPresentation = () => {
 }
 .color-picker-wrapper::-webkit-color-swatch {
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 .color-hex {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #c9d1d9;
   font-family: monospace;
 }
 .range-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .range-val {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #c9d1d9;
-  min-width: 35px;
+  min-width: 30px;
   text-align: right;
 }
 .info-box {
   background: rgba(88, 166, 255, 0.1);
   border-left: 3px solid #58a6ff;
-  padding: 12px;
-  border-radius: 6px;
+  padding: 10px;
+  border-radius: 4px;
   color: #c9d1d9;
-  line-height: 1.5;
-  font-size: 0.85rem;
+  line-height: 1.4;
+  font-size: 0.8rem;
 }
 .align-buttons {
   display: flex;
   gap: 4px;
   background: #161b22;
   border: 1px solid #30363d;
-  padding: 4px;
-  border-radius: 6px;
+  padding: 3px;
+  border-radius: 4px;
 }
 .align-buttons .tool-btn {
   flex: 1;
-  font-size: 1rem;
-  border-radius: 4px;
+  font-size: 0.9rem;
+  border-radius: 3px;
 }
 .align-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
   background: #161b22;
   border: 1px solid #30363d;
-  padding: 8px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: 4px;
 }
 
 .btn-primary,
@@ -6071,10 +6020,10 @@ const exportPresentation = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  gap: 6px;
+  padding: 6px 12px; /* Reducido */
+  border-radius: 4px;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
@@ -6117,8 +6066,8 @@ const exportPresentation = () => {
 .btn-icon-danger {
   background: transparent;
   color: #8b949e;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 4px;
+  border-radius: 4px;
 }
 .btn-icon-danger:hover {
   background: rgba(218, 54, 51, 0.1);
@@ -6129,61 +6078,42 @@ const exportPresentation = () => {
   color: #ff7b72;
   border: none;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 4px;
+  padding: 2px;
 }
 .btn-text-danger:hover {
   text-decoration: underline;
 }
 .large-btn {
-  padding: 12px 24px;
-  font-size: 1rem;
-  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  border-radius: 6px;
 }
 .w-100 {
   width: 100%;
   flex: 1;
 }
-.mt-1 {
-  margin-top: 5px;
-}
-.mt-2 {
-  margin-top: 10px;
-}
-.mt-4 {
-  margin-top: 20px;
-}
-.pt-4 {
-  padding-top: 20px;
-}
-.mb-1 {
-  margin-bottom: 5px;
-}
-.mb-2 {
-  margin-bottom: 10px;
-}
-.mb-0 {
-  margin-bottom: 0px !important;
-}
-.text-center {
-  text-align: center;
-}
-.text-left {
-  text-align: left;
-}
-.block {
-  display: block;
-}
+.mt-1 { margin-top: 5px; }
+.mt-2 { margin-top: 10px; }
+.mt-4 { margin-top: 20px; }
+.pt-4 { padding-top: 20px; }
+.mb-1 { margin-bottom: 5px; }
+.mb-2 { margin-bottom: 10px; }
+.mb-0 { margin-bottom: 0px !important; }
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.block { display: block; }
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #c9d1d9;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
+/* ÁREA DE LIENZO Y ELEMENTOS */
 .canvas-wrapper {
   position: relative;
   transform-origin: center center;
@@ -6248,8 +6178,8 @@ const exportPresentation = () => {
   position: absolute;
   bottom: -5px;
   right: -5px;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   background: #fff;
   border: 2px solid #58a6ff;
   border-radius: 50%;
@@ -6259,729 +6189,133 @@ const exportPresentation = () => {
 }
 
 /* ESTILOS ESPECÍFICOS COMPONENTES */
-.el-text {
-  width: 100%;
-  height: 100%;
-  white-space: pre-wrap;
-  line-height: 1.3;
-  word-break: break-word;
-}
-.el-list {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  word-break: break-word;
-}
-.el-checkbox-list {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  word-break: break-word;
-}
-.el-shape {
-  width: 100%;
-  height: 100%;
-}
-.el-icon {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.el-image-container,
-.el-video-container,
-.el-iframe-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-.el-content-fitted {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border: none;
-}
+.el-text { width: 100%; height: 100%; white-space: pre-wrap; line-height: 1.3; word-break: break-word; }
+.el-list { width: 100%; height: 100%; overflow: hidden; word-break: break-word; }
+.el-checkbox-list { width: 100%; height: 100%; overflow: hidden; word-break: break-word; }
+.el-shape { width: 100%; height: 100%; }
+.el-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.el-image-container, .el-video-container, .el-iframe-container { width: 100%; height: 100%; position: relative; }
+.el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
 .placeholder-box {
-  width: 100%;
-  height: 100%;
-  background: rgba(33, 38, 45, 0.8);
-  border: 1px dashed #30363d;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  color: #8b949e;
-  text-align: center;
-  padding: 10px;
-  box-sizing: border-box;
+  width: 100%; height: 100%; background: rgba(33, 38, 45, 0.8); border: 1px dashed #30363d;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
+  font-size: 0.8rem; color: #8b949e; text-align: center; padding: 10px; box-sizing: border-box;
 }
-.drag-protector {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10;
-  cursor: move;
-}
-.el-3d {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-.el-draw-board {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
+.drag-protector { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; cursor: move; }
+.el-3d { width: 100%; height: 100%; position: relative; }
+.el-draw-board { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; }
 .draw-drag-handle {
-  position: absolute;
-  top: -28px;
-  left: 0;
-  padding: 4px 12px;
-  background: #58a6ff;
-  color: #000;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: move;
-  border-radius: 4px;
-  z-index: 10;
+  position: absolute; top: -25px; left: 0; padding: 3px 10px; background: #58a6ff; color: #000;
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: bold;
+  cursor: move; border-radius: 3px; z-index: 10;
 }
 
-/* GRAFICOS */
-.el-chart-wrapper {
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-}
-.chart-inner-area {
-  flex: 1;
-  position: relative;
-  width: 100%;
-  height: calc(100% - 30px);
-}
-.chart-bar-container {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
-  width: 100%;
-  height: 100%;
-  gap: 8px;
-}
-.bar-col {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-}
-.bar-fill {
-  width: 100%;
-  border-radius: 4px 4px 0 0;
-  transition: height 0.4s ease-out;
-  box-shadow: inset 0 -10px 20px rgba(0, 0, 0, 0.1);
-}
-.chart-hbar-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  width: 100%;
-  height: 100%;
-  gap: 5px;
-}
-.hbar-row {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-  gap: 10px;
-}
-.hbar-track {
-  flex: 1;
-  height: 100%;
-  min-height: 10px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 0 4px 4px 0;
-  display: flex;
-  align-items: center;
-}
-.hbar-fill {
-  height: 100%;
-  border-radius: 0 4px 4px 0;
-  transition: width 0.4s ease-out;
-  box-shadow: inset -10px 0 20px rgba(0, 0, 0, 0.1);
-}
-.chart-pie-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-.pie-circle {
-  border-radius: 50%;
-  width: 100%;
-  height: 100%;
-  max-width: 250px;
-  max-height: 250px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-.donut-hole {
-  width: 55%;
-  height: 55%;
-  border-radius: 50%;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-.chart-label {
-  font-size: 11px;
-  margin-top: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-  font-weight: 500;
-}
-.chart-value {
-  font-size: 11px;
-  margin-bottom: 4px;
-  font-weight: 800;
-}
-.pie-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-  margin-top: 15px;
-}
-.pie-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  display: inline-block;
-}
-.el-interactive {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.hotspot-pulse {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 3px solid white;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.9;
-  }
-  70% {
-    transform: scale(1.3);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-}
-.interactive-modal {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 15px;
-  background: #fff;
-  color: #161b22;
-  padding: 24px;
-  border-radius: 12px;
-  width: 350px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  z-index: 9999;
-  cursor: default;
-  user-select: text;
-  -webkit-user-select: text;
-}
-.modal-title {
-  margin: 0 0 12px 0;
-  font-size: 1.2rem;
-  border-bottom: 2px solid #f0f6fc;
-  padding-bottom: 8px;
-  font-weight: 800;
-}
-.el-link {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0 15px;
-  box-sizing: border-box;
-  transition: 0.2s;
-}
-.el-link:hover {
-  filter: brightness(1.1);
-}
-.el-link:active {
-  transform: scale(0.97);
-}
-.el-accordion {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-.accordion-item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.accordion-item:last-child {
-  border-bottom: none;
-}
-.accordion-header {
-  padding: 14px 18px;
-  font-weight: 600;
-  display: flex;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.3);
-  transition: 0.2s;
-}
-.accordion-header:hover {
-  background: rgba(0, 0, 0, 0.4);
-}
-.accordion-content {
-  padding: 16px 18px;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  background: rgba(0, 0, 0, 0.1);
-  user-select: text;
-}
-.accordion-content.is-preview {
-  opacity: 0.5;
-}
-.accordion-edit-item {
-  background: rgba(255, 255, 255, 0.02);
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  border: 1px solid #30363d;
-}
+/* GRÁFICOS */
+.el-chart-wrapper { display: flex; flex-direction: column; box-sizing: border-box; width: 100%; height: 100%; }
+.chart-inner-area { flex: 1; position: relative; width: 100%; height: calc(100% - 25px); }
+.chart-bar-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: 100%; gap: 6px; }
+.bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; height: 100%; }
+.bar-fill { width: 100%; border-radius: 3px 3px 0 0; transition: height 0.4s ease-out; box-shadow: inset 0 -10px 20px rgba(0, 0, 0, 0.1); }
+.chart-hbar-container { display: flex; flex-direction: column; justify-content: space-around; width: 100%; height: 100%; gap: 4px; }
+.hbar-row { display: flex; align-items: center; width: 100%; height: 100%; gap: 8px; }
+.hbar-track { flex: 1; height: 100%; min-height: 8px; background: rgba(0, 0, 0, 0.05); border-radius: 0 3px 3px 0; display: flex; align-items: center; }
+.hbar-fill { height: 100%; border-radius: 0 3px 3px 0; transition: width 0.4s ease-out; box-shadow: inset -10px 0 20px rgba(0, 0, 0, 0.1); }
+.chart-pie-container { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: relative; }
+.pie-circle { border-radius: 50%; width: 100%; height: 100%; max-width: 250px; max-height: 250px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); }
+.donut-hole { width: 55%; height: 55%; border-radius: 50%; box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1); }
+.chart-label { font-size: 10px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-weight: 500; }
+.chart-value { font-size: 10px; margin-bottom: 2px; font-weight: 800; }
+.pie-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
+.pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 500; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.hotspot-pulse { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; animation: pulse 2s infinite; }
+@keyframes pulse { 0% { transform: scale(0.9); opacity: 0.9; } 70% { transform: scale(1.3); opacity: 0; } 100% { transform: scale(0.9); opacity: 0; } }
+.interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: #fff; color: #161b22; padding: 20px; border-radius: 8px; width: 300px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); z-index: 9999; cursor: default; user-select: text; -webkit-user-select: text; }
+.modal-title { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px solid #f0f6fc; padding-bottom: 6px; font-weight: 800; }
+
+.el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 15px; box-sizing: border-box; transition: 0.2s; }
+.el-link:hover { filter: brightness(1.1); }
+.el-link:active { transform: scale(0.97); }
+
+.el-accordion { width: 100%; height: 100%; overflow-y: auto; border-radius: 6px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); }
+.accordion-item { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.accordion-item:last-child { border-bottom: none; }
+.accordion-header { padding: 10px 14px; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; background: rgba(0, 0, 0, 0.3); transition: 0.2s; }
+.accordion-header:hover { background: rgba(0, 0, 0, 0.4); }
+.accordion-content { padding: 12px 14px; font-size: 0.85rem; line-height: 1.5; background: rgba(0, 0, 0, 0.1); user-select: text; }
+.accordion-content.is-preview { opacity: 0.5; }
+
+.accordion-edit-item { background: rgba(255, 255, 255, 0.02); padding: 8px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #30363d; }
 
 /* AUDIO VARIANTES */
-.el-audio-wrapper {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.audio-pill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 100%;
-  padding: 0 20px;
-  box-sizing: border-box;
-  font-family: sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: 0.2s;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-.audio-pill i {
-  font-size: 1.5rem;
-}
-.audio-label {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.audio-waves {
-  display: flex;
-  gap: 3px;
-  height: 15px;
-  align-items: center;
-}
-.audio-waves span {
-  width: 3px;
-  background: currentColor;
-  height: 100%;
-  border-radius: 2px;
-  animation: wave 1s infinite ease-in-out;
-}
-.audio-waves span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.audio-waves span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes wave {
-  0%,
-  100% {
-    height: 20%;
-  }
-  50% {
-    height: 100%;
-  }
-}
-.audio-minimal {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: 0.2s;
-}
-.audio-floating {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.5rem;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-}
-.audio-floating:hover {
-  transform: translateY(-4px);
-}
-.audio-floating:active {
-  transform: translateY(0);
-}
-.audio-minimal.is-playing,
-.audio-floating.is-playing {
-  animation: pulse-audio 1.5s infinite alternate;
-}
-@keyframes pulse-audio {
-  from {
-    box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.4);
-  }
-  to {
-    box-shadow: 0 0 0 15px rgba(255, 255, 255, 0);
-  }
-}
+.el-audio-wrapper { cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.audio-pill { display: flex; align-items: center; gap: 8px; width: 100%; height: 100%; padding: 0 15px; box-sizing: border-box; font-family: sans-serif; font-size: 0.85rem; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+.audio-pill i { font-size: 1.3rem; }
+.audio-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-waves { display: flex; gap: 3px; height: 12px; align-items: center; }
+.audio-waves span { width: 3px; background: currentColor; height: 100%; border-radius: 2px; animation: wave 1s infinite ease-in-out; }
+.audio-waves span:nth-child(2) { animation-delay: 0.2s; }
+.audio-waves span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wave { 0%, 100% { height: 20%; } 50% { height: 100%; } }
+.audio-minimal { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: 0.2s; }
+.audio-floating { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; transition: transform 0.2s, box-shadow 0.2s; }
+.audio-floating:hover { transform: translateY(-4px); }
+.audio-floating:active { transform: translateY(0); }
+.audio-minimal.is-playing, .audio-floating.is-playing { animation: pulse-audio 1.5s infinite alternate; }
+@keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.4); } to { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); } }
 
 /* ESTADO VACÍO */
-.empty-workspace {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #010409;
-}
-.empty-box {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  padding: 60px;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 500px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-}
-.empty-icon {
-  font-size: 4rem;
-  display: block;
-  margin-bottom: 20px;
-}
-.empty-box h3 {
-  margin: 0 0 15px 0;
-  font-size: 1.5rem;
-  font-weight: 800;
-}
-.empty-box p {
-  color: #8b949e;
-  font-size: 1rem;
-  margin: 0;
-  line-height: 1.6;
-}
+.empty-workspace { display: flex; align-items: center; justify-content: center; background-color: #010409; }
+.empty-box { background: #0d1117; border: 1px solid #30363d; padding: 50px; border-radius: 12px; text-align: center; max-width: 450px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
+.empty-box h3 { margin: 0 0 12px 0; font-size: 1.3rem; font-weight: 800; }
+.empty-box p { color: #8b949e; font-size: 0.9rem; margin: 0; line-height: 1.5; }
 
-/* ESTILOS DEL NUEVO MODAL (PLANTILLAS Y TAMAÑO) */
-.new-project-modal {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  padding: 30px;
-  width: 450px;
-  max-width: 90vw;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #30363d;
-  padding-bottom: 15px;
-}
-.modal-header h3 {
-  margin: 0;
-  color: #c9d1d9;
-  font-size: 1.25rem;
-}
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-top: 10px;
-}
-.template-card {
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-.template-card:hover {
-  border-color: #58a6ff;
-  background: rgba(88, 166, 255, 0.05);
-}
-.template-card.is-active {
-  border-color: #58a6ff;
-  background: rgba(88, 166, 255, 0.1);
-  box-shadow: 0 0 0 1px #58a6ff;
-}
-.template-card i {
-  font-size: 2rem;
-  color: #8b949e;
-}
-.template-card.is-active i {
-  color: #58a6ff;
-}
-.template-card span {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #c9d1d9;
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  border-top: 1px solid #30363d;
-}
+/* MODAL DE NUEVO PROYECTO */
+.new-project-modal { background: #0d1117; border: 1px solid #30363d; border-radius: 10px; padding: 25px; width: 400px; max-width: 90vw; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 12px; }
+.modal-header h3 { margin: 0; color: #c9d1d9; font-size: 1.1rem; }
+.template-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+.template-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s; }
+.template-card:hover { border-color: #58a6ff; background: rgba(88, 166, 255, 0.05); }
+.template-card.is-active { border-color: #58a6ff; background: rgba(88, 166, 255, 0.1); box-shadow: 0 0 0 1px #58a6ff; }
+.template-card i { font-size: 1.8rem; color: #8b949e; }
+.template-card.is-active i { color: #58a6ff; }
+.template-card span { font-size: 0.8rem; font-weight: 600; color: #c9d1d9; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #30363d; }
 
 /* MAPA MENTAL ESTILOS */
-.el-mindmap-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: visible;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-.mm-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-}
-.mm-level-0 {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-.mm-node-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: 0.2s;
-  position: relative;
-  z-index: 2;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-.mm-node-block:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-.mm-node-img {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-bottom: 5px;
-}
-.mm-node-text {
-  font-weight: bold;
-  font-size: 1rem;
-  text-align: center;
-}
-.mm-node-note {
-  font-size: 0.7rem;
-  opacity: 0.8;
-  margin-top: 4px;
-  text-align: center;
-  max-width: 150px;
-  line-height: 1.2;
-}
-.mm-children {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  position: relative;
-  padding-left: 40px;
-  gap: 15px;
-}
-.mm-child-wrapper {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-.mm-child-wrapper::before {
-  content: '';
-  position: absolute;
-  left: -20px;
-  top: 50%;
-  width: 20px;
-  height: 1px;
-  border-top: var(--mm-line-width) solid var(--mm-line-color);
-}
-.mm-child-wrapper::after {
-  content: '';
-  position: absolute;
-  left: -20px;
-  border-left: var(--mm-line-width) solid var(--mm-line-color);
-}
-.mm-child-wrapper:first-child::after {
-  top: 50%;
-  bottom: 0;
-}
-.mm-child-wrapper:last-child::after {
-  top: 0;
-  bottom: 50%;
-}
-.mm-child-wrapper:not(:first-child):not(:last-child)::after {
-  top: 0;
-  bottom: 0;
-}
-.mm-child-wrapper:first-child:last-child::after {
-  display: none;
-}
-.mm-connector-right {
-  position: absolute;
-  right: -20px;
-  top: 50%;
-  width: 20px;
-  border-top: var(--mm-line-width) solid var(--mm-line-color);
-}
+.el-mindmap-container { width: 100%; height: 100%; position: relative; overflow: visible; display: flex; align-items: center; justify-content: flex-start; }
+.mm-wrapper { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 100%; box-sizing: border-box; padding: 10px; }
+.mm-level-0 { display: flex; align-items: center; position: relative; }
+.mm-node-block { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; cursor: pointer; transition: 0.2s; position: relative; z-index: 2; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+.mm-node-block:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); }
+.mm-node-img { width: 30px; height: 30px; object-fit: cover; border-radius: 4px; margin-bottom: 4px; }
+.mm-node-text { font-weight: bold; font-size: 0.9rem; text-align: center; }
+.mm-node-note { font-size: 0.65rem; opacity: 0.8; margin-top: 2px; text-align: center; max-width: 120px; line-height: 1.2; }
+.mm-children { display: flex; flex-direction: column; justify-content: center; position: relative; padding-left: 30px; gap: 10px; }
+.mm-child-wrapper { display: flex; align-items: center; position: relative; }
+.mm-child-wrapper::before { content: ''; position: absolute; left: -15px; top: 50%; width: 15px; height: 1px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
+.mm-child-wrapper::after { content: ''; position: absolute; left: -15px; border-left: var(--mm-line-width) solid var(--mm-line-color); }
+.mm-child-wrapper:first-child::after { top: 50%; bottom: 0; }
+.mm-child-wrapper:last-child::after { top: 0; bottom: 50%; }
+.mm-child-wrapper:not(:first-child):not(:last-child)::after { top: 0; bottom: 0; }
+.mm-child-wrapper:first-child:last-child::after { display: none; }
+.mm-connector-right { position: absolute; right: -15px; top: 50%; width: 15px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
 
-/* TRANSICIONES DE DIAPOSITIVA */
-.slide-trans-fade {
-  animation: transFade 0.6s ease-out forwards;
-}
-.slide-trans-slide {
-  animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-.slide-trans-zoom {
-  animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
+/* TRANSICIONES Y ANIMACIONES */
+.slide-trans-fade { animation: transFade 0.6s ease-out forwards; }
+.slide-trans-slide { animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+.slide-trans-zoom { animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+@keyframes transFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes transSlide { from { translate: 100px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes transZoom { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
 
-@keyframes transFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes transSlide {
-  from {
-    translate: 100px 0;
-    opacity: 0;
-  }
-  to {
-    translate: 0 0;
-    opacity: 1;
-  }
-}
-@keyframes transZoom {
-  from {
-    scale: 0.95;
-    opacity: 0;
-  }
-  to {
-    scale: 1;
-    opacity: 1;
-  }
-}
-
-/* ANIMACIONES DE ELEMENTOS (Entradas) */
-.anim-fade-in {
-  animation: animFadeIn 0.8s ease-out both;
-}
-.anim-slide-in {
-  animation: animSlideIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both;
-}
-.anim-bounce {
-  animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-}
-
-@keyframes animFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes animSlideIn {
-  from {
-    translate: 0 50px;
-    opacity: 0;
-  }
-  to {
-    translate: 0 0;
-    opacity: 1;
-  }
-}
-@keyframes animBounce {
-  0% {
-    scale: 0.5;
-    opacity: 0;
-  }
-  50% {
-    scale: 1.05;
-    opacity: 1;
-  }
-  100% {
-    scale: 1;
-    opacity: 1;
-  }
-}
+.anim-fade-in { animation: animFadeIn 0.8s ease-out both; }
+.anim-slide-in { animation: animSlideIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
+.anim-bounce { animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
+@keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes animSlideIn { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
 </style>
