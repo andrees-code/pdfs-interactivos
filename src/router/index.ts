@@ -2,6 +2,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import EditorPresentaciones from '@/views/EditorPresentacionesView.vue'
 import LoginView from '@/views/LoginView.vue'
+import BibliotecaView from '@/views/BibliotecaView.vue'
 import { useAuthStore } from '@/stores/auth' // Importamos el store
 
 const router = createRouter({
@@ -14,10 +15,18 @@ const router = createRouter({
       meta: { requiresAuth: true } // 🔒 Requiere estar logueado
     },
     {
-      path: '/editorpresentaciones',
+      // ✨ AQUÍ ESTÁ EL CAMBIO CLAVE: agregamos /:id? 
+      // El "?" significa que el ID es opcional (puede haberlo o no)
+      path: '/editorpresentaciones/:id?',
       name: 'editor',
       component: EditorPresentaciones,
       meta: { requiresAuth: true } // 🔒 Requiere estar logueado
+    },
+    {
+      path: '/biblioteca',
+      name: 'biblioteca',
+      component: BibliotecaView,
+      meta: { requiresAuth: true }     
     },
     {
       path: '/login',

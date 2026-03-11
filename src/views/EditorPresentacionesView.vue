@@ -1,17 +1,33 @@
 <template>
   <div>
-    <div class="pro-editor-app">
+    <div class="pro-editor-app" ref="appContainerRef">
+      <transition name="toast-fade">
+        <div v-if="toast.show" class="pro-toast" :class="`toast-${toast.type}`">
+          <div class="toast-content">
+            <i class="ph" :class="toast.type === 'error' ? 'ph-warning-circle' : (toast.type === 'success' ? 'ph-check-circle' : 'ph-info')"></i>
+            <span>{{ toast.message }}</span>
+          </div>
+          <button class="toast-close" @click="closeToast"><i class="ph ph-x"></i></button>
+        </div>
+      </transition>
       <EditorHeader 
-        :is-converting="isConverting"
-        :has-doc="hasDoc"
-        :zoom="zoom"
-        :play-mode="playMode"
-        @file-upload="handleFileUpload"
-        @export="exportPresentation"
-        @change-zoom="changeZoom"
-        @fit-screen="fitToScreen"
-        @toggle-play="togglePlayMode"
-      />
+  :is-converting="isConverting"
+  :has-doc="hasDoc"
+  :zoom="zoom"
+  :play-mode="playMode"
+  :is-saving="isSaving" 
+  @file-upload="handleFileUpload"
+  @export="exportPresentation"
+  @change-zoom="changeZoom"
+  @fit-screen="fitToScreen"
+  @toggle-play="togglePlayMode"
+  @save="savePresentation" 
+/>
+<div v-if="isLoadingProject" class="loading-overlay">
+        <div class="spinner"></div>
+        <h2>Descargando Proyecto...</h2>
+        <p>Cargando elementos y recursos de la nube.</p>
+      </div>
       <div v-if="isConverting" class="loading-overlay">
         <div class="spinner"></div>
         <h2>Procesando Documento</h2>
@@ -416,7 +432,6 @@
                   playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : '',
                 ]"
                 :style="{
-                  /* ELIMINADO: transform: scale(zoom) (Ahora lo gestiona el contenedor padre) */
                   width: `${baseWidth}px`,
                   height: `${baseHeight}px`,
                   backgroundColor: currentBgColor,
@@ -427,6 +442,13 @@
                 }"
                 @click.self="handleCanvasClick"
               >
+              <div
+                  v-for="(guide, idx) in activeGuides"
+                  :key="'guide'+idx"
+                  class="snap-guide"
+                  :class="guide.type"
+                  :style="guide.type === 'vertical' ? { left: guide.pos + 'px' } : { top: guide.pos + 'px' }"
+                ></div>
                 <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
 
                 <div
@@ -1691,24 +1713,23 @@
                   ><input type="number" v-model="selectedElement.width" class="pro-input" />
                 </div>
                 <div class="prop-group half">
-                  <label>Alto (H)</label
-                  ><input
-                    type="number"
-                    v-model="selectedElement.height"
-                    class="pro-input"
-                    :disabled="
-                      [
-                        'text',
-                        'list',
-                        'checkbox',
-                        'accordion',
-                        'arrow',
-                        'rating',
-                        'codeblock',
-                      ].includes(selectedElement.type)
-                    "
-                  />
-                </div>
+  <label>Alto (H)</label>
+  
+  <input
+    v-if="selectedElement.height === 'auto'"
+    type="text"
+    value="Auto"
+    class="pro-input"
+    disabled
+  />
+  
+  <input
+    v-else
+    type="number"
+    v-model="selectedElement.height"
+    class="pro-input"
+  />
+</div>
               </div>
               <div class="prop-group" v-if="selectedElement.type !== 'rating'">
                 <label>Rotación (°)</label>
@@ -2309,21 +2330,22 @@
                 </div>
 
                 <div class="prop-group" v-if="selectedElement.type === 'text'">
-                  <label>Fondo de Caja</label>
-                  <div class="color-picker-wrapper">
-                    <input
-                      type="color"
-                      v-model="selectedElement.textBgColor"
-                      class="pro-color-picker"
-                    />
-                  </div>
-                  <button
-                    class="btn-text-danger mt-1"
-                    @click="selectedElement.textBgColor = 'transparent'"
-                  >
-                    Quitar Fondo
-                  </button>
-                </div>
+  <label>Fondo de Caja</label>
+  <div class="color-picker-wrapper">
+    <input
+      type="color"
+      :value="selectedElement.textBgColor === 'transparent' ? '#ffffff' : selectedElement.textBgColor"
+      @input="selectedElement.textBgColor = $event.target.value"
+      class="pro-color-picker"
+    />
+  </div>
+  <button
+    class="btn-text-danger mt-1"
+    @click="selectedElement.textBgColor = 'transparent'"
+  >
+    Quitar Fondo
+  </button>
+</div>
                 <div class="prop-group" v-if="selectedElement.type === 'sticky'">
                   <label>Color Papel</label>
                   <div class="color-picker-wrapper">
@@ -3423,10 +3445,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router' // 👈 NUEVO
 import * as pdfjsLib from 'pdfjs-dist'
 import EditorHeader from '@/components/EditorHeader.vue'
-
+import { useAuthStore } from '@/stores/auth';
+import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
+const authStore = useAuthStore();
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.js',
   import.meta.url,
@@ -3435,11 +3460,104 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 // --- ESTADO GENERAL ---
 const pdfCanvas = ref<HTMLCanvasElement | null>(null)
 const workspaceRef = ref<HTMLElement | null>(null)
+const appContainerRef = ref<HTMLElement | null>(null) // NUEVO REF
 // --- ESTADO DE NAVEGACIÓN (PAN Y ZOOM) ---
 const panX = ref(0)
 const panY = ref(0)
 const isPanning = ref(false)
 const isSpacePressed = ref(false)
+// --- GUÍAS DE ALINEACIÓN (SNAPPING) ---
+const activeGuides = ref<{ type: 'vertical' | 'horizontal'; pos: number }[]>([])
+const SNAP_THRESHOLD = 8 // Distancia en píxeles para que el "imán" actúe
+
+// --- ESTADOS DE GUARDADO Y API ---
+const API_URL = 'http://localhost:3000/api/presentations'; // Ajusta esto a tu URL real
+const presentationId = ref<string | null>(null);
+const presentationTitle = ref<string>('Mi Nueva Presentación');
+const isSaving = ref(false);
+const route = useRoute()
+const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
+
+const router = useRouter() // 👈 Inicializamos el router
+
+// --- SISTEMA DE NOTIFICACIONES (TOAST) ---
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'info' // Puede ser 'success', 'error', 'warning', o 'info'
+})
+let toastTimeout: ReturnType<typeof setTimeout> | null = null
+
+const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+  toast.value.message = message
+  toast.value.type = type
+  toast.value.show = true
+  
+  if (toastTimeout) clearTimeout(toastTimeout)
+  
+  // Se oculta automáticamente a los 3.5 segundos
+  toastTimeout = setTimeout(() => {
+    toast.value.show = false
+  }, 3500)
+}
+
+const closeToast = () => {
+  toast.value.show = false
+  if (toastTimeout) clearTimeout(toastTimeout)
+}
+// --- FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
+// --- FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
+const savePresentation = async (isAutosave = false) => {
+  if (!hasDoc.value) return;
+
+  // Solo mostramos el icono de carga en el header si es un guardado manual
+  if (!isAutosave) isSaving.value = true;
+
+  try {
+    const payload = {
+      userId: authStore.user?._id || authStore.user?.id,
+      title: presentationTitle.value,
+      docType: docType.value,
+      baseWidth: baseWidth.value,
+      baseHeight: baseHeight.value,
+      documentState: documentState.value,
+      slideConfigs: slideConfigs.value,
+      pdfPageMap: pdfPageMap.value,
+      pdfBase64: _PDF_BASE64_STORE || null,
+    };
+
+    const url = presentationId.value ? `${API_URL}/${presentationId.value}` : API_URL;
+    const method = presentationId.value ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+    const data = await response.json();
+
+    // Si es una creación nueva, guardamos el ID y actualizamos la URL
+    if (!presentationId.value && data._id) {
+      presentationId.value = data._id;
+      // ✨ MAGIA: Cambiamos la URL silenciosamente para que el F5 funcione
+      router.replace(`/editorpresentaciones/${data._id}`);
+    }
+
+    // Solo mostramos el Toast verde si el usuario le dio al botón o a Ctrl+S
+    if (!isAutosave) {
+      showToast('¡Presentación guardada con éxito!', 'success');
+    }
+
+  } catch (error) {
+    console.error('Error al guardar la presentación:', error);
+    if (!isAutosave) showToast('Hubo un problema al guardar la presentación.', 'error');
+  } finally {
+    if (!isAutosave) isSaving.value = false;
+  }
+};
 
 let _RAW_PDF_DOC: any = null
 let _PDF_BASE64_STORE: string = ''
@@ -3509,6 +3627,7 @@ const pdfThumbnails = ref<Record<number, string>>({})
 // MULTISELECCIÓN Y MINDMAP
 const selectedElementIds = ref<string[]>([])
 const activeMapNodeId = ref<string | null>(null)
+const clipboardElements = ref<any[]>([])
 
 const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
 const selectedElement = computed(() =>
@@ -4037,27 +4156,254 @@ onMounted(() => {
     document.head.appendChild(link)
   }
   document.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('keyup', handleGlobalKeyup)
+  
+  // NUEVOS LISTENERS DE FULLSCREEN
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('keyup', handleGlobalKeyup)
+  
+  // REMOVER LISTENERS DE FULLSCREEN
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+  
   if (timerInterval) clearInterval(timerInterval)
 })
 
-const handleGlobalKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Escape' && playMode.value) togglePlayMode()
-  if (playMode.value && ['ArrowRight', ' ', 'ArrowLeft'].includes(e.key)) {
-    e.preventDefault()
-    changePageTo(pageNum.value + (e.key === 'ArrowLeft' ? -1 : 1))
+// --- LÓGICA DE ATAJOS DE TECLADO ---
+
+const copySelectedElements = () => {
+  if (selectedElementIds.value.length === 0 || playMode.value) return
+  
+  // Guardar copias profundas de los elementos seleccionados
+  clipboardElements.value = currentPageElements.value
+    .filter(el => selectedElementIds.value.includes(el.id))
+    .map(el => JSON.parse(JSON.stringify(el)))
+    
+  console.log(`${clipboardElements.value.length} elementos copiados.`)
+}
+
+const pasteElements = () => {
+  if (clipboardElements.value.length === 0 || playMode.value) return
+
+  selectedElementIds.value = [] // Limpiar selección actual
+  const newGroupId = clipboardElements.value.length > 1 ? `group_${Date.now()}` : null;
+
+  clipboardElements.value.forEach((clipboardEl) => {
+    // Crear un nuevo elemento basado en el copiado, con nuevo ID y ligero desplazamiento
+    const newElement = {
+      ...JSON.parse(JSON.stringify(clipboardEl)),
+      id: `el_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      x: clipboardEl.x + 20, // Desplazar un poco para que no se superponga exactamente
+      y: clipboardEl.y + 20,
+    }
+    
+    // Si formaban parte de un grupo, asignarles un nuevo grupo juntos
+    if (clipboardEl.groupId) {
+        newElement.groupId = newGroupId;
+    }
+
+    if (!documentState.value[pageNum.value]) documentState.value[pageNum.value] = []
+    documentState.value[pageNum.value].push(newElement)
+    selectedElementIds.value.push(newElement.id)
+  })
+  
+  // Actualizar el portapapeles con las nuevas posiciones para que el siguiente "pegar" se desplace otra vez
+  clipboardElements.value = clipboardElements.value.map(el => ({
+    ...el,
+    x: el.x + 20,
+    y: el.y + 20
+  }))
+}
+
+const selectAllElements = () => {
+  if (playMode.value) return
+  selectedElementIds.value = currentPageElements.value
+    .filter(el => !el.isLocked)
+    .map(el => el.id)
+}
+
+// --- SISTEMA DE DESHACER / REHACER (HISTORIAL) ---
+const history = ref<any[]>([])
+const historyIndex = ref(-1)
+let isUndoRedoAction = false
+let historyTimeout: ReturnType<typeof setTimeout> | null = null
+
+const resetHistory = () => {
+  history.value = []
+  historyIndex.value = -1
+}
+
+const saveHistory = () => {
+  if (isUndoRedoAction) return // No guardar si el cambio viene de un Deshacer
+
+  // Si estamos atrás en el tiempo y hacemos un cambio, reescribimos el futuro
+  if (historyIndex.value < history.value.length - 1) {
+    history.value = history.value.slice(0, historyIndex.value + 1)
   }
 
-  // NUEVO: Detectar barra espaciadora para mover lienzo
-  if (e.code === 'Space' && !playMode.value) {
-    const target = e.target as HTMLElement;
-    // Prevenir activación si estamos escribiendo en un input o textarea
-    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
+  // Guardar un clon absoluto (profundo) del estado actual
+  history.value.push(JSON.parse(JSON.stringify(documentState.value)))
+
+  // Limitar a los últimos 50 pasos para no colapsar la memoria RAM
+  if (history.value.length > 50) {
+    history.value.shift()
+  } else {
+    historyIndex.value++
+  }
+}
+
+const undo = () => {
+  if (playMode.value || historyIndex.value <= 0) return // Índice 0 es el estado base original
+  
+  isUndoRedoAction = true
+  historyIndex.value--
+  documentState.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  selectedElementIds.value = [] // Limpiar selección por si el elemento ya no existe
+  
+  // Pequeño retardo para que el watcher no lo capte
+  setTimeout(() => { isUndoRedoAction = false }, 50)
+}
+
+const redo = () => {
+  if (playMode.value || historyIndex.value >= history.value.length - 1) return
+  
+  isUndoRedoAction = true
+  historyIndex.value++
+  documentState.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  selectedElementIds.value = []
+  
+  setTimeout(() => { isUndoRedoAction = false }, 50)
+}
+
+// Ojo vigía mágico de Vue 👁️
+watch(
+  () => documentState.value,
+  () => {
+    if (isUndoRedoAction) return
+    if (historyTimeout) clearTimeout(historyTimeout)
+    
+    // Espera 400ms después de que el usuario termine de hacer cambios rápidos (ej: arrastrar o escribir)
+    historyTimeout = setTimeout(() => {
+      saveHistory()
+    }, 400)
+  },
+  { deep: true } // "deep: true" revisa cada rincón de los objetos anidados
+)
+// --- SISTEMA DE AUTOGUARDADO ---
+let autosaveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  [() => documentState.value, () => slideConfigs.value, () => presentationTitle.value],
+  () => {
+    // Evitamos autoguardar mientras el proyecto se está descargando inicialmentel
+    if (isLoadingProject.value || !hasDoc.value) return;
+
+    if (autosaveTimeout) clearTimeout(autosaveTimeout);
+    
+    // Espera 3 segundos de inactividad antes de guardar
+    autosaveTimeout = setTimeout(() => {
+      savePresentation(true); // true indica que es autoguardado (silencioso)
+    }, 3000);
+  },
+  { deep: true }
+);
+
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  const target = e.target as HTMLElement;
+  const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+  // --- NUEVO: GUARDAR (Ctrl + S o Cmd + S) ---
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault(); // Evita que se abra el diálogo de guardar HTML del navegador
+    savePresentation();
+    return;
+  }
+  // --- ATAJOS DEL MODO PRESENTACIÓN (PLAY MODE) ---
+  if (playMode.value) {
+    if (e.key === 'Escape') {
+      const isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      if (!isFullscreen) togglePlayMode()
+    }
+    
+    if (['ArrowRight', ' ', 'ArrowLeft'].includes(e.key)) {
+      e.preventDefault()
+      changePageTo(pageNum.value + (e.key === 'ArrowLeft' ? -1 : 1))
+    }
+    return; // Si estamos en Play Mode, no procesar atajos del editor
+  }
+
+  // --- ATAJOS DEL EDITOR (Solo si no estamos escribiendo en un input) ---
+  if (!isTyping) {
+    // ELIMINAR (Supr o Backspace)
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      deleteSelected();
+    }
+
+    // COPIAR (Ctrl + C o Cmd + C)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      copySelectedElements();
+    }
+
+    // PEGAR (Ctrl + V o Cmd + V)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+      e.preventDefault();
+      pasteElements();
+    }
+
+    // SELECCIONAR TODO (Ctrl + A o Cmd + A)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      selectAllElements();
+    }
+
+    // MOVER LIENZO (Barra espaciadora)
+    if (e.code === 'Space') {
       isSpacePressed.value = true;
-      e.preventDefault(); // Evita que la página haga scroll nativo
+      e.preventDefault();
+    }
+  }
+  // --- ATAJOS DEL EDITOR ---
+  
+  // DESHACER (Ctrl + Z o Cmd + Z)
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    undo();
+  }
+
+  // REHACER (Ctrl + Shift + Z o Cmd + Shift + Z, o Ctrl + Y)
+  if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y')) {
+    e.preventDefault();
+    redo();
+  }
+
+  // Atajos bloqueados mientras se escribe (Supr, Copiar, Pegar, Espacio...)
+  if (!isTyping) {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      deleteSelected();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      copySelectedElements();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+      e.preventDefault();
+      pasteElements();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      selectAllElements();
+    }
+    if (e.code === 'Space') {
+      isSpacePressed.value = true;
+      e.preventDefault();
     }
   }
 }
@@ -4073,6 +4419,10 @@ onMounted(() => {
   // ... resto de tu código onMounted
   document.addEventListener('keydown', handleGlobalKeydown)
   document.addEventListener('keyup', handleGlobalKeyup)
+const routeId = route.params.id as string;
+  if (routeId) {
+    loadProjectFromDB(routeId);
+  }
 })
 
 onUnmounted(() => {
@@ -4169,8 +4519,65 @@ const handleFileUpload = async (event: Event) => {
   else if (fileExtension === 'html') await processHtmlFile(file)
 }
 
+const loadProjectFromDB = async (id: string) => {
+  isLoadingProject.value = true;
+  try {
+    const data = await presentationService.getPresentation(id);
+    
+    // 1. Asignamos los datos básicos
+    presentationId.value = data._id;
+    presentationTitle.value = data.title || 'Sin título';
+    docType.value = data.docType || 'blank';
+    baseWidth.value = data.baseWidth || 1280;
+    baseHeight.value = data.baseHeight || 720;
+    
+    // 2. Asignamos los objetos, configuraciones y mapeo
+    documentState.value = data.documentState || {};
+    slideConfigs.value = data.slideConfigs || {};
+    pdfPageMap.value = data.pdfPageMap || {};
+    
+    // 3. Calculamos cuántas páginas tiene
+    const pagesArray = Object.keys(documentState.value).map(Number);
+    numPages.value = pagesArray.length > 0 ? Math.max(...pagesArray) : 1;
+    pageNum.value = 1;
+    
+    // 4. Si es PDF, lo reconstruimos a partir del Base64
+    if (docType.value === 'pdf' && data.pdfBase64) {
+      _PDF_BASE64_STORE = data.pdfBase64;
+      const pdfData = atob(_PDF_BASE64_STORE);
+      const uint8Array = new Uint8Array(pdfData.length);
+      for (let i = 0; i < pdfData.length; i++) {
+        uint8Array[i] = pdfData.charCodeAt(i);
+      }
+      
+      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+      _RAW_PDF_DOC = markRaw(await loadingTask.promise);
+      await generatePdfThumbnails();
+    } else {
+      _RAW_PDF_DOC = null;
+      pdfThumbnails.value = {};
+    }
+
+    // 5. Activamos la interfaz
+    hasDoc.value = true;
+    resetHistory();
+    
+    await renderPage(1);
+    setTimeout(fitToScreen, 100);
+
+  } catch (error) {
+    console.error('Error al cargar la presentación:', error);
+    showToast('El proyecto no existe o fue eliminado.', 'error');
+    // ✨ Redirigimos a la biblioteca para sacarlo del error
+    router.push('/biblioteca');
+  } finally {
+    isLoadingProject.value = false;
+  }
+}
+
 const processPdfFile = async (file: File | Blob) => {
   docType.value = 'pdf'
+  presentationId.value = null; // 👈 AÑADE ESTO
   const reader = new FileReader()
   reader.onload = async (e) => {
     _PDF_BASE64_STORE = (e.target?.result as string).split(',')[1]
@@ -4178,6 +4585,7 @@ const processPdfFile = async (file: File | Blob) => {
     _RAW_PDF_DOC = markRaw(await loadingTask.promise)
     numPages.value = _RAW_PDF_DOC.numPages
     hasDoc.value = true
+    resetHistory()
     documentState.value = {}
     slideConfigs.value = {}
     pdfPageMap.value = {}
@@ -4185,7 +4593,11 @@ const processPdfFile = async (file: File | Blob) => {
     initializeConfigs()
     await generatePdfThumbnails()
     await renderPage(1)
-    setTimeout(fitToScreen, 100)
+
+    setTimeout(() => {
+      fitToScreen();
+      savePresentation(true); // Guarda inmediatamente para crear la URL
+    }, 100);
   }
   reader.readAsDataURL(file)
 }
@@ -4218,7 +4630,7 @@ const convertPptxToPdfViaAPI = async (file: File) => {
       for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i)
       await processPdfFile(new Blob([byteNums], { type: 'application/pdf' }))
     } catch {
-      alert('Error al convertir el PowerPoint. Verifica tu API Key.')
+      showToast('Error al convertir el PowerPoint. Verifica tu API Key.', 'error');
     } finally {
       isConverting.value = false
     }
@@ -4240,7 +4652,7 @@ const processHtmlFile = (file: File) => {
       if (!stateDataNode || !configsDataNode) {
         throw new Error('El archivo HTML no es un proyecto válido de PresentPro.')
       }
-
+      resetHistory()
       documentState.value = JSON.parse(stateDataNode.textContent || '{}')
       slideConfigs.value = JSON.parse(configsDataNode.textContent || '{}')
 
@@ -4286,7 +4698,7 @@ const processHtmlFile = (file: File) => {
       setTimeout(fitToScreen, 100)
     } catch (error) {
       console.error(error)
-      alert('Error al importar. ¿Estás seguro de que es un archivo exportado por PresentPro?')
+      showToast('Error al importar. Formato de archivo inválido.', 'error');
     }
   }
   reader.readAsText(file)
@@ -4324,6 +4736,7 @@ const renderPage = async (num: number) => {
 
 // --- CREACIÓN DE PROYECTO (MODAL) ---
 const confirmCreateProject = () => {
+  presentationId.value = null; // 👈 AÑADE ESTO
   _RAW_PDF_DOC = null
   _PDF_BASE64_STORE = ''
   docType.value = 'blank'
@@ -4348,7 +4761,7 @@ const confirmCreateProject = () => {
   }
 
   isCustomTemplateMode.value = projectConfigs.value.template === 'custom'
-
+  resetHistory()
   documentState.value = {}
   slideConfigs.value = {}
   pdfPageMap.value = {}
@@ -4360,7 +4773,11 @@ const confirmCreateProject = () => {
   hasDoc.value = true
   showNewProjectModal.value = false
   renderPage(1)
-  setTimeout(fitToScreen, 100)
+
+  setTimeout(() => {
+    fitToScreen();
+    savePresentation(true); // Guarda inmediatamente para crear la URL
+  }, 100);
 }
 
 const createTemplateElement = (type: ToolType, overrides: any) => {
@@ -4455,8 +4872,11 @@ const applyTemplate = (templateId: string) => {
 
 // --- GESTIÓN DE PÁGINAS ---
 const deleteSlide = (page: number) => {
-  if (numPages.value <= 1) return alert('No puedes eliminar la única diapositiva del proyecto.')
-  if (!confirm(`¿Estás seguro de eliminar la Diapositiva ${page}?`)) return
+if (numPages.value <= 1) {
+    showToast('No puedes eliminar la única diapositiva del proyecto.', 'warning');
+    return;
+}
+    if (!confirm(`¿Estás seguro de eliminar la Diapositiva ${page}?`)) return
 
   for (let i = page; i < numPages.value; i++) {
     documentState.value[i] = documentState.value[i + 1] || []
@@ -4792,7 +5212,7 @@ const playAudio = (el: any) => {
   }
 }
 
-// --- ARRASTRE Y REDIMENSIÓN ---
+// --- ARRASTRE Y REDIMENSIÓN CON SNAPPING (IMÁN) ---
 let isDragging = false,
   isResizing = false,
   startX = 0,
@@ -4800,6 +5220,7 @@ let isDragging = false,
   initialPositions: any[] = [],
   initialWidth = 0,
   initialHeight = 0
+
 const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
   if (playMode.value || isResizing || el.isLocked || (el.type === 'draw' && !isHandle)) return
   e.preventDefault()
@@ -4812,27 +5233,118 @@ const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
   startY = e.clientY
 
   const draggedEls = currentPageElements.value.filter(
-    (e) => selectedElementIds.value.includes(e.id) && !e.isLocked,
+    (elem) => selectedElementIds.value.includes(elem.id) && !elem.isLocked,
   )
-  initialPositions = draggedEls.map((e) => ({ id: e.id, startX: e.x, startY: e.y }))
+
+  // Guardar posiciones y estimar dimensiones para el cálculo magnético
+  initialPositions = draggedEls.map((elem) => ({
+    id: elem.id,
+    startX: elem.x,
+    startY: elem.y,
+    width: typeof elem.width === 'number' ? elem.width : 150, // Fallback si es 'auto'
+    height: typeof elem.height === 'number' ? elem.height : 50,
+  }))
+
+  // 1. Calcular la caja delimitadora (Bounding Box) inicial de la selección
+  const initMinX = Math.min(...initialPositions.map(p => p.startX))
+  const initMinY = Math.min(...initialPositions.map(p => p.startY))
+  const initMaxX = Math.max(...initialPositions.map(p => p.startX + p.width))
+  const initMaxY = Math.max(...initialPositions.map(p => p.startY + p.height))
+  const initWidth = initMaxX - initMinX
+  const initHeight = initMaxY - initMinY
+
+  // 2. Extraer puntos a los que nos queremos pegar (Lienzo + Otros Elementos)
+  const targetElements = currentPageElements.value.filter(
+    (elem) => !selectedElementIds.value.includes(elem.id) && !elem.isHidden
+  )
+
+  // Puntos del lienzo (Izquierda, Centro, Derecha / Arriba, Medio, Abajo)
+  const snapXPoints = [0, baseWidth.value / 2, baseWidth.value]
+  const snapYPoints = [0, baseHeight.value / 2, baseHeight.value]
+
+  // Puntos de otros elementos
+  targetElements.forEach(t => {
+    const tw = typeof t.width === 'number' ? t.width : 150
+    const th = typeof t.height === 'number' ? t.height : 50
+    snapXPoints.push(t.x, t.x + tw / 2, t.x + tw)
+    snapYPoints.push(t.y, t.y + th / 2, t.y + th)
+  })
 
   const onMouseMove = (moveEvent: MouseEvent) => {
     if (!isDragging) return
-    const dx = (moveEvent.clientX - startX) / zoom.value
-    const dy = (moveEvent.clientY - startY) / zoom.value
+    
+    // Movimiento raw del ratón ajustado al zoom
+    const rawDx = (moveEvent.clientX - startX) / zoom.value
+    const rawDy = (moveEvent.clientY - startY) / zoom.value
+
+    let finalDx = rawDx
+    let finalDy = rawDy
+
+    activeGuides.value = [] // Limpiar guías activas
+
+    // Posiciones proyectadas si nos moviéramos libremente
+    const projX = initMinX + rawDx
+    const projY = initMinY + rawDy
+    const projMidX = projX + initWidth / 2
+    const projMaxX = projX + initWidth
+    const projMidY = projY + initHeight / 2
+    const projMaxY = projY + initHeight
+
+    // Ajustar la sensibilidad del imán según el zoom para que se sienta natural
+    const dynamicThreshold = SNAP_THRESHOLD / zoom.value
+
+    // Función interna para buscar coincidencias
+    const findSnap = (projPoints: number[], snapPoints: number[], initPoints: number[]) => {
+      let bestDelta = null
+      let minDistance = dynamicThreshold + 1
+      let snappedPos = null
+
+      for (let i = 0; i < projPoints.length; i++) {
+        for (const snapP of snapPoints) {
+          const dist = Math.abs(projPoints[i] - snapP)
+          if (dist < minDistance) {
+            minDistance = dist
+            bestDelta = snapP - initPoints[i] // Cuánto debemos movernos realmente
+            snappedPos = snapP // Dónde dibujar la línea
+          }
+        }
+      }
+      return { bestDelta, snappedPos }
+    }
+
+    // Comprobar colisiones Eje X
+    const resX = findSnap([projX, projMidX, projMaxX], snapXPoints, [initMinX, initMinX + initWidth / 2, initMaxX])
+    if (resX.bestDelta !== null) {
+      finalDx = resX.bestDelta
+      activeGuides.value.push({ type: 'vertical', pos: resX.snappedPos as number })
+    }
+
+    // Comprobar colisiones Eje Y
+    const resY = findSnap([projY, projMidY, projMaxY], snapYPoints, [initMinY, initMinY + initHeight / 2, initMaxY])
+    if (resY.bestDelta !== null) {
+      finalDy = resY.bestDelta
+      activeGuides.value.push({ type: 'horizontal', pos: resY.snappedPos as number })
+    }
+
+    // Aplicar las posiciones finales (ya sea movimiento libre o imantado)
+    // Aplicar las posiciones finales (ya sea movimiento libre o imantado)
     draggedEls.forEach((elem) => {
       const initPos = initialPositions.find((p) => p.id === elem.id)
       if (initPos) {
-        elem.x = initPos.startX + dx
-        elem.y = initPos.startY + dy
+        // Redondeamos a la fracción de 0.5 más cercana
+        elem.x = Math.round((initPos.startX + finalDx) * 2) / 2
+        elem.y = Math.round((initPos.startY + finalDy) * 2) / 2
       }
     })
   }
+
   const onMouseUp = () => {
     isDragging = false
+    activeGuides.value = [] // Esconder guías al soltar
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
   }
+  
   document.addEventListener('mousemove', onMouseMove)
   document.addEventListener('mouseup', onMouseUp)
 }
@@ -4869,8 +5381,11 @@ const triggerInteraction = (el: any) => {
 }
 
 // --- PLAY MODE & TIMERS ---
-const togglePlayMode = async () => {
-  playMode.value = !playMode.value
+// --- PLAY MODE & TIMERS (CON FULLSCREEN API) ---
+
+// 1. Lógica de estado puro (lo que antes hacía togglePlayMode)
+const setPlayModeState = async (isActive: boolean) => {
+  playMode.value = isActive
   selectedElementIds.value = []
   renderTrigger.value++
 
@@ -4882,14 +5397,14 @@ const togglePlayMode = async () => {
       if (el.type === 'accordion') el.items.forEach((item: any) => (item.isOpen = false))
       if (el.type === 'timer') {
         el.timeLeft = el.duration * 60
-        el.isRunning = playMode.value
+        el.isRunning = isActive
       }
       if (el.type === 'audio') {
         el.isPlaying = false
         const a = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement
         if (a) {
           a.pause()
-          if (playMode.value && el.autoplay)
+          if (isActive && el.autoplay)
             a.play()
               .then(() => (el.isPlaying = true))
               .catch(() => {})
@@ -4898,7 +5413,7 @@ const togglePlayMode = async () => {
     })
   })
 
-  if (playMode.value) {
+  if (isActive) {
     activeTransition.value = slideConfigs.value[pageNum.value]?.transition || 'none'
     timerInterval = setInterval(() => {
       Object.values(documentState.value).forEach((pageItems) => {
@@ -4915,6 +5430,48 @@ const togglePlayMode = async () => {
   fitToScreen()
 }
 
+// 2. Función que interactúa con la API del Navegador
+const togglePlayMode = async () => {
+  const el = appContainerRef.value || document.documentElement
+
+  if (!playMode.value) {
+    // Entrar en pantalla completa
+    try {
+      if (el.requestFullscreen) await el.requestFullscreen()
+      else if ((el as any).webkitRequestFullscreen) await (el as any).webkitRequestFullscreen() // Safari
+      else if ((el as any).msRequestFullscreen) await (el as any).msRequestFullscreen() // Edge antiguo
+    } catch (err) {
+      console.warn("El navegador bloqueó el modo pantalla completa:", err)
+      setPlayModeState(true) // Fallback: Activarlo de todas formas aunque no sea fullscreen real
+    }
+  } else {
+    // Salir de pantalla completa
+    try {
+      if (document.exitFullscreen) await document.exitFullscreen()
+      else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen()
+      else if ((document as any).msExitFullscreen) await (document as any).msExitFullscreen()
+    } catch (err) {
+      console.warn("No se pudo salir del modo pantalla completa", err)
+      setPlayModeState(false) // Fallback
+    }
+  }
+}
+
+// 3. Escuchar cambios nativos (ej: si el usuario presiona "ESC")
+const onFullscreenChange = () => {
+  const isFullscreen = !!(
+    document.fullscreenElement ||
+    (document as any).webkitFullscreenElement ||
+    (document as any).msFullscreenElement
+  )
+  
+  // Sincronizar el estado de Vue con el estado real del navegador
+  if (playMode.value !== isFullscreen) {
+    setPlayModeState(isFullscreen)
+  }
+}
+
+// --- EXPORTACIÓN HTML ---
 // --- EXPORTACIÓN HTML ---
 const exportPresentation = () => {
   if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank')
@@ -4972,7 +5529,7 @@ const exportPresentation = () => {
 
     @keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.4); } to { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); } }
     .play-nav-overlay { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); padding: 10px 20px; border-radius: 30px; display: flex; gap: 15px; z-index: 10000; color: white; align-items: center; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.5);}
-    .play-nav-overlay button { width: 32px; height: 32px; border-radius: 50%; background: #444; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s;}
+    .play-nav-overlay button { display: flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 50%; background: #444; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s;}
     .play-nav-overlay button:hover:not(:disabled) { background: #58a6ff; }
     .play-nav-overlay button:disabled { opacity: 0.5; cursor: not-allowed; }
     
@@ -5235,7 +5792,7 @@ const exportPresentation = () => {
               <div v-else-if="el.variant === 'floating'" class="audio-floating" :class="{ 'is-playing': el.isPlaying }" :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: '50%', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }">
                 <i class="ph" :class="el.isPlaying ? 'ph-stop' : 'ph-play'"></i>
               </div>
-              <audio v-if="el.src" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="playMode && el.autoplay"></audio>
+              <audio v-if="el.src" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="el.autoplay"></audio>
             </div>
 
             <div v-else-if="el.type === 'link'" class="el-link" 
@@ -5248,7 +5805,7 @@ const exportPresentation = () => {
               <div v-for="(item, idx) in el.items" :key="idx" class="accordion-item" :style="{ borderBottomColor: el.color }">
                 <div class="accordion-header" @click.stop="item.isOpen = !item.isOpen">
                   <span>{{ item.title }}</span>
-                  <span>{{ item.isOpen ? '▲' : '▼' }}</span>
+                  <i class="ph" :class="item.isOpen ? 'ph-caret-up' : 'ph-caret-down'"></i>
                 </div>
                 <div v-show="item.isOpen" class="accordion-content">
                   {{ item.content }}
@@ -5260,9 +5817,13 @@ const exportPresentation = () => {
     </div>
     
     <div class="play-nav-overlay">
-      <button @click="changePageTo(pageNum - 1)" :disabled="pageNum <= 1">◀</button>
+      <button @click="changePageTo(pageNum - 1)" :disabled="pageNum <= 1"><i class="ph ph-caret-left"></i></button>
       <span>{{ pageNum }} / {{ numPages }}</span>
-      <button @click="changePageTo(pageNum + 1)" :disabled="pageNum >= numPages">▶</button>
+      <button @click="changePageTo(pageNum + 1)" :disabled="pageNum >= numPages"><i class="ph ph-caret-right"></i></button>
+      <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.2); margin: 0 5px;"></div>
+      <button @click="toggleFullscreen" title="Pantalla Completa">
+        <i class="ph" :class="isFullscreen ? 'ph-corners-in' : 'ph-corners-out'"></i>
+      </button>
     </div>
   </div>
 
@@ -5276,7 +5837,6 @@ const exportPresentation = () => {
         const pdfPageMap = ref(JSON.parse(document.getElementById('app-pdf-map').textContent || '{}'));
         const rawPdfB64 = document.getElementById('app-pdf-data').textContent;
         
-        // LEER LOS DATOS DESDE EL JSON INYECTADO PARA EVITAR ERRORES DE SINTAXIS
         const metaData = JSON.parse(document.getElementById('app-meta-data').textContent);
         const baseWidth = ref(metaData.baseWidth); 
         const baseHeight = ref(metaData.baseHeight); 
@@ -5284,6 +5844,9 @@ const exportPresentation = () => {
         
         const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
         const renderTrigger = ref(0); const activeTransition = ref('none');
+        
+        // NUEVA REFERENCIA DE ESTADO
+        const isFullscreen = ref(false);
 
         const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
         const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
@@ -5367,7 +5930,6 @@ const exportPresentation = () => {
             void document.body.offsetWidth; // force reflow
             activeTransition.value = slideConfigs.value[num]?.transition || 'none';
             
-            // Reiniciar temporizadores
             Object.values(documentState.value).forEach(pageItems => {
               pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
             });
@@ -5388,10 +5950,33 @@ const exportPresentation = () => {
           if(audioEl) { if(el.isPlaying) { audioEl.pause(); el.isPlaying = false; } else { audioEl.play(); el.isPlaying = true; } }
         };
 
+        // LÓGICA DE FULLSCREEN PARA LA EXPORTACIÓN NATIVA
+        const toggleFullscreen = async () => {
+          const el = document.documentElement;
+          if (!isFullscreen.value) {
+            try {
+              if (el.requestFullscreen) await el.requestFullscreen();
+              else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+              else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+            } catch (err) { console.warn("No se pudo iniciar pantalla completa", err); }
+          } else {
+            try {
+              if (document.exitFullscreen) await document.exitFullscreen();
+              else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+              else if (document.msExitFullscreen) await document.msExitFullscreen();
+            } catch (err) { console.warn("No se pudo salir de pantalla completa", err); }
+          }
+        };
+
+        const onFullscreenChange = () => {
+          isFullscreen.value = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+          // Forzamos un recálculo un instante después de que la pantalla termine de cambiar de tamaño
+          setTimeout(fitToScreen, 100);
+        };
+
         onMounted(() => {
           activeTransition.value = slideConfigs.value[1]?.transition || 'none';
           
-          // Inicializar temporizadores al abrir
           Object.values(documentState.value).forEach(pageItems => {
             pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
           });
@@ -5403,16 +5988,21 @@ const exportPresentation = () => {
           }, 1000);
 
           fitToScreen(); initPdf(); window.addEventListener('resize', fitToScreen);
+          
+          // Eventos de teclado y fullscreen
           document.addEventListener('keydown', (e) => {
             if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
             if(e.key === 'ArrowLeft') { e.preventDefault(); changePageTo(pageNum.value - 1); }
           });
+          document.addEventListener('fullscreenchange', onFullscreenChange);
+          document.addEventListener('webkitfullscreenchange', onFullscreenChange);
         });
 
         return { 
           baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements,
           currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, 
-          getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle
+          getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle,
+          isFullscreen, toggleFullscreen // Expuestos a la vista
         };
       }
     }).mount('#app');
@@ -6410,6 +7000,96 @@ const exportPresentation = () => {
 .mm-child-wrapper:not(:first-child):not(:last-child)::after { top: 0; bottom: 0; }
 .mm-child-wrapper:first-child:last-child::after { display: none; }
 .mm-connector-right { position: absolute; right: -15px; top: 50%; width: 15px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
+
+/* GUÍAS DE ALINEACIÓN (SNAPPING) */
+.snap-guide {
+  position: absolute;
+  background-color: #f59e0b; /* Naranja estilo Canva / Figma */
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+.snap-guide.vertical {
+  width: 1px;
+  height: 100%;
+  top: 0;
+  transform: translateX(-50%);
+}
+.snap-guide.horizontal {
+  height: 1px;
+  width: 100%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+/* --- NOTIFICACIONES TOAST --- */
+.pro-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%); /* Centrado arriba */
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: white;
+  font-weight: 500;
+  font-size: 0.9rem;
+  min-width: 300px;
+  max-width: 450px;
+  backdrop-filter: blur(10px);
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast-content i {
+  font-size: 1.3rem;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Colores según el tipo de mensaje */
+.toast-error { background: rgba(218, 54, 51, 0.9); border-left: 4px solid #ff7b72; }
+.toast-success { background: rgba(46, 160, 67, 0.9); border-left: 4px solid #3fb950; }
+.toast-warning { background: rgba(210, 153, 34, 0.9); border-left: 4px solid #f0b328; }
+.toast-info { background: rgba(31, 111, 235, 0.9); border-left: 4px solid #58a6ff; }
+
+/* Animación de entrada y salida */
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.toast-fade-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -20px);
+}
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -20px);
+}
 
 /* TRANSICIONES Y ANIMACIONES */
 .slide-trans-fade { animation: transFade 0.6s ease-out forwards; }

@@ -17,6 +17,16 @@
           <i class="ph ph-upload-simple"></i>
           {{ isConverting ? 'Convirtiendo...' : 'Importar Archivo' }}
         </label>
+        
+        <button
+          class="menu-item btn-save"
+          :disabled="!hasDoc || isConverting || isSaving"
+          @click="$emit('save')"
+        >
+          <i class="ph" :class="isSaving ? 'ph-spinner icon-spin' : 'ph-floppy-disk'"></i>
+          {{ isSaving ? 'Guardando...' : 'Guardar' }}
+        </button>
+
         <button
           class="menu-item btn-export"
           :disabled="!hasDoc || isConverting"
@@ -49,7 +59,7 @@
         {{ playMode ? 'Detener Presentación' : 'Iniciar Presentación' }}
       </button>
 
-      <div class="user-menu-container" v-if="authStore.isAuthenticated">
+      <div class="user-menu-container" v-if="authStore.isAuthenticated" ref="userMenuRef">
         <button class="avatar-btn" @click="toggleUserMenu">
           <div class="avatar-circle">
             {{ userInitial }}
@@ -62,6 +72,15 @@
             <span class="user-email">{{ authStore.user?.email || 'email@ejemplo.com' }}</span>
           </div>
           <div class="dropdown-divider"></div>
+          
+          <button class="dropdown-item" @click="navigate('/')">
+            <i class="ph ph-house"></i> Inicio
+          </button>
+          <button class="dropdown-item" @click="navigate('/biblioteca')">
+            <i class="ph ph-books"></i> Biblioteca
+          </button>
+          
+          <div class="dropdown-divider"></div>
           <button class="dropdown-item btn-logout" @click="handleLogout">
             <i class="ph ph-sign-out"></i> Cerrar Sesión
           </button>
@@ -73,18 +92,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+// NUEVO: Importamos onMounted y onBeforeUnmount
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/auth'; // Asegúrate de que la ruta es correcta
+import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
+console.log('Datos del usuario en Pinia:', authStore.user);
 const router = useRouter();
 
-// Estado para el menú desplegable
+// Estado y ref para el menú desplegable
 const isUserMenuOpen = ref(false);
+const userMenuRef = ref<HTMLElement | null>(null); // Referencia al DOM
 
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value;
+};
+
+// NUEVO: Lógica para cerrar el menú al hacer clic fuera
+const handleClickOutside = (event: MouseEvent) => {
+  // Verificamos si el menú está abierto, si la referencia existe y si el clic ocurrió FUERA del contenedor
+  if (isUserMenuOpen.value && userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+    isUserMenuOpen.value = false;
+  }
+};
+
+// Escuchamos los clics en todo el documento
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+// Limpiamos el event listener cuando se destruye el componente
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
+// NUEVO: Función para navegar y cerrar el menú
+const navigate = (path: string) => {
+  isUserMenuOpen.value = false;
+  router.push(path);
 };
 
 // Calculamos la inicial del usuario para el avatar
@@ -97,30 +143,28 @@ const userInitial = computed(() => {
 const handleLogout = () => {
   authStore.logout();
   isUserMenuOpen.value = false;
-  router.push('/login'); // Redirigimos al login
+  router.push('/login');
 };
 
-
-// Definimos los datos que el componente padre nos enviará
 defineProps<{
   isConverting: boolean;
   hasDoc: boolean;
   zoom: number;
   playMode: boolean;
+  isSaving: boolean; 
 }>();
 
-// Definimos los eventos que enviaremos al componente padre
 defineEmits<{
   (e: 'file-upload', event: Event): void;
   (e: 'export'): void;
   (e: 'change-zoom', delta: number): void;
   (e: 'fit-screen'): void;
   (e: 'toggle-play'): void;
+  (e: 'save'): void;
 }>();
 </script>
 
 <style scoped>
-/* Estilos existentes... (los mantengo igual) */
 .pro-header {
   display: flex;
   justify-content: space-between;
@@ -182,6 +226,28 @@ defineEmits<{
   font-weight: bold;
   border-color: #58a6ff;
 }
+
+.btn-save {
+  background: #1f6feb;
+  border-color: rgba(240, 246, 252, 0.1);
+  color: white;
+}
+.btn-save:hover:not(:disabled) {
+  background: #388bfd;
+  border-color: #388bfd;
+}
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .btn-export {
   background: #238636;
   border-color: #238636;
@@ -256,12 +322,9 @@ defineEmits<{
   color: #c9d1d9;
 }
 
-
-/* --- NUEVOS ESTILOS PARA EL MENÚ DE USUARIO --- */
 .user-menu-container {
   position: relative;
 }
-
 .avatar-btn {
   background: none;
   border: none;
@@ -270,11 +333,9 @@ defineEmits<{
   border-radius: 50%;
   transition: transform 0.2s;
 }
-
 .avatar-btn:hover {
   transform: scale(1.05);
 }
-
 .avatar-circle {
   width: 36px;
   height: 36px;
@@ -289,10 +350,9 @@ defineEmits<{
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
   border: 2px solid #30363d;
 }
-
 .user-dropdown {
   position: absolute;
-  top: 120%; /* Justo debajo del botón */
+  top: 120%;
   right: 0;
   background-color: #161b22;
   border: 1px solid #30363d;
@@ -304,32 +364,27 @@ defineEmits<{
   flex-direction: column;
   overflow: hidden;
 }
-
 .user-info {
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-
 .user-name {
   color: #c9d1d9;
   font-weight: 600;
   font-size: 0.95rem;
 }
-
 .user-email {
   color: #8b949e;
   font-size: 0.8rem;
   word-break: break-all;
 }
-
 .dropdown-divider {
   height: 1px;
   background-color: #30363d;
   width: 100%;
 }
-
 .dropdown-item {
   display: flex;
   align-items: center;
@@ -343,15 +398,12 @@ defineEmits<{
   font-size: 0.9rem;
   transition: background 0.2s;
 }
-
 .dropdown-item:hover {
   background-color: #21262d;
 }
-
 .btn-logout {
   color: #f85149;
 }
-
 .btn-logout:hover {
   background-color: rgba(248, 81, 73, 0.1);
 }
