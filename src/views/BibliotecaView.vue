@@ -3,7 +3,7 @@
     <header class="pro-header">
       <div class="header-left">
         <div class="pro-logo">
-          <i class="ph ph-rocket" style="color: #58a6ff; font-size: 1.4rem;"></i>
+          <span class="logo-icon">🚀</span>
           <span class="logo-text">Present<span class="text-accent">Pro</span></span>
         </div>
         <div class="divider-vertical"></div>
@@ -11,9 +11,32 @@
       </div>
 
       <div class="header-right" v-if="authStore.user">
-        <div class="user-profile">
-          <div class="avatar-circle">{{ userInitial }}</div>
-          <span class="user-name">{{ authStore.user.username }}</span>
+        <div class="user-menu-container" ref="userMenuRef">
+          <button class="avatar-btn" @click="toggleUserMenu">
+            <div class="avatar-circle">
+              {{ userInitial }}
+            </div>
+          </button>
+
+          <div class="user-dropdown" v-show="isUserMenuOpen">
+            <div class="user-info">
+              <span class="user-name">{{ authStore.user?.username || 'Usuario' }}</span>
+              <span class="user-email">{{ authStore.user?.email || 'email@ejemplo.com' }}</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            
+            <button class="dropdown-item" @click="navigate('/')">
+              <i class="ph ph-house"></i> Inicio
+            </button>
+            <button class="dropdown-item is-active" @click="toggleUserMenu">
+              <i class="ph ph-books"></i> Biblioteca
+            </button>
+            
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item btn-logout" @click="handleLogout">
+              <i class="ph ph-sign-out"></i> Cerrar Sesión
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -81,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { presentationService } from '@/services/presentacion.service'
@@ -92,17 +115,47 @@ const authStore = useAuthStore()
 const presentations = ref<any[]>([])
 const isLoading = ref(true)
 
+// --- LÓGICA DEL MENÚ DE USUARIO ---
+const isUserMenuOpen = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
+
 const userInitial = computed(() => {
   return authStore.user?.username?.charAt(0).toUpperCase() || 'U'
 })
 
-// Cargar proyectos al montar la vista
+const toggleUserMenu = () => {
+  isUserMenuOpen.value = !isUserMenuOpen.value
+}
+
+const handleClickOutside = (event: MouseEvent) => {
+  if (isUserMenuOpen.value && userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+    isUserMenuOpen.value = false
+  }
+}
+
+const navigate = (path: string) => {
+  isUserMenuOpen.value = false
+  router.push(path)
+}
+
+const handleLogout = () => {
+  authStore.logout()
+  isUserMenuOpen.value = false
+  router.push('/login')
+}
+
+// --- LÓGICA DE PROYECTOS ---
 onMounted(async () => {
   if (!authStore.isAuthenticated) {
     router.push('/login')
     return
   }
+  document.addEventListener('click', handleClickOutside)
   await loadPresentations()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 
 const loadPresentations = async () => {
@@ -139,7 +192,6 @@ const deleteProject = async (id: string, title: string) => {
   }
 }
 
-// Utilidad para formatear fechas
 const formatDate = (dateString: string) => {
   if (!dateString) return 'Desconocido'
   const date = new Date(dateString)
@@ -169,7 +221,7 @@ const formatDate = (dateString: string) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 48px;
+  height: 55px; /* Ajustado para coincidir con el EditorHeader */
   background-color: #161b22;
   border-bottom: 1px solid #30363d;
   padding: 0 20px;
@@ -185,12 +237,16 @@ const formatDate = (dateString: string) => {
 }
 
 .pro-logo {
-  font-size: 1.1rem;
+  font-size: 1.3rem; /* Ajustado */
   font-weight: 800;
   display: flex;
   align-items: center;
   gap: 8px;
   letter-spacing: -0.5px;
+}
+
+.logo-icon {
+  font-size: 1.3rem;
 }
 
 .text-accent {
@@ -199,33 +255,39 @@ const formatDate = (dateString: string) => {
 
 .divider-vertical {
   width: 1px;
-  height: 20px;
+  height: 24px;
   background: #30363d;
   margin: 0 5px;
 }
 
 .page-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #8b949e;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-weight: 600;
 }
 
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 8px;
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 20px;
+/* --- ESTILOS DEL MENÚ DE USUARIO (Idénticos al EditorHeader) --- */
+.user-menu-container {
+  position: relative;
+}
+
+.avatar-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.avatar-btn:hover {
+  transform: scale(1.05);
 }
 
 .avatar-circle {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, #58a6ff, #1f6feb);
   color: white;
@@ -233,13 +295,80 @@ const formatDate = (dateString: string) => {
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 0.75rem;
+  font-size: 1.1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  border: 2px solid #30363d;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 120%;
+  right: 0;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-info {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .user-name {
+  color: #c9d1d9;
   font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.user-email {
+  color: #8b949e;
   font-size: 0.8rem;
-  padding-right: 4px;
+  word-break: break-all;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #30363d;
+  width: 100%;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: #c9d1d9;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #21262d;
+}
+
+.dropdown-item.is-active {
+  color: #58a6ff;
+  background-color: rgba(88, 166, 255, 0.1);
+}
+
+.btn-logout {
+  color: #f85149;
+}
+
+.btn-logout:hover {
+  background-color: rgba(248, 81, 73, 0.1);
 }
 
 /* 3. CONTENIDO Y TOOLBAR */
@@ -318,7 +447,7 @@ const formatDate = (dateString: string) => {
   color: #ff7b72 !important;
 }
 
-/* 5. GRID Y TARJETAS (Inspirado en template-card / thumb-card) */
+/* 5. GRID Y TARJETAS */
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -415,7 +544,7 @@ const formatDate = (dateString: string) => {
   gap: 2px;
 }
 
-/* 6. ESTADOS DE CARGA Y VACÍOS (Identicos a pro-editor) */
+/* 6. ESTADOS DE CARGA Y VACÍOS */
 .loading-state {
   display: flex;
   flex-direction: column;

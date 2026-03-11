@@ -11,18 +11,18 @@
         </div>
       </transition>
       <EditorHeader 
-  :is-converting="isConverting"
-  :has-doc="hasDoc"
-  :zoom="zoom"
-  :play-mode="playMode"
-  :is-saving="isSaving" 
-  @file-upload="handleFileUpload"
-  @export="exportPresentation"
-  @change-zoom="changeZoom"
-  @fit-screen="fitToScreen"
-  @toggle-play="togglePlayMode"
-  @save="savePresentation" 
-/>
+        :is-converting="isConverting"
+        :has-doc="hasDoc"
+        :zoom="zoom"
+        :play-mode="playMode"
+        :is-saving="isSaving" 
+        :is-autosaving="isAutosaving"  @file-upload="handleFileUpload"
+        @export="exportPresentation"
+        @change-zoom="changeZoom"
+        @fit-screen="fitToScreen"
+        @toggle-play="togglePlayMode"
+        @save="savePresentation" 
+      />
 <div v-if="isLoadingProject" class="loading-overlay">
         <div class="spinner"></div>
         <h2>Descargando Proyecto...</h2>
@@ -3475,6 +3475,7 @@ const API_URL = 'http://localhost:3000/api/presentations'; // Ajusta esto a tu U
 const presentationId = ref<string | null>(null);
 const presentationTitle = ref<string>('Mi Nueva Presentación');
 const isSaving = ref(false);
+const isAutosaving = ref(false);
 const route = useRoute()
 const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
 
@@ -3511,7 +3512,11 @@ const savePresentation = async (isAutosave = false) => {
   if (!hasDoc.value) return;
 
   // Solo mostramos el icono de carga en el header si es un guardado manual
-  if (!isAutosave) isSaving.value = true;
+  if (!isAutosave) {
+    isSaving.value = true;
+  } else {
+    isAutosaving.value = true;
+  }
 
   try {
     const payload = {
@@ -3555,7 +3560,12 @@ const savePresentation = async (isAutosave = false) => {
     console.error('Error al guardar la presentación:', error);
     if (!isAutosave) showToast('Hubo un problema al guardar la presentación.', 'error');
   } finally {
-    if (!isAutosave) isSaving.value = false;
+    // Apagamos los loaders
+    if (!isAutosave) {
+      isSaving.value = false;
+    } else {
+      isAutosaving.value = false;
+    }
   }
 };
 

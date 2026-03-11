@@ -5,6 +5,7 @@
         <span class="logo-icon">🚀</span>
         <span class="logo-text">Present<span class="text-accent">Pro</span></span>
       </div>
+      
       <div class="file-menu">
         <label class="menu-item" :class="{ 'is-loading': isConverting }">
           <input
@@ -26,6 +27,11 @@
           <i class="ph" :class="isSaving ? 'ph-spinner icon-spin' : 'ph-floppy-disk'"></i>
           {{ isSaving ? 'Guardando...' : 'Guardar' }}
         </button>
+
+        <div class="cloud-status" v-if="hasDoc" :title="isAutosaving || isSaving ? 'Guardando cambios...' : 'Todos los cambios se han guardado en la nube'">
+          <i class="ph" :class="isAutosaving || isSaving ? 'ph-arrows-clockwise icon-spin text-sync' : 'ph-cloud-check text-success'"></i>
+          <span class="status-text">{{ isAutosaving || isSaving ? 'Guardando...' : 'Guardado en la nube' }}</span>
+        </div>
 
         <button
           class="menu-item btn-export"
@@ -86,72 +92,63 @@
           </button>
         </div>
       </div>
-
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-// NUEVO: Importamos onMounted y onBeforeUnmount
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
-console.log('Datos del usuario en Pinia:', authStore.user);
 const router = useRouter();
 
-// Estado y ref para el menú desplegable
 const isUserMenuOpen = ref(false);
-const userMenuRef = ref<HTMLElement | null>(null); // Referencia al DOM
+const userMenuRef = ref<HTMLElement | null>(null); 
 
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value;
 };
 
-// NUEVO: Lógica para cerrar el menú al hacer clic fuera
 const handleClickOutside = (event: MouseEvent) => {
-  // Verificamos si el menú está abierto, si la referencia existe y si el clic ocurrió FUERA del contenedor
   if (isUserMenuOpen.value && userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
     isUserMenuOpen.value = false;
   }
 };
 
-// Escuchamos los clics en todo el documento
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
 });
 
-// Limpiamos el event listener cuando se destruye el componente
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside);
 });
 
-// NUEVO: Función para navegar y cerrar el menú
 const navigate = (path: string) => {
   isUserMenuOpen.value = false;
   router.push(path);
 };
 
-// Calculamos la inicial del usuario para el avatar
 const userInitial = computed(() => {
   const username = authStore.user?.username;
   return username ? username.charAt(0).toUpperCase() : 'U';
 });
 
-// Función para cerrar sesión
 const handleLogout = () => {
   authStore.logout();
   isUserMenuOpen.value = false;
   router.push('/login');
 };
 
+// NUEVO: Añadida la prop isAutosaving
 defineProps<{
   isConverting: boolean;
   hasDoc: boolean;
   zoom: number;
   playMode: boolean;
   isSaving: boolean; 
+  isAutosaving?: boolean; 
 }>();
 
 defineEmits<{
@@ -198,6 +195,7 @@ defineEmits<{
 .file-menu {
   display: flex;
   gap: 10px;
+  align-items: center; /* Asegura que todos los elementos se alineen verticalmente */
 }
 .menu-item {
   display: flex;
@@ -225,6 +223,29 @@ defineEmits<{
   color: #0d1117;
   font-weight: bold;
   border-color: #58a6ff;
+}
+
+/* NUEVO: Estilos para el estado de la nube */
+.cloud-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #8b949e;
+  cursor: default;
+  user-select: none;
+  transition: color 0.3s ease;
+}
+.cloud-status i {
+  font-size: 1.1rem;
+}
+.text-success {
+  color: #2ea043; /* Verde para el check de éxito */
+}
+.text-sync {
+  color: #8b949e; /* Gris para el proceso de guardado */
 }
 
 .btn-save {
