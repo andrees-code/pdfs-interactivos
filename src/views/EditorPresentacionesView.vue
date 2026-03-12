@@ -474,11 +474,13 @@
                 <div
                   v-for="(el, index) in currentPageElements"
                   :key="el.id + (playMode ? renderTrigger : '')"
-                  v-show="!el.isHidden || !playMode"
+                  v-show="(!el.isHidden || !playMode) && (!playMode || isInsideCanvas(el))"                  
                   class="interactive-element"
                   :class="[
                     {
+                      'is-outside-canvas': !playMode && !isInsideCanvas(el),
                       'is-selected': selectedElementIds.includes(el.id) && !playMode,
+                      'is-editing': editingElementId === el.id, /* <--- NUEVA LÍNEA */
                       'is-clickable':
                         playMode &&
                         ['link', 'interactive', 'audio', 'checkbox', 'rating'].includes(el.type),
@@ -508,6 +510,9 @@
                   <div
                     v-if="el.type === 'text' || el.type === 'sticky'"
                     class="el-text"
+                    :contenteditable="editingElementId === el.id"
+                    @dblclick.stop="enableTextEdit($event, el)"
+                    @blur="onTextBlur($event, el)"
                     :style="{
                       color: el.color,
                       fontSize: el.fontSize + 'px',
@@ -1473,7 +1478,7 @@
                     </div>
                   </div>
 
-                  <div
+                 <div
                     v-if="
                       selectedElementIds.length === 1 &&
                       selectedElementIds.includes(el.id) &&
@@ -1481,9 +1486,18 @@
                       !['interactive', 'audio'].includes(el.type) &&
                       !el.isLocked
                     "
-                    class="resize-handle"
-                    @mousedown.stop="startResize($event, el)"
-                  ></div>
+                    class="figma-bounding-box"
+                  >
+                    <div class="rotate-handle nw" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                    <div class="rotate-handle ne" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                    <div class="rotate-handle sw" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                    <div class="rotate-handle se" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                    
+                    <div class="resize-handle nw" @mousedown.stop.prevent="startResize($event, el, 'nw')"></div>
+                    <div class="resize-handle ne" @mousedown.stop.prevent="startResize($event, el, 'ne')"></div>
+                    <div class="resize-handle sw" @mousedown.stop.prevent="startResize($event, el, 'sw')"></div>
+                    <div class="resize-handle se" @mousedown.stop.prevent="startResize($event, el, 'se')"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3530,6 +3544,7 @@ const isSaving = ref(false);
 const isAutosaving = ref(false);
 const route = useRoute()
 const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
+const editingElementId = ref<string | null>(null)
 
 const router = useRouter() // 👈 Inicializamos el router
 
@@ -3697,6 +3712,17 @@ const selectedElement = computed(() =>
     ? currentPageElements.value.find((el) => el.id === selectedElementIds.value[0])
     : null,
 )
+const isInsideCanvas = (el: any): boolean => {
+  const elWidth = typeof el.width === 'number' ? el.width : 150
+  const elHeight = typeof el.height === 'number' ? el.height : 50
+  // El elemento está "dentro" si al menos parte de él solapa con el lienzo
+  return (
+    el.x < baseWidth.value &&
+    el.y < baseHeight.value &&
+    el.x + elWidth > 0 &&
+    el.y + elHeight > 0
+  )
+}
 
 const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff')
 const currentBgImage = computed(() =>
@@ -4387,6 +4413,40 @@ const pasteElements = () => {
     y: el.y + 20
   }))
 }
+
+// --- EDICIÓN DIRECTA DE TEXTO ---
+const enableTextEdit = async (e: MouseEvent, el: any) => {
+  if (playMode.value || el.isLocked) return;
+  
+  // Seleccionamos la herramienta de selección normal por si acaso
+  activeTool.value = 'select';
+  
+  // Activamos el modo edición para este elemento
+  editingElementId.value = el.id;
+  
+  await nextTick(); // Esperamos que el DOM aplique el contenteditable
+  
+  const target = e.target as HTMLElement;
+  target.focus();
+  
+  // Seleccionamos automáticamente todo el texto como hace Figma
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(target);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+};
+
+const onTextBlur = (e: Event, el: any) => {
+  if (editingElementId.value !== el.id) return;
+  
+  const target = e.target as HTMLElement;
+  // Guardamos el texto (usamos innerText para no inyectar etiquetas HTML indeseadas)
+  el.content = target.innerText || ' '; 
+  
+  // Salimos del modo edición
+  editingElementId.value = null;
+};
 
 const selectAllElements = () => {
   if (playMode.value) return
@@ -5417,30 +5477,33 @@ const playAudio = (el: any) => {
     el.isPlaying = !el.isPlaying
   }
 }
-
 // --- ARRASTRE Y REDIMENSIÓN CON SNAPPING (IMÁN) ---
 let isDragging = false,
-  isResizing = false,
+  isResizing = false, // <-- ¡ESTA ES LA LÍNEA QUE FALTABA!
   startX = 0,
   startY = 0,
   initialPositions: any[] = [],
   initialWidth = 0,
-  initialHeight = 0
+  initialHeight = 0;
 
 const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
-  if (playMode.value || isResizing || el.isLocked || (el.type === 'draw' && !isHandle)) return
-  e.preventDefault()
+  if (playMode.value || isResizing || el.isLocked || (el.type === 'draw' && !isHandle)) return;
+  
+  // NUEVO: No iniciar arrastre si estamos editando texto
+  if (editingElementId.value === el.id) return; 
 
-  if (!selectedElementIds.value.includes(el.id)) selectElement(el.id, e)
-  if (activeTool.value !== 'select') return
+  e.preventDefault();
 
-  isDragging = true
-  startX = e.clientX
-  startY = e.clientY
+  if (!selectedElementIds.value.includes(el.id)) selectElement(el.id, e);
+  if (activeTool.value !== 'select') return;
+
+  isDragging = true;
+  startX = e.clientX;
+  startY = e.clientY;
 
   const draggedEls = currentPageElements.value.filter(
     (elem) => selectedElementIds.value.includes(elem.id) && !elem.isLocked,
-  )
+  );
 
   // Guardar posiciones y estimar dimensiones para el cálculo magnético
   initialPositions = draggedEls.map((elem) => ({
@@ -5449,134 +5512,258 @@ const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
     startY: elem.y,
     width: typeof elem.width === 'number' ? elem.width : 150, // Fallback si es 'auto'
     height: typeof elem.height === 'number' ? elem.height : 50,
-  }))
+  }));
 
   // 1. Calcular la caja delimitadora (Bounding Box) inicial de la selección
-  const initMinX = Math.min(...initialPositions.map(p => p.startX))
-  const initMinY = Math.min(...initialPositions.map(p => p.startY))
-  const initMaxX = Math.max(...initialPositions.map(p => p.startX + p.width))
-  const initMaxY = Math.max(...initialPositions.map(p => p.startY + p.height))
-  const initWidth = initMaxX - initMinX
-  const initHeight = initMaxY - initMinY
+  const initMinX = Math.min(...initialPositions.map(p => p.startX));
+  const initMinY = Math.min(...initialPositions.map(p => p.startY));
+  const initMaxX = Math.max(...initialPositions.map(p => p.startX + p.width));
+  const initMaxY = Math.max(...initialPositions.map(p => p.startY + p.height));
+  const initWidth = initMaxX - initMinX;
+  const initHeight = initMaxY - initMinY;
 
   // 2. Extraer puntos a los que nos queremos pegar (Lienzo + Otros Elementos)
   const targetElements = currentPageElements.value.filter(
     (elem) => !selectedElementIds.value.includes(elem.id) && !elem.isHidden
-  )
+  );
 
   // Puntos del lienzo (Izquierda, Centro, Derecha / Arriba, Medio, Abajo)
-  const snapXPoints = [0, baseWidth.value / 2, baseWidth.value]
-  const snapYPoints = [0, baseHeight.value / 2, baseHeight.value]
+  const snapXPoints = [0, baseWidth.value / 2, baseWidth.value];
+  const snapYPoints = [0, baseHeight.value / 2, baseHeight.value];
 
   // Puntos de otros elementos
   targetElements.forEach(t => {
-    const tw = typeof t.width === 'number' ? t.width : 150
-    const th = typeof t.height === 'number' ? t.height : 50
-    snapXPoints.push(t.x, t.x + tw / 2, t.x + tw)
-    snapYPoints.push(t.y, t.y + th / 2, t.y + th)
-  })
+    const tw = typeof t.width === 'number' ? t.width : 150;
+    const th = typeof t.height === 'number' ? t.height : 50;
+    snapXPoints.push(t.x, t.x + tw / 2, t.x + tw);
+    snapYPoints.push(t.y, t.y + th / 2, t.y + th);
+  });
 
   const onMouseMove = (moveEvent: MouseEvent) => {
-    if (!isDragging) return
+    if (!isDragging) return;
     
     // Movimiento raw del ratón ajustado al zoom
-    const rawDx = (moveEvent.clientX - startX) / zoom.value
-    const rawDy = (moveEvent.clientY - startY) / zoom.value
+    const rawDx = (moveEvent.clientX - startX) / zoom.value;
+    const rawDy = (moveEvent.clientY - startY) / zoom.value;
 
-    let finalDx = rawDx
-    let finalDy = rawDy
+    let finalDx = rawDx;
+    let finalDy = rawDy;
 
-    activeGuides.value = [] // Limpiar guías activas
+    activeGuides.value = []; // Limpiar guías activas en cada frame
 
-    // Posiciones proyectadas si nos moviéramos libremente
-    const projX = initMinX + rawDx
-    const projY = initMinY + rawDy
-    const projMidX = projX + initWidth / 2
-    const projMaxX = projX + initWidth
-    const projMidY = projY + initHeight / 2
-    const projMaxY = projY + initHeight
+    // SI NO SE PULSA SHIFT, APLICAMOS EL IMÁN
+    if (!moveEvent.shiftKey) {
+      // Posiciones proyectadas si nos moviéramos libremente
+      const projX = initMinX + rawDx;
+      const projY = initMinY + rawDy;
+      const projMidX = projX + initWidth / 2;
+      const projMaxX = projX + initWidth;
+      const projMidY = projY + initHeight / 2;
+      const projMaxY = projY + initHeight;
 
-    // Ajustar la sensibilidad del imán según el zoom para que se sienta natural
-    const dynamicThreshold = SNAP_THRESHOLD / zoom.value
+      // Ajustar la sensibilidad del imán según el zoom para que se sienta natural
+      const dynamicThreshold = SNAP_THRESHOLD / zoom.value;
 
-    // Función interna para buscar coincidencias
-    const findSnap = (projPoints: number[], snapPoints: number[], initPoints: number[]) => {
-      let bestDelta = null
-      let minDistance = dynamicThreshold + 1
-      let snappedPos = null
+      // Función interna para buscar coincidencias
+      const findSnap = (projPoints: number[], snapPoints: number[], initPoints: number[]) => {
+        let bestDelta = null;
+        let minDistance = dynamicThreshold + 1;
+        let snappedPos = null;
 
-      for (let i = 0; i < projPoints.length; i++) {
-        for (const snapP of snapPoints) {
-          const dist = Math.abs(projPoints[i] - snapP)
-          if (dist < minDistance) {
-            minDistance = dist
-            bestDelta = snapP - initPoints[i] // Cuánto debemos movernos realmente
-            snappedPos = snapP // Dónde dibujar la línea
+        for (let i = 0; i < projPoints.length; i++) {
+          for (const snapP of snapPoints) {
+            const dist = Math.abs(projPoints[i] - snapP);
+            if (dist < minDistance) {
+              minDistance = dist;
+              bestDelta = snapP - initPoints[i]; // Cuánto debemos movernos realmente
+              snappedPos = snapP; // Dónde dibujar la línea
+            }
           }
         }
+        return { bestDelta, snappedPos };
+      };
+
+      // Comprobar colisiones Eje X
+      const resX = findSnap([projX, projMidX, projMaxX], snapXPoints, [initMinX, initMinX + initWidth / 2, initMaxX]);
+      if (resX.bestDelta !== null) {
+        finalDx = resX.bestDelta;
+        activeGuides.value.push({ type: 'vertical', pos: resX.snappedPos as number });
       }
-      return { bestDelta, snappedPos }
+
+      // Comprobar colisiones Eje Y
+      const resY = findSnap([projY, projMidY, projMaxY], snapYPoints, [initMinY, initMinY + initHeight / 2, initMaxY]);
+      if (resY.bestDelta !== null) {
+        finalDy = resY.bestDelta;
+        activeGuides.value.push({ type: 'horizontal', pos: resY.snappedPos as number });
+      }
     }
 
-    // Comprobar colisiones Eje X
-    const resX = findSnap([projX, projMidX, projMaxX], snapXPoints, [initMinX, initMinX + initWidth / 2, initMaxX])
-    if (resX.bestDelta !== null) {
-      finalDx = resX.bestDelta
-      activeGuides.value.push({ type: 'vertical', pos: resX.snappedPos as number })
-    }
-
-    // Comprobar colisiones Eje Y
-    const resY = findSnap([projY, projMidY, projMaxY], snapYPoints, [initMinY, initMinY + initHeight / 2, initMaxY])
-    if (resY.bestDelta !== null) {
-      finalDy = resY.bestDelta
-      activeGuides.value.push({ type: 'horizontal', pos: resY.snappedPos as number })
-    }
-
-    // Aplicar las posiciones finales (ya sea movimiento libre o imantado)
-    // Aplicar las posiciones finales (ya sea movimiento libre o imantado)
+    // Aplicar las posiciones finales
     draggedEls.forEach((elem) => {
-      const initPos = initialPositions.find((p) => p.id === elem.id)
+      const initPos = initialPositions.find((p) => p.id === elem.id);
       if (initPos) {
-        // Redondeamos a la fracción de 0.5 más cercana
-        elem.x = Math.round((initPos.startX + finalDx) * 2) / 2
-        elem.y = Math.round((initPos.startY + finalDy) * 2) / 2
+        if (moveEvent.shiftKey) {
+          // Movimiento libre (ultra fluido, sin redondeo a la cuadrícula invisible)
+          elem.x = initPos.startX + finalDx;
+          elem.y = initPos.startY + finalDy;
+        } else {
+          // Movimiento normal (redondeado a 0.5px para evitar bordes borrosos en CSS)
+          elem.x = Math.round((initPos.startX + finalDx) * 2) / 2;
+          elem.y = Math.round((initPos.startY + finalDy) * 2) / 2;
+        }
       }
-    })
-  }
+    });
+  };
 
   const onMouseUp = () => {
-    isDragging = false
-    activeGuides.value = [] // Esconder guías al soltar
-    document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
-  }
+    isDragging = false;
+    activeGuides.value = []; // Esconder guías al soltar
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
   
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
-}
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+};
 
-const startResize = (e: MouseEvent, el: any) => {
-  if (playMode.value || el.isLocked) return
-  e.preventDefault()
-  isResizing = true
-  startX = e.clientX
-  startY = e.clientY
-  initialWidth = el.width
-  initialHeight = el.height === 'auto' ? 50 : el.height
+// --- REDIMENSIÓN (CON SOPORTE PARA ROTACIÓN Y ASPECT RATIO) ---
+const startResize = (e: MouseEvent, el: any, corner: string) => {
+  if (playMode.value || el.isLocked) return;
+  e.preventDefault();
+  isResizing = true;
+  
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const initialWidth = typeof el.width === 'number' ? el.width : 100;
+  const initialHeight = el.height === 'auto' ? 50 : el.height;
+  const initialX = el.x;
+  const initialY = el.y;
+  const rotation = (el.rotation || 0) * (Math.PI / 180); // Ángulo en radianes
+
+  if (el.height === 'auto') el.height = initialHeight;
+
   const onMouseMove = (moveEvent: MouseEvent) => {
-    if (!isResizing) return
-    el.width = Math.max(20, initialWidth + (moveEvent.clientX - startX) / zoom.value)
-    if (el.height !== 'auto')
-      el.height = Math.max(20, initialHeight + (moveEvent.clientY - startY) / zoom.value)
-  }
+    if (!isResizing) return;
+    
+    // Diferencia del ratón en la pantalla real
+    const dx = (moveEvent.clientX - startX) / zoom.value;
+    const dy = (moveEvent.clientY - startY) / zoom.value;
+
+    // Desrotar el movimiento del ratón para saber cuánto se movió relativo al propio elemento
+    const localDx = dx * Math.cos(-rotation) - dy * Math.sin(-rotation);
+    const localDy = dx * Math.sin(-rotation) + dy * Math.cos(-rotation);
+
+    let newW = initialWidth;
+    let newH = initialHeight;
+    let deltaX = 0;
+    let deltaY = 0;
+
+    // Ajustar ancho/alto y posición relativa según la esquina arrastrada
+    if (corner.includes('e')) {
+      newW = initialWidth + localDx;
+    } else if (corner.includes('w')) {
+      newW = initialWidth - localDx;
+      deltaX = localDx;
+    }
+
+    if (corner.includes('s')) {
+      newH = initialHeight + localDy;
+    } else if (corner.includes('n')) {
+      newH = initialHeight - localDy;
+      deltaY = localDy;
+    }
+
+    // Mantener proporciones si se pulsa Shift
+    if (moveEvent.shiftKey) {
+      const ratio = initialWidth / initialHeight;
+      if (Math.abs(localDx) > Math.abs(localDy)) {
+        newH = newW / ratio;
+        if (corner.includes('n')) deltaY = initialHeight - newH;
+      } else {
+        newW = newH * ratio;
+        if (corner.includes('w')) deltaX = initialWidth - newW;
+      }
+    }
+
+    // Límite mínimo de tamaño
+    if (newW < 20) { newW = 20; deltaX = initialWidth - 20; }
+    if (newH < 20) { newH = 20; deltaY = initialHeight - 20; }
+
+    // Re-rotar el desplazamiento (deltaX, deltaY) para actualizar la posición (x, y) en el lienzo
+    const globalDx = deltaX * Math.cos(rotation) - deltaY * Math.sin(rotation);
+    const globalDy = deltaX * Math.sin(rotation) + deltaY * Math.cos(rotation);
+
+    el.width = newW;
+    el.height = newH;
+    el.x = initialX + globalDx;
+    el.y = initialY + globalDy;
+  };
+
   const onMouseUp = () => {
-    isResizing = false
-    document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
-  }
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
-}
+    isResizing = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+};
+
+// --- ROTACIÓN (CENTRO EXACTO) ---
+
+// --- ROTACIÓN (CENTRO EXACTO, ESTILO FIGMA) ---
+let isRotating = false;
+
+const startRotate = (e: MouseEvent, el: any) => {
+  if (playMode.value || el.isLocked) return;
+  e.preventDefault();
+  isRotating = true;
+
+  // 1. Obtenemos el elemento exacto del DOM
+  const domElement = (e.target as HTMLElement).closest('.interactive-element');
+  if (!domElement) return;
+
+  // 2. getBoundingClientRect() nos da el cuadrado real que ocupa en la pantalla actual.
+  // El centro absoluto de esta caja es SIEMPRE nuestro eje de rotación perfecto, 
+  // ignorando zooms, paneos o si el elemento ya estaba girado.
+  const rect = domElement.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+
+  // 3. Ángulo en el instante exacto en que hacemos clic
+  const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+  const initialRotation = el.rotation || 0;
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    if (!isRotating) return;
+    
+    // 4. Ángulo actual del ratón respecto al centro
+    const currentAngle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
+    
+    // 5. Sumamos la diferencia angular a la rotación que ya tenía el elemento
+    let finalRotation = initialRotation + (currentAngle - startAngle);
+
+    // 6. Si mantiene pulsado Shift, forzamos saltos magnéticos de 15 grados
+    if (moveEvent.shiftKey) {
+      finalRotation = Math.round(finalRotation / 15) * 15;
+    }
+
+    // 7. Normalizamos el resultado para que SIEMPRE esté entre 0 y 360.
+    // Esto evita que de tirones cuando la fórmula matemática cruza de 180° a -180°.
+    finalRotation = (finalRotation % 360 + 360) % 360;
+
+    el.rotation = Math.round(finalRotation);
+  };
+
+  const onMouseUp = () => {
+    isRotating = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+};
 
 const triggerInteraction = (el: any) => {
   if (!playMode.value) return
@@ -6429,6 +6616,82 @@ const exportPresentation = () => {
   color: #8b949e;
   font-weight: normal;
 }
+/* --- CAJA DELIMITADORA ESTILO FIGMA --- */
+.interactive-element.is-selected {
+  outline: none !important; /* Quitamos el outline rígido antiguo */
+}
+
+/* La caja ahora es hija del elemento rotado, por lo que rotará con él automáticamente */
+.figma-bounding-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid #58a6ff;
+  pointer-events: none; /* Deja pasar los clicks al drag central */
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+/* CUADRADOS DE REDIMENSIÓN */
+.figma-bounding-box .resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border: 1.5px solid #58a6ff;
+  pointer-events: auto;
+  box-sizing: border-box;
+  z-index: 102;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.resize-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.resize-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.resize-handle.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.resize-handle.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+/* ÁREAS INVISIBLES DE ROTACIÓN (Más grandes y ubicadas fuera de las esquinas) */
+/* --- ÁREAS INVISIBLES DE ROTACIÓN CON CURSORES DE FIGMA --- */
+/* --- ÁREAS INVISIBLES DE ROTACIÓN CON FLECHAS CURVAS DE DOBLE SENTIDO --- */
+.figma-bounding-box .rotate-handle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border-radius: 50%;
+  pointer-events: auto;
+  z-index: 101;
+}
+
+/* Esquina Superior Izquierda (Giro -45°) */
+.rotate-handle.nw { 
+  top: -20px; 
+  left: -20px; 
+  cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+}
+
+/* Esquina Superior Derecha (Giro 45°) */
+.rotate-handle.ne { 
+  top: -20px; 
+  right: -20px; 
+  cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+}
+
+/* Esquina Inferior Izquierda (Giro -135°) */
+.rotate-handle.sw { 
+  bottom: -20px; 
+  left: -20px; 
+  cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+}
+
+/* Esquina Inferior Derecha (Giro 135°) */
+.rotate-handle.se { 
+  bottom: -20px; 
+  right: -20px; 
+  cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+}
+/* Ubicación calculada para envolver la esquina por fuera */
 
 /* EVITA SCROLL GENERAL */
 .pro-workspace {
@@ -6851,6 +7114,12 @@ const exportPresentation = () => {
   border-radius: 4px;
   padding: 2px 8px;
 }
+/* Elemento fuera del lienzo — visible en editor, oculto en presentación */
+.interactive-element.is-outside-canvas {
+  opacity: 0.6;
+  outline: 1.5px dashed #f59e0b !important;
+  outline-offset: 2px;
+}
 .pro-color-picker {
   width: 20px;
   height: 20px;
@@ -7031,7 +7300,7 @@ const exportPresentation = () => {
 }
 .layer-engine {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -7090,6 +7359,7 @@ const exportPresentation = () => {
   z-index: 100;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
+
 
 /* ESTILOS ESPECÍFICOS COMPONENTES */
 .el-text { width: 100%; height: 100%; white-space: pre-wrap; line-height: 1.3; word-break: break-word; }
@@ -7295,6 +7565,26 @@ const exportPresentation = () => {
 .toast-fade-leave-to {
   opacity: 0;
   transform: translate(-50%, -20px);
+}
+
+/* --- EDICIÓN DE TEXTO DIRECTA --- */
+.interactive-element.is-editing .figma-bounding-box {
+  display: none !important; /* Ocultar los puntos y marcos al escribir */
+}
+
+.el-text[contenteditable="true"] {
+  cursor: text !important;
+  outline: 2px solid #58a6ff !important;
+  outline-offset: 4px;
+  border-radius: 4px;
+  /* Permitir la selección nativa del texto al estar enfocado */
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Ocultar el cursor normal del lienzo mientras se arrastra o edita */
+.pro-canvas-area:has(.el-text[contenteditable="true"]) {
+  cursor: default !important;
 }
 
 /* TRANSICIONES Y ANIMACIONES */
