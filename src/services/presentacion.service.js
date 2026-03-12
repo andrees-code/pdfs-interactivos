@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api/presentations'
+const API_URL = 'http://10.104.126.179:3000/api/presentations'
 
 export const presentationService = {
   /**

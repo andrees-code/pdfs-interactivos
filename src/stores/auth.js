@@ -54,7 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value || !userId) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/api/v1/users/user/${userId}`, {
+      const response = await fetch(`http://10.104.126.179:3000/api/api/v1/users/user/${userId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

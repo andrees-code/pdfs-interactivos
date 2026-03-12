@@ -2941,6 +2941,11 @@
                       class="w-100"
                     />
                   </div>
+                  <div class="prop-group mt-4" v-if="selectedElement.src">
+    <button class="btn-primary w-100" @click="openCropper">
+      <i class="ph ph-crop"></i> Recortar Imagen
+    </button>
+  </div>
                 </template>
               </div>
 
@@ -3441,16 +3446,62 @@
         </aside>
       </div>
     </div>
+    <div
+        v-if="showCropperModal"
+        class="loading-overlay"
+        style="z-index: 10002; backdrop-filter: blur(8px);"
+      >
+        <div class="new-project-modal" style="width: 800px; max-width: 95vw; height: 80vh; display: flex; flex-direction: column;">
+          <div class="modal-header">
+            <h3>Recortar y Editar Imagen</h3>
+            <button class="btn-icon-danger" @click="closeCropper">
+              <i class="ph ph-x"></i>
+            </button>
+          </div>
+
+          <div style="flex: 1; min-height: 0; background: #010409; margin-top: 15px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <img 
+              ref="cropperImgRef" 
+              :src="selectedElement?.src" 
+              style="max-width: 100%; max-height: 100%; display: block;" 
+              crossorigin="anonymous"
+            />
+          </div>
+
+          <div class="modal-actions mt-4 pt-4" style="justify-content: space-between;">
+             <div style="display: flex; gap: 8px;">
+               <button class="btn-secondary" @click="rotateImage(-90)" title="Rotar Izquierda">
+                 <i class="ph ph-arrow-counter-clockwise"></i>
+               </button>
+               <button class="btn-secondary" @click="rotateImage(90)" title="Rotar Derecha">
+                 <i class="ph ph-arrow-clockwise"></i>
+               </button>
+               <button class="btn-secondary" @click="flipImage" title="Voltear Horizontal">
+                 <i class="ph ph-arrows-left-right"></i>
+               </button>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-ghost" @click="closeCropper">Cancelar</button>
+              <button class="btn-primary" @click="applyCrop">
+                <i class="ph ph-check"></i> Aplicar Recorte
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router' // 👈 NUEVO
 import * as pdfjsLib from 'pdfjs-dist'
 import EditorHeader from '@/components/EditorHeader.vue'
 import { useAuthStore } from '@/stores/auth';
 import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
+import Cropper from 'cropperjs';
 const authStore = useAuthStore();
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.js',
@@ -3469,9 +3520,10 @@ const isSpacePressed = ref(false)
 // --- GUÍAS DE ALINEACIÓN (SNAPPING) ---
 const activeGuides = ref<{ type: 'vertical' | 'horizontal'; pos: number }[]>([])
 const SNAP_THRESHOLD = 8 // Distancia en píxeles para que el "imán" actúe
-
-// --- ESTADOS DE GUARDADO Y API ---
-const API_URL = 'http://localhost:3000/api/presentations'; // Ajusta esto a tu URL real
+// 2. Añade estas variables de estado (por ejemplo debajo de "const activeTool = ref...")
+const showCropperModal = ref(false);
+const cropperImgRef = ref<HTMLImageElement | null>(null);
+const API_URL = 'http://10.104.126.179:3000/api/presentations'; // Ajusta esto a tu URL real
 const presentationId = ref<string | null>(null);
 const presentationTitle = ref<string>('Mi Nueva Presentación');
 const isSaving = ref(false);
@@ -3666,7 +3718,113 @@ const activeMapNode = computed(() => {
   }
   return null
 })
+// --- LÓGICA DE RECORTE DE IMÁGENES (CORREGIDA AL 100%) ---
 
+// 1. Variable pura de Javascript. NADA de ref() ni reactive(). 
+// Así Vue no la toca y CropperJS funciona perfectamente.
+let myCropper: any = null;
+
+const openCropper = async () => {
+  if (!selectedElement.value || !selectedElement.value.src) return;
+  showCropperModal.value = true;
+  
+  // Esperamos que Vue renderice el modal y la etiqueta <img> en el DOM
+  await nextTick();
+  
+  const imgEl = cropperImgRef.value as HTMLImageElement;
+  if (!imgEl) return;
+
+  // Destruimos cualquier instancia fantasma que pudiera quedar
+  if (myCropper) {
+    myCropper.destroy();
+    myCropper = null;
+  }
+
+  const initCropper = () => {
+    try {
+      myCropper = new Cropper(imgEl, {
+        viewMode: 2,
+        autoCropArea: 1,
+        background: false,
+        zoomable: true,
+        rotatable: true,
+        checkCrossOrigin: false, // Evita que Cropper haga doble petición HTTP
+      });
+    } catch (e) {
+      console.error("Error inicializando Cropper:", e);
+      showToast("No se pudo iniciar la herramienta de recorte", "error");
+    }
+  };
+
+  // Verificar si la imagen ya está lista para usarse
+  if (imgEl.complete && imgEl.naturalWidth !== 0) {
+    initCropper();
+  } else {
+    imgEl.onload = () => initCropper();
+    imgEl.onerror = () => {
+      showToast("La imagen no se pudo cargar para recortar.", "error");
+      closeCropper();
+    };
+  }
+};
+
+const applyCrop = () => {
+  if (!myCropper) {
+    showToast('La herramienta aún está cargando...', 'warning');
+    return;
+  }
+  
+  // Chequeo de seguridad: asegurar que la instancia está sana
+  if (typeof myCropper.getCroppedCanvas !== 'function') {
+    console.error("Instancia inválida:", myCropper);
+    showToast('Error interno al intentar recortar.', 'error');
+    return;
+  }
+
+  const croppedCanvas = myCropper.getCroppedCanvas();
+  
+  if (croppedCanvas) {
+    try {
+      const newSrc = croppedCanvas.toDataURL('image/png', 0.9);
+      selectedElement.value.src = newSrc;
+      saveHistory(); 
+      
+      closeCropper();
+      showToast('Imagen recortada con éxito', 'success');
+    } catch (error) {
+      console.error("Error al generar recorte (bloqueo CORS):", error);
+      showToast('Seguridad del navegador: No se puede recortar esta imagen externa.', 'error');
+    }
+  } else {
+    showToast('No se pudo generar el recorte.', 'error');
+  }
+};
+
+const closeCropper = () => {
+  if (myCropper) {
+    myCropper.destroy();
+    myCropper = null;
+  }
+  showCropperModal.value = false;
+};
+
+// Botones de rotar y voltear con protección anti-crasheos
+const rotateImage = (deg: number) => {
+  if (myCropper && typeof myCropper.rotate === 'function') {
+    myCropper.rotate(deg);
+  } else {
+    showToast('La herramienta aún no está lista', 'warning');
+  }
+};
+
+const flipImage = () => {
+  if (myCropper && typeof myCropper.scaleX === 'function') {
+    const currentScale = myCropper.getData().scaleX || 1;
+    myCropper.scaleX(currentScale === 1 ? -1 : 1);
+  } else {
+    showToast('La herramienta aún no está lista', 'warning');
+  }
+};
 const getNodesByParent = (nodes: any[], parentId: string | null) => {
   return nodes.filter((n) => n.parentId === parentId)
 }
@@ -4445,10 +4603,13 @@ onUnmounted(() => {
 // --- UTILS ---
 const YT_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
 const isYouTube = (url: string) => url && YT_REGEX.test(url)
+
 const getYouTubeEmbedUrl = (url: string) => {
-  const match = url.match(YT_REGEX)
-  return match && match[1] ? `https://www.youtube-nocookie.com/embed/${match[1]}?rel=0` : ''
-}
+  // Reutilizamos YT_REGEX aquí abajo en lugar de reescribirlo
+  const match = url.match(YT_REGEX);
+  // Añadimos &origin=... para evitar bloqueos por CORS en archivos locales
+  return match && match[1] ? 'https://www.youtube-nocookie.com/embed/' + match[1] + '?rel=0&origin=https://google.com' : '';
+};
 const formatTime = (seconds: number) => {
   const m = Math.floor(seconds / 60)
     .toString()
@@ -4554,20 +4715,28 @@ const loadProjectFromDB = async (id: string) => {
     // 4. Si es PDF, lo reconstruimos a partir del Base64
     if (docType.value === 'pdf' && data.pdfBase64) {
       _PDF_BASE64_STORE = data.pdfBase64;
-      const pdfData = atob(_PDF_BASE64_STORE);
-      const uint8Array = new Uint8Array(pdfData.length);
-      for (let i = 0; i < pdfData.length; i++) {
-        uint8Array[i] = pdfData.charCodeAt(i);
+      
+      let loadingTask;
+      
+      // Si el string guardado empieza por http, es nuestro nuevo sistema optimizado (URL)
+      if (_PDF_BASE64_STORE.startsWith('http')) {
+        loadingTask = pdfjsLib.getDocument(_PDF_BASE64_STORE);
+      } else {
+        // Si no, es un proyecto antiguo en Base64 (lo mantenemos para no romper nada viejo)
+        const pdfData = atob(_PDF_BASE64_STORE);
+        const uint8Array = new Uint8Array(pdfData.length);
+        for (let i = 0; i < pdfData.length; i++) {
+          uint8Array[i] = pdfData.charCodeAt(i);
+        }
+        loadingTask = pdfjsLib.getDocument({ data: uint8Array });
       }
       
-      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
       _RAW_PDF_DOC = markRaw(await loadingTask.promise);
       await generatePdfThumbnails();
     } else {
       _RAW_PDF_DOC = null;
       pdfThumbnails.value = {};
     }
-
     // 5. Activamos la interfaz
     hasDoc.value = true;
     resetHistory();
@@ -4586,31 +4755,58 @@ const loadProjectFromDB = async (id: string) => {
 }
 
 const processPdfFile = async (file: File | Blob) => {
-  docType.value = 'pdf'
-  presentationId.value = null; // 👈 AÑADE ESTO
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    _PDF_BASE64_STORE = (e.target?.result as string).split(',')[1]
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
-    _RAW_PDF_DOC = markRaw(await loadingTask.promise)
-    numPages.value = _RAW_PDF_DOC.numPages
-    hasDoc.value = true
-    resetHistory()
-    documentState.value = {}
-    slideConfigs.value = {}
-    pdfPageMap.value = {}
-    pdfThumbnails.value = {}
-    initializeConfigs()
-    await generatePdfThumbnails()
-    await renderPage(1)
+  docType.value = 'pdf';
+  presentationId.value = null; 
+  
+  // Usamos tu UI de carga existente
+  isConverting.value = true; 
+  showToast('Subiendo PDF al servidor...', 'info');
+
+  const formData = new FormData();
+  formData.append('file', file as Blob, 'documento.pdf');
+
+  try {
+    // 1. Enviamos el archivo al backend
+    const response = await fetch('http://10.104.126.179:3000/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) throw new Error('Error HTTP: ' + response.status);
+    const data = await response.json();
+
+    // 2. Guardamos LA URL devuelta (ej: http://localhost:3000/uploads/file-123.pdf)
+    _PDF_BASE64_STORE = data.url; 
+
+    // 3. Le pasamos la URL directamente a PDF.js (es nativamente compatible)
+    const loadingTask = pdfjsLib.getDocument(data.url);
+    _RAW_PDF_DOC = markRaw(await loadingTask.promise);
+    
+    numPages.value = _RAW_PDF_DOC.numPages;
+    hasDoc.value = true;
+    resetHistory();
+    documentState.value = {};
+    slideConfigs.value = {};
+    pdfPageMap.value = {};
+    pdfThumbnails.value = {};
+    
+    initializeConfigs();
+    await generatePdfThumbnails();
+    await renderPage(1);
 
     setTimeout(() => {
       fitToScreen();
-      savePresentation(true); // Guarda inmediatamente para crear la URL
+      savePresentation(true); 
+      showToast('¡PDF cargado y optimizado con éxito!', 'success');
     }, 100);
+
+  } catch (error) {
+    console.error('Error procesando PDF:', error);
+    showToast('Error al conectar con el servidor para subir el PDF.', 'error');
+  } finally {
+    isConverting.value = false;
   }
-  reader.readAsDataURL(file)
-}
+};
 
 const convertPptxToPdfViaAPI = async (file: File) => {
   isConverting.value = true
@@ -5770,10 +5966,7 @@ const exportPresentation = () => {
             </div>
             
             <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-              <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allowfullscreen></iframe>
-              <video v-else :src="el.src" controls :autoplay="el.autoplay" :loop="el.loop" :muted="el.muted" class="el-content-fitted" :style="{ objectFit: el.fit }"></video>
-            </div>
-
+            <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="pointer-events: auto;"></iframe>
             <div v-else-if="el.type === 'iframe'" class="el-iframe-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
               <iframe v-if="el.src" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
             </div>
@@ -5864,9 +6057,10 @@ const exportPresentation = () => {
 
         const isYouTube = (url) => url && url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
         const getYouTubeEmbedUrl = (url) => {
-          const match = url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
-          return match && match[1] ? 'https://www.youtube-nocookie.com/embed/' + match[1] + '?rel=0' : '';
-        };
+  const match = url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
+  // Cambiamos a youtube normal y añadimos enablejsapi=1 y origin=http://localhost
+  return match && match[1] ? 'https://www.youtube.com/embed/' + match[1] + '?rel=0&enablejsapi=1&origin=http://localhost' : '';
+};
 
         const formatTime = (seconds) => {
           const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -6030,6 +6224,8 @@ const exportPresentation = () => {
 </script>
 
 <style scoped>
+@import url('https://unpkg.com/cropperjs@1.6.2/dist/cropper.css');
+/* O mejor aún, usa el local: @import 'cropperjs/dist/cropper.css'; */
 .pro-editor-app {
   display: flex;
   flex-direction: column;
