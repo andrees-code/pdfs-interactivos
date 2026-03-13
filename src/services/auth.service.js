@@ -1,5 +1,5 @@
 // src/services/auth.service.js
-const API_URL = 'http://10.104.126.179:3000/api/api/v1/users'; // Nota el doble /api/api/
+const API_URL = 'http://localhost:3000/api/api/v1/users'; // Nota el doble /api/api/
 
 export const authService = {
   async register(userData) {
