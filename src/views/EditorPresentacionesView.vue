@@ -657,7 +657,7 @@
                         >
                           <div
                             class="mm-node-block"
-                            @click.stop="activeMapNodeId = n0.idselectElement(el.id)"
+                            @click.stop="activeMapNodeId = n0.id; selectElement(el.id)"
                             :style="getNodeStyle(n0, activeMapNodeId === n0.id && !playMode)"
                           >
                             <img
@@ -682,7 +682,7 @@
                             >
                               <div
                                 class="mm-node-block"
-                                @click.stop="activeMapNodeId = n1.idselectElement(el.id)"
+                                @click.stop="activeMapNodeId = n1.id; selectElement(el.id)"
                                 :style="getNodeStyle(n1, activeMapNodeId === n1.id && !playMode)"
                               >
                                 <img
@@ -710,7 +710,7 @@
                                 >
                                   <div
                                     class="mm-node-block"
-                                    @click.stop="activeMapNodeId = n2.idselectElement(el.id)"
+                                    @click.stop="activeMapNodeId = n2.id; selectElement(el.id)"
                                     :style="getNodeStyle(n2, activeMapNodeId === n2.id && !playMode)"
                                   >
                                     <img
@@ -738,7 +738,7 @@
                                     >
                                       <div
                                         class="mm-node-block"
-                                        @click.stop="activeMapNodeId = n3.idselectElement(el.id)"
+                                          @click.stop="activeMapNodeId = n3.id; selectElement(el.id)"
                                         :style="
                                           getNodeStyle(n3, activeMapNodeId === n3.id && !playMode)
                                         "
@@ -1910,7 +1910,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.lineColor"
+                        :value="selectedElement.lineColor"
+                        @input="updateColorDebounced(selectedElement, 'lineColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -1953,7 +1954,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="activeMapNode.bgColor"
+                        :value="activeMapNode.bgColor"
+                        @input="updateColorDebounced(activeMapNode, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -1961,7 +1963,7 @@
                     <div class="prop-group half">
                       <label>Color Texto</label>
                       <div class="color-picker-wrapper">
-                        <input type="color" v-model="activeMapNode.color" class="pro-color-picker" />
+                      <input type="color" :value="activeMapNode.color" @input="updateColorDebounced(activeMapNode, 'color', $event)" class="pro-color-picker" />
                       </div>
                     </div>
                   </div>
@@ -2036,7 +2038,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2046,7 +2049,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.borderColor"
+                      :value="selectedElement.borderColor"
+                      @input="updateColorDebounced(selectedElement, 'borderColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2059,7 +2063,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.headerBgColor"
+                        :value="selectedElement.headerBgColor"
+                        @input="updateColorDebounced(selectedElement, 'headerBgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2076,7 +2081,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.rowBgColor1"
+                        :value="selectedElement.rowBgColor1"
+                        @input="updateColorDebounced(selectedElement, 'rowBgColor1', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2086,7 +2092,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.rowBgColor2"
+                        :value="selectedElement.rowBgColor2"
+                        @input="updateColorDebounced(selectedElement, 'rowBgColor2', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2226,7 +2233,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2286,7 +2294,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2296,7 +2305,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.checkedColor"
+                        :value="selectedElement.checkedColor"
+                        @input="updateColorDebounced(selectedElement, 'checkedColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2351,13 +2361,14 @@
                     </div>
                     <div class="prop-group half">
                       <label>Color Text</label>
-                      <div class="color-picker-wrapper">
-                        <input
-                          type="color"
-                          v-model="selectedElement.color"
-                          class="pro-color-picker"
-                        />
-                      </div>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
+                        class="pro-color-picker"
+                      />
+                    </div>
                     </div>
                   </div>
                   <div class="prop-row">
@@ -2450,14 +2461,14 @@
 
                   <div class="prop-group" v-if="selectedElement.type === 'text'">
     <label>Fondo de Caja</label>
-    <div class="color-picker-wrapper">
-      <input
-        type="color"
-        :value="selectedElement.textBgColor === 'transparent' ? '#ffffff' : selectedElement.textBgColor"
-        @input="selectedElement.textBgColor = $event.target.value"
-        class="pro-color-picker"
-      />
-    </div>
+  <div class="color-picker-wrapper">
+    <input
+      type="color"
+      :value="selectedElement.textBgColor === 'transparent' ? '#ffffff' : selectedElement.textBgColor"
+      @input="updateColorDebounced(selectedElement, 'textBgColor', $event)"
+      class="pro-color-picker"
+    />
+  </div>
     <button
       class="btn-text-danger mt-1"
       @click="selectedElement.textBgColor = 'transparent'"
@@ -2470,7 +2481,8 @@
                     <div class="color-picker-wrapper">
                       <input
                         type="color"
-                        v-model="selectedElement.textBgColor"
+                      :value="selectedElement.textBgColor"
+                      @input="updateColorDebounced(selectedElement, 'textBgColor', $event)"
                         class="pro-color-picker"
                       />
                     </div>
@@ -2556,7 +2568,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2565,13 +2578,14 @@
 
                   <div class="prop-group" v-if="selectedElement.type === 'shape'">
                     <label>Color 1 (Principal)</label>
-                    <div class="color-picker-wrapper">
-                      <input
-                        type="color"
-                        v-model="selectedElement.bgColor"
-                        class="pro-color-picker"
-                      />
-                    </div>
+                  <div class="color-picker-wrapper">
+                    <input
+                      type="color"
+                      :value="selectedElement.bgColor"
+                      @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
+                      class="pro-color-picker"
+                    />
+                  </div>
                   </div>
 
                   <div class="prop-row" v-if="selectedElement.type === 'arrow'">
@@ -2584,7 +2598,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2614,13 +2629,14 @@
                       v-if="selectedElement.gradientType && selectedElement.gradientType !== 'none'"
                     >
                       <label>Color 2</label>
-                      <div class="color-picker-wrapper">
-                        <input
-                          type="color"
-                          v-model="selectedElement.gradientColor"
-                          class="pro-color-picker"
-                        />
-                      </div>
+                    <div class="color-picker-wrapper">
+                      <input
+                        type="color"
+                        :value="selectedElement.gradientColor"
+                        @input="updateColorDebounced(selectedElement, 'gradientColor', $event)"
+                        class="pro-color-picker"
+                      />
+                    </div>
                     </div>
                   </div>
 
@@ -2634,7 +2650,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2673,7 +2690,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.borderColor"
+                      :value="selectedElement.borderColor"
+                      @input="updateColorDebounced(selectedElement, 'borderColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2730,7 +2748,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2766,7 +2785,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2776,7 +2796,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2818,7 +2839,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2828,7 +2850,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2859,7 +2882,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -2869,7 +2893,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3015,7 +3040,8 @@
                     <div class="color-picker-wrapper">
                       <input
                         type="color"
-                        v-model="selectedElement.borderColor"
+                        :value="selectedElement.borderColor"
+                        @input="updateColorDebounced(selectedElement, 'borderColor', $event)"
                         class="pro-color-picker"
                       />
                     </div>
@@ -3097,7 +3123,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.brushColor"
+                        :value="selectedElement.brushColor"
+                        @input="updateColorDebounced(selectedElement, 'brushColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3122,7 +3149,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3132,7 +3160,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3214,7 +3243,8 @@
                         />
                         <input
                           type="color"
-                          v-model="item.color"
+                        :value="item.color"
+                        @input="updateColorDebounced(item, 'color', $event)"
                           class="pro-color-picker half"
                           style="height: 28px"
                         />
@@ -3272,7 +3302,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3282,7 +3313,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3307,7 +3339,7 @@
                   <div class="prop-group">
                     <label>Color del Pulso</label>
                     <div class="color-picker-wrapper">
-                      <input type="color" v-model="selectedElement.color" class="pro-color-picker" />
+                    <input type="color" :value="selectedElement.color" @input="updateColorDebounced(selectedElement, 'color', $event)" class="pro-color-picker" />
                     </div>
                   </div>
                   <div class="prop-group section-divider">Ventana Desplegable</div>
@@ -3317,7 +3349,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.modalBgColor"
+                        :value="selectedElement.modalBgColor"
+                        @input="updateColorDebounced(selectedElement, 'modalBgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3327,7 +3360,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.modalTextColor"
+                        :value="selectedElement.modalTextColor"
+                        @input="updateColorDebounced(selectedElement, 'modalTextColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3371,7 +3405,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3381,7 +3416,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3406,7 +3442,8 @@
                     <div class="color-picker-wrapper">
                       <input
                         type="color"
-                        v-model="selectedElement.borderColor"
+                        :value="selectedElement.borderColor"
+                        @input="updateColorDebounced(selectedElement, 'borderColor', $event)"
                         class="pro-color-picker"
                       />
                     </div>
@@ -3441,7 +3478,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.bgColor"
+                        :value="selectedElement.bgColor"
+                        @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3451,7 +3489,8 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                          v-model="selectedElement.color"
+                        :value="selectedElement.color"
+                        @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
                       </div>
@@ -3513,15 +3552,15 @@
                 </div>
                 <div class="prop-group mt-2">
                   <label>Color Sólido</label>
-                  <div class="color-picker-wrapper">
-                    <input
-                      type="color"
-                      v-model="slideConfigs[pageNum].bgColor"
-                      @input="renderPage(pageNum)"
-                      class="pro-color-picker"
-                    />
-                    <span class="color-hex">{{ slideConfigs[pageNum].bgColor.toUpperCase() }}</span>
-                  </div>
+                <div class="color-picker-wrapper">
+                  <input
+                    type="color"
+                    :value="slideConfigs[pageNum].bgColor"
+                    @input="updateColorDebounced(slideConfigs[pageNum], 'bgColor', $event, () => renderPage(pageNum))"
+                    class="pro-color-picker"
+                  />
+                  <span class="color-hex">{{ slideConfigs[pageNum].bgColor.toUpperCase() }}</span>
+                </div>
                 </div>
                 <div class="prop-group mt-2">
                   <label>Imagen de Fondo</label>
@@ -3797,7 +3836,8 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   // 2. Añade estas variables de estado (por ejemplo debajo de "const activeTool = ref...")
   const showCropperModal = ref(false);
   const cropperImgRef = ref<HTMLImageElement | null>(null);
-  const API_URL = 'http://10.104.126.179:3000/api/presentations'; // Ajusta esto a tu URL real
+  const API_BASE = `http://${window.location.hostname}:3000/api`;
+  const API_URL = `${API_BASE}/presentations`;
   const presentationId = ref<string | null>(null);
   const presentationTitle = ref<string>('Mi Nueva Presentación');
   const isSaving = ref(false);
@@ -3840,7 +3880,18 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     toast.value.show = false
     if (toastTimeout) clearTimeout(toastTimeout)
   }
-  // --- FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
+
+  // --- DEBOUNCE PARA SELECTORES DE COLOR ---
+  let colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const updateColorDebounced = (obj: any, key: string, event: Event, callback?: () => void) => {
+    const val = (event.target as HTMLInputElement).value;
+    if (colorDebounceTimer) clearTimeout(colorDebounceTimer);
+    colorDebounceTimer = setTimeout(() => {
+      obj[key] = val;
+      if (callback) callback();
+    }, 100);
+  };
+
   // --- FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
   const savePresentation = async (isAutosave = false) => {
     if (!hasDoc.value) return;
@@ -4809,7 +4860,7 @@ watch(
     // Retraso de 1.5s. Si el usuario sigue editando, el temporizador se reinicia.
     thumbnailTimeout = setTimeout(() => {
       captureThumbnail();
-    }, 1500);
+    }, 2500);
   },
   { deep: true }
 );
@@ -4839,10 +4890,10 @@ watch(
 
       if (autosaveTimeout) clearTimeout(autosaveTimeout);
       
-      // Espera 3 segundos de inactividad antes de guardar
+      // Espera 5 segundos de inactividad antes de guardar
       autosaveTimeout = setTimeout(() => {
         savePresentation(true); // true indica que es autoguardado (silencioso)
-      }, 3000);
+      }, 5000);
     },
     { deep: true }
   );
@@ -5203,7 +5254,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
 
   try {
     // 1. Enviamos el archivo al backend
-    const response = await fetch('http://10.104.126.179:3000/api/upload', {
+    const response = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
       body: formData
     });
@@ -6999,43 +7050,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     a.click()
     URL.revokeObjectURL(url)
   }
-  
-  
-  // --- INYECTADO: REFRENDO EN TIEMPO REAL V2 ---
-  let __thumbTimeout = null;
-  
-  watch(currentPageElements, () => {
-    if (!playMode.value) {
-      if (__thumbTimeout) clearTimeout(__thumbTimeout);
-      __thumbTimeout = setTimeout(() => {
-        captureThumbnail();
-      }, 150); // Extremadamente rápido para la ilusión de tiempo real
-    }
-  }, { deep: true });
-  
-  watch(() => slideConfigs.value[pageNum.value], () => {
-    if (!playMode.value) {
-      if (__thumbTimeout) clearTimeout(__thumbTimeout);
-      __thumbTimeout = setTimeout(() => {
-        captureThumbnail();
-      }, 150);
-    }
-  }, { deep: true });
-  
-  // Agregar también el resize observer o mutación final para la velocidad extrema
-  onMounted(() => {
-    const target = document.querySelector('.pro-workspace');
-    if (target) {
-        target.addEventListener('mouseup', () => {
-             if (__thumbTimeout) clearTimeout(__thumbTimeout);
-             __thumbTimeout = setTimeout(captureThumbnail, 100);
-        });
-        target.addEventListener('keyup', () => {
-             if (__thumbTimeout) clearTimeout(__thumbTimeout);
-             __thumbTimeout = setTimeout(captureThumbnail, 100);
-        });
-    }
-  });
 
 </script>
 
