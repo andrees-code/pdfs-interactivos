@@ -1,9 +1,14 @@
 // src/config/api.js
 // Cambia la URL del backend desde el entorno (Vite env vars) en lugar de IP estática.
 // En local: .env -> VITE_BACKEND_URL=http://localhost:3000
-// En producción (Vercel): añade VITE_BACKEND_URL=https://<tu-backend>.vercel.app
+// En producción (Vercel): utiliza https://pdfs-bakend.vercel.app
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:3000`
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (() => {
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  if (isDev) return 'http://localhost:3000'
+  return 'https://pdfs-bakend.vercel.app'
+})()
+
 const API_PREFIX = '/api'
 
 export const BACKEND_BASE = `${BACKEND_URL}`
