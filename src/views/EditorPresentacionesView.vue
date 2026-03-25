@@ -554,6 +554,19 @@
                     :class="guide.type"
                     :style="guide.type === 'vertical' ? { left: guide.pos + 'px' } : { top: guide.pos + 'px' }"
                   ></div>
+
+                  <!-- Rectángulo de selección múltiple -->
+                  <div
+                    v-if="isMarqueeSelecting"
+                    class="marquee-selection"
+                    :style="{
+                      left: marqueeRect.x + 'px',
+                      top: marqueeRect.y + 'px',
+                      width: marqueeRect.width + 'px',
+                      height: marqueeRect.height + 'px'
+                    }"
+                  ></div>
+
                   <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
 
                   <div
@@ -1586,7 +1599,6 @@
 
                   <div
                       v-if="
-                        selectedElementIds.length === 1 &&
                         selectedElementIds.includes(el.id) &&
                         !playMode &&
                         !['interactive', 'audio'].includes(el.type) &&
@@ -1594,6 +1606,7 @@
                       "
                       class="figma-bounding-box"
                     >
+                      <template v-if="selectedElementIds.length === 1">
                       <div class="rotate-handle nw" @mousedown.stop.prevent="startRotate($event, el)"></div>
                       <div class="rotate-handle ne" @mousedown.stop.prevent="startRotate($event, el)"></div>
                       <div class="rotate-handle sw" @mousedown.stop.prevent="startRotate($event, el)"></div>
@@ -1603,6 +1616,7 @@
                       <div class="resize-handle ne" @mousedown.stop.prevent="startResize($event, el, 'ne')"></div>
                       <div class="resize-handle sw" @mousedown.stop.prevent="startResize($event, el, 'sw')"></div>
                       <div class="resize-handle se" @mousedown.stop.prevent="startResize($event, el, 'se')"></div>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -3702,7 +3716,7 @@ const captureThumbnail = async () => {
     const exactScale = THUMBNAIL_WIDTH / baseWidth.value;
 
     const canvas = await html2canvas(slideNode, {
-      scale: exactScale,
+      scale: exactScale * 2.0, // Aumentamos la calidad de las miniaturas
       width: baseWidth.value,
       height: baseHeight.value,
       useCORS: true,
@@ -5408,7 +5422,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     reader.onload = async () => {
       try {
         const response = await fetch(
-          `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ`,
+          `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ&ImageResolution=600`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -5848,7 +5862,11 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     if (workspaceRef.value) {
       const scaleX = (workspaceRef.value.clientWidth - 60) / baseWidth.value
       const scaleY = (workspaceRef.value.clientHeight - 60) / baseHeight.value
-      zoom.value = Math.max(0.1, Math.min(scaleX, scaleY))
+      if (playMode.value) {
+        zoom.value = Math.max(0.1, Math.min(scaleX, scaleY, 1.0))
+      } else {
+        zoom.value = Math.max(0.1, Math.min(scaleX, scaleY))
+      }
 
       // NUEVO: Centrar el lienzo nuevamente
       panX.value = 0;
@@ -5872,32 +5890,110 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     }
   };
 
+  let wasDraggingOrPanning = false;
+
   const handleCanvasPanStart = (e: MouseEvent) => {
     if (playMode.value) return;
 
-    // Se activa con el botón central del ratón (1) o con la barra espaciadora + Click izquierdo (0)
+    wasDraggingOrPanning = false;
+
+    // 🎯 PRIORIDAD 1: Botón central O (Espacio + Botón izquierdo) = PANNING
     if (e.button === 1 || (e.button === 0 && isSpacePressed.value)) {
       e.preventDefault();
+      e.stopPropagation();
       isPanning.value = true;
 
-      const startX = e.clientX;
-      const startY = e.clientY;
+      const panStartX = e.clientX;
+      const panStartY = e.clientY;
       const initialPanX = panX.value;
       const initialPanY = panY.value;
 
       const onMouseMove = (moveEvent: MouseEvent) => {
-        panX.value = initialPanX + (moveEvent.clientX - startX);
-        panY.value = initialPanY + (moveEvent.clientY - startY);
+        wasDraggingOrPanning = true;
+        panX.value = initialPanX + (moveEvent.clientX - panStartX);
+        panY.value = initialPanY + (moveEvent.clientY - panStartY);
       };
 
       const onMouseUp = () => {
         isPanning.value = false;
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        setTimeout(() => { wasDraggingOrPanning = false; }, 0);
       };
 
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
+      document.addEventListener('mousemove', onMouseMove, { passive: false });
+      document.addEventListener('mouseup', onMouseUp, { once: true });
+      return;
+    }
+
+    // 🎯 PRIORIDAD 2: Botón izquierdo = MARQUEE SELECTION (como Figma)
+    if (e.button === 0) {
+      if (activeTool.value !== 'select') return;
+
+      e.preventDefault();
+      isMarqueeSelecting.value = false;
+      const marqueeStartX = e.clientX;
+      const marqueeStartY = e.clientY;
+
+      // Limpiar selección anterior si no es Shift/Ctrl
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        selectedElementIds.value = [];
+        activeMapNodeId.value = null;
+      }
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const currentX = moveEvent.clientX;
+        const currentY = moveEvent.clientY;
+
+        // Detectar arrastre real (umbral 3px)
+        if (!wasDraggingOrPanning && (Math.abs(currentX - marqueeStartX) > 3 || Math.abs(currentY - marqueeStartY) > 3)) {
+          wasDraggingOrPanning = true;
+          isMarqueeSelecting.value = true;
+        }
+
+        if (wasDraggingOrPanning) {
+          const startCanvas = screenToCanvas(marqueeStartX, marqueeStartY);
+          const currentCanvas = screenToCanvas(currentX, currentY);
+
+          marqueeRect.value.x = Math.min(startCanvas.x, currentCanvas.x);
+          marqueeRect.value.y = Math.min(startCanvas.y, currentCanvas.y);
+          marqueeRect.value.width = Math.abs(currentCanvas.x - startCanvas.x);
+          marqueeRect.value.height = Math.abs(currentCanvas.y - startCanvas.y);
+        }
+      };
+
+      const onMouseUp = () => {
+        // Procesar selección solo si realmente arrastramos
+        if (wasDraggingOrPanning && isMarqueeSelecting.value) {
+          currentPageElements.value.forEach(el => {
+            if (el.isHidden || el.isLocked) return;
+
+            const elWidth = typeof el.width === 'number' ? el.width : 150;
+            const elHeight = typeof el.height === 'number' ? el.height : 50;
+
+            // Verificar intersección
+            if (!(el.x + elWidth < marqueeRect.value.x ||
+                  el.x > marqueeRect.value.x + marqueeRect.value.width ||
+                  el.y + elHeight < marqueeRect.value.y ||
+                  el.y > marqueeRect.value.y + marqueeRect.value.height)) {
+              if (!selectedElementIds.value.includes(el.id)) {
+                selectedElementIds.value.push(el.id);
+              }
+            }
+          });
+        }
+
+        isMarqueeSelecting.value = false;
+        marqueeRect.value = { x: 0, y: 0, width: 0, height: 0 };
+
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+
+        setTimeout(() => { wasDraggingOrPanning = false; }, 0);
+      };
+
+      document.addEventListener('mousemove', onMouseMove, { passive: false });
+      document.addEventListener('mouseup', onMouseUp, { once: true });
     }
   };
   // --- CREACIÓN Y SELECCIÓN DE ELEMENTOS ---
@@ -5917,37 +6013,36 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
   }
 
   const handleCanvasClick = (e: MouseEvent) => {
-    if (playMode.value) return
+    if (playMode.value) return;
+    if (wasDraggingOrPanning) return;
 
-    // Si la herramienta es select, deseleccionar
     if (activeTool.value === 'select') {
-      selectedElementIds.value = []
-      activeMapNodeId.value = null
-      return
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        selectedElementIds.value = [];
+        activeMapNodeId.value = null;
+      }
+    } else {
+      const { x, y } = screenToCanvas(e.clientX, e.clientY);
+      placeNewElement(x, y);
     }
-
-    const { x, y } = screenToCanvas(e.clientX, e.clientY)
-    placeNewElement(x, y)
   }
 
-  // Click fuera del lienzo (sobre el canvas-wrapper)
- // Click fuera del lienzo (sobre el canvas-wrapper)
 const handleCanvasClickOutside = (e: MouseEvent) => {
-   console.log('handleCanvasClickOutside disparado por:', e.target)
   if (playMode.value) return
-
-  // Si el click no viene del canvas real, ignorarlo
-  const canvasEl = workspaceRef.value?.querySelector('.canvas-shadow-box')
-  if (!canvasEl || !canvasEl.contains(e.target as Node) && e.target !== canvasEl) return
+  if (wasDraggingOrPanning) return;
 
   if (activeTool.value === 'select') {
-    selectedElementIds.value = []
-    activeMapNodeId.value = null
-    return
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      selectedElementIds.value = [];
+      activeMapNodeId.value = null;
+    }
+  } else {
+    // Si hacemos click en el área gris para poner un nuevo elemento
+    if (e.target === workspaceRef.value) {
+      const { x, y } = screenToCanvas(e.clientX, e.clientY);
+      placeNewElement(x, y);
+    }
   }
-
-  const { x, y } = screenToCanvas(e.clientX, e.clientY)
-  placeNewElement(x, y)
 }
 
   // Lógica compartida de creación de elemento
@@ -6127,8 +6222,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     }
   }
   // --- ARRASTRE Y REDIMENSIÓN CON SNAPPING (IMÁN) ---
+  const isMarqueeSelecting = ref(false);
+  const marqueeRect = ref({ x: 0, y: 0, width: 0, height: 0 });
+
   let isDragging = false,
-    isResizing = false, // <-- ¡ESTA ES LA LÍNEA QUE FALTABA!
+    isResizing = false,
     startX = 0,
     startY = 0,
     initialPositions: any[] = [],
@@ -6147,12 +6245,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       return
     }
 
-    // ... resto del código existente de startDrag sin cambios
-
     e.preventDefault();
 
-    if (!selectedElementIds.value.includes(el.id)) selectElement(el.id, e);
-    if (activeTool.value !== 'select') return;
+    let hasMoved = false;
+
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      if (selectedElementIds.value.includes(el.id)) {
+        selectedElementIds.value = selectedElementIds.value.filter((i) => i !== el.id);
+      } else {
+        selectedElementIds.value.push(el.id);
+      }
+    } else {
+      if (!selectedElementIds.value.includes(el.id)) {
+        selectElement(el.id);
+      }
+    }
+
+    if (!selectedElementIds.value.includes(el.id)) return;
 
     isDragging = true;
     startX = e.clientX;
@@ -6203,14 +6312,16 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       const rawDx = (moveEvent.clientX - startX) / zoom.value;
       const rawDy = (moveEvent.clientY - startY) / zoom.value;
 
+      if (!hasMoved && (Math.abs(moveEvent.clientX - startX) > 3 || Math.abs(moveEvent.clientY - startY) > 3)) {
+        hasMoved = true;
+      }
+
       let finalDx = rawDx;
       let finalDy = rawDy;
 
-      activeGuides.value = []; // Limpiar guías activas en cada frame
+      activeGuides.value = [];
 
-      // SI NO SE PULSA SHIFT, APLICAMOS EL IMÁN
-      if (!moveEvent.shiftKey) {
-        // Posiciones proyectadas si nos moviéramos libremente
+      if (hasMoved && !moveEvent.shiftKey) {
         const projX = initMinX + rawDx;
         const projY = initMinY + rawDy;
         const projMidX = projX + initWidth / 2;
@@ -6218,10 +6329,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         const projMidY = projY + initHeight / 2;
         const projMaxY = projY + initHeight;
 
-        // Ajustar la sensibilidad del imán según el zoom para que se sienta natural
         const dynamicThreshold = SNAP_THRESHOLD / zoom.value;
 
-        // Función interna para buscar coincidencias
         const findSnap = (projPoints: number[], snapPoints: number[], initPoints: number[]) => {
           let bestDelta = null;
           let minDistance = dynamicThreshold + 1;
@@ -6232,22 +6341,20 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               const dist = Math.abs(projPoints[i] - snapP);
               if (dist < minDistance) {
                 minDistance = dist;
-                bestDelta = snapP - initPoints[i]; // Cuánto debemos movernos realmente
-                snappedPos = snapP; // Dónde dibujar la línea
+                bestDelta = snapP - initPoints[i];
+                snappedPos = snapP;
               }
             }
           }
           return { bestDelta, snappedPos };
         };
 
-        // Comprobar colisiones Eje X
         const resX = findSnap([projX, projMidX, projMaxX], snapXPoints, [initMinX, initMinX + initWidth / 2, initMaxX]);
         if (resX.bestDelta !== null) {
           finalDx = resX.bestDelta;
           activeGuides.value.push({ type: 'vertical', pos: resX.snappedPos as number });
         }
 
-        // Comprobar colisiones Eje Y
         const resY = findSnap([projY, projMidY, projMaxY], snapYPoints, [initMinY, initMinY + initHeight / 2, initMaxY]);
         if (resY.bestDelta !== null) {
           finalDy = resY.bestDelta;
@@ -6255,33 +6362,37 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         }
       }
 
-      // Aplicar las posiciones finales
-      draggedEls.forEach((elem) => {
-        const initPos = initialPositions.find((p) => p.id === elem.id);
-        if (initPos) {
-          if (moveEvent.shiftKey) {
-            // Movimiento libre (ultra fluido, sin redondeo a la cuadrícula invisible)
-            elem.x = initPos.startX + finalDx;
-            elem.y = initPos.startY + finalDy;
-          } else {
-            // Movimiento normal (redondeado a 0.5px para evitar bordes borrosos en CSS)
-            elem.x = Math.round((initPos.startX + finalDx) * 2) / 2;
-            elem.y = Math.round((initPos.startY + finalDy) * 2) / 2;
+      if (hasMoved) {
+        draggedEls.forEach((elem) => {
+          const initPos = initialPositions.find((p) => p.id === elem.id);
+          if (initPos) {
+            if (moveEvent.shiftKey) {
+              elem.x = initPos.startX + finalDx;
+              elem.y = initPos.startY + finalDy;
+            } else {
+              elem.x = Math.round((initPos.startX + finalDx) * 2) / 2;
+              elem.y = Math.round((initPos.startY + finalDy) * 2) / 2;
+            }
           }
-        }
-      });
+        });
+      }
     };
 
-    const onMouseUp = () => {
+    const onMouseUp = (upEvent: MouseEvent) => {
       isDragging = false;
-      activeGuides.value = []; // Esconder guías al soltar
+      activeGuides.value = [];
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+
+      if (!hasMoved && !upEvent.shiftKey && !upEvent.ctrlKey && !upEvent.metaKey) {
+        selectElement(el.id);
+      }
     };
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   };
+
 
   // --- REDIMENSIÓN (CON SOPORTE PARA ROTACIÓN Y ASPECT RATIO) ---
   const startResize = (e: MouseEvent, el: any, corner: string) => {
@@ -6557,7 +6668,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <style>
       body { margin: 0; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; -webkit-user-select: none; }
       #app { display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; position: relative; }
-      .canvas-wrapper { position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); transform-origin: center center; transition: transform 0.2s; background-size: 100% 100%; background-position: center; }
+      .canvas-wrapper { position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); transform-origin: center center; transition: transform 0.2s; }
 .layer-pdf {
   position: absolute;
   top: 0;
@@ -6690,10 +6801,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <script type="application/json" id="app-pdf-map">${safeJson(pdfPageMap.value)}<\/script>
     <script type="application/json" id="app-pdf-data">${_PDF_BASE64_STORE}<\/script>
 
-    <div id="app">
-      <div class="canvas-wrapper play-mode-active" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', transform: 'scale(' + zoom + ')' }">
-        <div class="canvas-shadow-box layer-engine" :class="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :style="{ width: '100%', height: '100%', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
-            <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
+    <div id="app" @keydown.esc="toggleFullscreen">
+      <div class="canvas-wrapper play-mode-active" :style="{ transform: 'scale(' + zoom + ')' }">
+        <div class="canvas-shadow-box layer-engine" :class="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
+            <canvas ref="pdfCanvas" class="layer-pdf"></canvas>
 
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
                 v-show="!el.isHidden"
@@ -6861,9 +6972,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <div v-else class="placeholder-box" style="border-radius: 50%"><i class="ph ph-magnifying-glass"></i></div>
               </div>
 
-              <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-              <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="pointer-events: auto;"></iframe>
-              <div v-else-if="el.type === 'iframe'" class="el-iframe-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
+              <div v-else-if="el.type === 'video'" class="el-video-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
+                <template v-if="el.src">
+                  <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                  <video v-else :src="el.src" :controls="true" :autoplay="el.autoplay" :loop="el.loop" :muted="el.muted" class="el-content-fitted" :style="{ objectFit: el.fit }"></video>
+                </template>
+              </div>
+
+              <div v-else-if="el.type === 'iframe'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
                 <iframe v-if="el.src" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
               </div>
 
@@ -6941,22 +7057,22 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const baseHeight = ref(metaData.baseHeight);
           const docType = ref(metaData.docType);
 
-          const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
-          const renderTrigger = ref(0); const activeTransition = ref('none');
-
-          // NUEVA REFERENCIA DE ESTADO
+          const pageNum = ref(1);
+          const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1));
+          const zoom = ref(1.0);
+          const renderTrigger = ref(0);
+          const activeTransition = ref('none');
           const isFullscreen = ref(false);
 
-          const currentPageElements = computed(() => documentState.value[fpageNum.value] || []);
+          const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
           const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
           const currentBgImage = computed(() => slideConfigs.value[pageNum.value]?.bgImage ? 'url(' + slideConfigs.value[pageNum.value].bgImage + ')' : 'none');
 
           const isYouTube = (url) => url && url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
           const getYouTubeEmbedUrl = (url) => {
-    const match = url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
-    // Cambiamos a youtube normal y añadimos enablejsapi=1 y origin=http://localhost
-    return match && match[1] ? 'https://www.youtube.com/embed/' + match[1] + '?rel=0&enablejsapi=1&origin=http://localhost' : '';
-  };
+            const match = url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
+            return match && match[1] ? 'https://www.youtube-nocookie.com/embed/' + match[1] + '?rel=0&origin=https://google.com' : '';
+          };
 
           const formatTime = (seconds) => {
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -6982,65 +7098,66 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             return { backgroundColor: node.bgColor, color: node.color, borderRadius: node.shape === 'round' ? '20px' : (node.shape === 'circle' ? '50%' : '6px'), border: isActive ? '2px solid #58a6ff' : '2px solid transparent', minWidth: node.shape === 'circle' ? '80px' : 'auto', aspectRatio: node.shape === 'circle' ? '1/1' : 'auto', justifyContent: 'center' };
           }
 
-          const fitToScreen = () => { zoom.value = Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95; };
+          const fitToScreen = () => { zoom.value = Math.min(Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95, 1.0); };
 
           let pdfDoc = null; const pdfCanvas = ref(null);
 
           const initPdf = async () => {
-              if (docType.value === 'pdf' && rawPdfB64) {
-                  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-
-                  let loadingTask;
-                  // Verificamos si es una URL (nuevo sistema) o Base64 (sistema antiguo)
-                  if (rawPdfB64.startsWith('http')) {
-                      loadingTask = pdfjsLib.getDocument(rawPdfB64);
-                  } else {
-                      const pdfData = atob(rawPdfB64);
-                      const uint8Array = new Uint8Array(pdfData.length);
-                      for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
-                      loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-                  }
-
-                  pdfDoc = await loadingTask.promise;
-                  renderPdfPage(pageNum.value);
+            if (docType.value === 'pdf' && rawPdfB64) {
+              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+              let loadingTask;
+              if (rawPdfB64.startsWith('http')) {
+                loadingTask = pdfjsLib.getDocument(rawPdfB64);
+              } else {
+                const pdfData = atob(rawPdfB64);
+                const uint8Array = new Uint8Array(pdfData.length);
+                for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
+                loadingTask = pdfjsLib.getDocument({ data: uint8Array });
               }
+              pdfDoc = await loadingTask.promise;
+              await renderPdfPage(pageNum.value);
+            }
           };
 
           const renderPdfPage = async (num) => {
-              await nextTick();
-              if (docType.value !== 'pdf' || !pdfDoc || !pdfCanvas.value) return;
-              const canvas = pdfCanvas.value;
-              const ctx = canvas.getContext('2d');
-              const actualPdfPage = pdfPageMap.value[num];
+            await nextTick();
+            const canvas = pdfCanvas.value;
+            if (docType.value !== 'pdf' || !pdfDoc || !canvas) {
+              if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+              return;
+            }
+            const ctx = canvas.getContext('2d');
+            const actualPdfPage = pdfPageMap.value[num];
 
-              if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) {
-                  ctx.clearRect(0, 0, canvas.width, canvas.height);
-                  return;
-              }
+            if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              return;
+            }
 
-              const page = await pdfDoc.getPage(actualPdfPage);
-              const viewport = page.getViewport({ scale: 1.0 });
+            const page = await pdfDoc.getPage(actualPdfPage);
+            const viewport = page.getViewport({ scale: 1.0 });
 
-              // 🚀 CALIDAD DE EXPORTACIÓN: Supermuestreo 3.5x
-              const qualityMultiplier = 3.5;
-              canvas.width = viewport.width * qualityMultiplier;
-              canvas.height = viewport.height * qualityMultiplier;
-              canvas.style.width = viewport.width + 'px';
-              canvas.style.height = viewport.height + 'px';
-              ctx.scale(qualityMultiplier, qualityMultiplier);
+            baseWidth.value = viewport.width;
+            baseHeight.value = viewport.height;
 
-              // Ocultamos el texto original también en la exportación
-              const originalFillText = ctx.fillText;
-              const originalStrokeText = ctx.strokeText;
-              ctx.fillText = function() {};
-              ctx.strokeText = function() {};
+            const qualityMultiplier = 5.0;
+            canvas.width = viewport.width * qualityMultiplier;
+            canvas.height = viewport.height * qualityMultiplier;
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
+            ctx.scale(qualityMultiplier, qualityMultiplier);
 
-              try {
-                  await page.render({ canvasContext: ctx, viewport }).promise;
-              } finally {
-                  ctx.fillText = originalFillText;
-                  ctx.strokeText = originalStrokeText;
-              }
+            const originalFillText = ctx.fillText;
+            const originalStrokeText = ctx.strokeText;
+            ctx.fillText = function() {};
+            ctx.strokeText = function() {};
+
+            try {
+              await page.render({ canvasContext: ctx, viewport }).promise;
+            } finally {
+              ctx.fillText = originalFillText;
+              ctx.strokeText = originalStrokeText;
+            }
           }
 
           const closeAllInteractives = () => {
@@ -7054,19 +7171,20 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           };
 
           const changePageTo = async (num) => {
-            if(num >= 1 && num <= numPages.value) {
-              pageNum.value = num; closeAllInteractives();
+            if (num >= 1 && num <= numPages.value) {
+              pageNum.value = num;
+              closeAllInteractives();
               renderTrigger.value++;
               activeTransition.value = 'none';
               await nextTick();
-              void document.body.offsetWidth; // force reflow
+              void document.body.offsetWidth;
               activeTransition.value = slideConfigs.value[num]?.transition || 'none';
 
               Object.values(documentState.value).forEach(pageItems => {
                 pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
               });
 
-              if(docType.value === 'pdf') renderPdfPage(num);
+              if (docType.value === 'pdf') await renderPdfPage(num);
             }
           };
 
@@ -7082,7 +7200,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             if(audioEl) { if(el.isPlaying) { audioEl.pause(); el.isPlaying = false; } else { audioEl.play(); el.isPlaying = true; } }
           };
 
-          // LÓGICA DE FULLSCREEN PARA LA EXPORTACIÓN NATIVA
           const toggleFullscreen = async () => {
             const el = document.documentElement;
             if (!isFullscreen.value) {
@@ -7102,7 +7219,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           const onFullscreenChange = () => {
             isFullscreen.value = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
-            // Forzamos un recálculo un instante después de que la pantalla termine de cambiar de tamaño
             setTimeout(fitToScreen, 100);
           };
 
@@ -7119,9 +7235,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               });
             }, 1000);
 
-            fitToScreen(); initPdf(); window.addEventListener('resize', fitToScreen);
-
-            // Eventos de teclado y fullscreen
+            fitToScreen();
+            initPdf();
+            window.addEventListener('resize', fitToScreen);
             document.addEventListener('keydown', (e) => {
               if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
               if(e.key === 'ArrowLeft') { e.preventDefault(); changePageTo(pageNum.value - 1); }
@@ -7131,10 +7247,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           });
 
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements,
-            currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube,
-            getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle,
-            isFullscreen, toggleFullscreen // Expuestos a la vista
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen
           };
         }
       }).mount('#app');
@@ -8761,4 +8874,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   @keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes animSlideIn { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
   @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
+
+  /* RECTÁNGULO DE SELECCIÓN MÚLTIPLE */
+  .marquee-selection {
+    position: absolute;
+    border: 2px solid var(--accent-primary);
+    background: rgba(88, 166, 255, 0.1);
+    pointer-events: none;
+    z-index: 1000;
+  }
   </style>
