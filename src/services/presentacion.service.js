@@ -1,4 +1,6 @@
-const API_URL = "http://10.104.126.179:3000/api/presentations"
+import { PRESENTATIONS_API } from '@/config/api.js'
+
+const API_URL = PRESENTATIONS_API
 
 export const presentationService = {
   /**
@@ -6,16 +8,16 @@ export const presentationService = {
    */
   async getPresentation(id) {
     const response = await fetch(`${API_URL}/${id}`)
-    
+
     if (!response.ok) {
       throw new Error(`Error al obtener la presentación: ${response.statusText}`)
     }
-    
+
     return await response.json()
   },
 
   /**
-   * Guarda o actualiza una presentación. 
+   * Guarda o actualiza una presentación.
    * Si se pasa un ID, hace una actualización (PUT). Si no, crea una nueva (POST).
    */
   async savePresentation(payload, id = null) {
@@ -43,11 +45,11 @@ export const presentationService = {
   async getUserPresentations(userId) {
     // Dependiendo de tu backend, puedes mandar el userId por query params
     const response = await fetch(`${API_URL}?userId=${userId}`)
-    
+
     if (!response.ok) {
       throw new Error(`Error al obtener la lista: ${response.statusText}`)
     }
-    
+
     return await response.json()
   },
 
@@ -58,12 +60,12 @@ export const presentationService = {
     const response = await fetch(`${API_URL}/${id}`, {
       method: 'DELETE'
     })
-    
+
     if (!response.ok) {
       throw new Error(`Error al eliminar: ${response.statusText}`)
     }
-    
+
     // COMO EL BACKEND NO DEVUELVE JSON, SIMPLEMENTE DEVOLVEMOS TRUE
-    return true; 
+    return true;
   }
 }

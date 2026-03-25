@@ -11,14 +11,14 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
-        
+
         <div class="chat-messages" ref="messagesContainer">
           <div v-if="messages.length === 0" class="empty-state">
             <p>¡Hola! Puedo ayudarte a crear, modificar o buscar presentaciones y responder tus dudas.</p>
           </div>
-          <div 
-            v-for="(msg, index) in clientMessages" 
-            :key="index" 
+          <div
+            v-for="(msg, index) in clientMessages"
+            :key="index"
             :class="['message-wrapper', msg.role === 'user' ? 'user' : 'assistant']"
           >
             <div class="message-bubble">{{ msg.content }}</div>
@@ -31,9 +31,9 @@
         </div>
 
         <form @submit.prevent="sendMessage" class="chat-input-area">
-          <input 
-            v-model="inputText" 
-            type="text" 
+          <input
+            v-model="inputText"
+            type="text"
             placeholder="Pregúntame o pídeme algo..."
             :disabled="isLoading"
           />
@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { CHAT_API } from '@/config/api.js'
 
 // 1. Recibimos la página actual del editor
 const props = defineProps({
@@ -93,20 +94,20 @@ const scrollToBottom = async () => {
 }
 
 const sendMessage = async () => {
- 
+
   if (!inputText.value.trim() || isLoading.value) return
-  
+
   const userMsg = inputText.value.trim()
   messages.value.push({ role: 'user', content: userMsg })
   inputText.value = ''
   isLoading.value = true
-  
+
   await scrollToBottom()
-  
+
   try {
     const userId = authStore.user?._id || ''
-    
-    const response = await fetch('http://10.104.126.179:3000/api/chat', {
+
+    const response = await fetch(`${CHAT_API}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -123,7 +124,7 @@ const sendMessage = async () => {
     }
 
     const data = await response.json()
-    
+
     // 3. ¡AQUÍ EMITIMOS LA ORDEN AL EDITOR!
     if (data.action) {
       console.log("🤖 Chatbot enviando orden al Editor:", data.action);

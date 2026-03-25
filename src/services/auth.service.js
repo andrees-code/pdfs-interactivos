@@ -1,5 +1,7 @@
 // src/services/auth.service.js
-const API_URL = 'http://10.104.126.179:3000/api/api/v1/users'; // Nota el doble /api/api/
+import { USERS_API } from '@/config/api.js'
+
+const API_URL = USERS_API
 
 export const authService = {
   async register(userData) {

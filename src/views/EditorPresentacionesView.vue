@@ -10,18 +10,18 @@
             <button class="toast-close" @click="closeToast"><i class="ph ph-x"></i></button>
           </div>
         </transition>
-        <EditorHeader 
+        <EditorHeader
           :is-converting="isConverting"
           :has-doc="hasDoc"
           :zoom="zoom"
           :play-mode="playMode"
-          :is-saving="isSaving" 
+          :is-saving="isSaving"
           :is-autosaving="isAutosaving"  @file-upload="handleFileUpload"
           @export="exportPresentation"
           @change-zoom="changeZoom"
           @fit-screen="fitToScreen"
           @toggle-play="togglePlayMode"
-          @save="savePresentation" 
+          @save="savePresentation"
         />
   <div v-if="isLoadingProject" class="loading-overlay">
           <div class="spinner"></div>
@@ -518,16 +518,16 @@
               </div>
             </div>
 
-            <main 
-              class="pro-canvas-area" 
+            <main
+              class="pro-canvas-area"
               ref="workspaceRef"
               @wheel="handleCanvasWheel"
               @mousedown="handleCanvasPanStart"
               @click="handleCanvasClickOutside"
               :class="{ 'is-panning': isPanning, 'space-pressed': isSpacePressed }"
             >
-              <div 
-                class="canvas-wrapper" 
+              <div
+                class="canvas-wrapper"
                 :class="{ 'play-mode-active': playMode }"
                 :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }"
               >
@@ -579,7 +579,7 @@
                   <div
                     v-for="(el, index) in currentPageElements"
                     :key="el.id + (playMode ? renderTrigger : '')"
-                    v-show="(!el.isHidden || !playMode) && (!playMode || isInsideCanvas(el))"                  
+                    v-show="(!el.isHidden || !playMode) && (!playMode || isInsideCanvas(el))"
                     class="interactive-element"
                     :class="[
                       {
@@ -610,7 +610,7 @@
                           : '0s',
                       mixBlendMode: el.mixBlendMode || 'normal',
                     }"
-                    @mousedown.stop="startDrag($event, el)" 
+                    @mousedown.stop="startDrag($event, el)"
                     @click.stop
                   >
                     <div
@@ -1598,7 +1598,7 @@
                       <div class="rotate-handle ne" @mousedown.stop.prevent="startRotate($event, el)"></div>
                       <div class="rotate-handle sw" @mousedown.stop.prevent="startRotate($event, el)"></div>
                       <div class="rotate-handle se" @mousedown.stop.prevent="startRotate($event, el)"></div>
-                      
+
                       <div class="resize-handle nw" @mousedown.stop.prevent="startResize($event, el, 'nw')"></div>
                       <div class="resize-handle ne" @mousedown.stop.prevent="startResize($event, el, 'ne')"></div>
                       <div class="resize-handle sw" @mousedown.stop.prevent="startResize($event, el, 'sw')"></div>
@@ -1734,7 +1734,7 @@
             </div>
           </div>
 
-          <aside class="pro-sidebar right-sidebar" v-if="hasDoc && !playMode" @click.stop>            
+          <aside class="pro-sidebar right-sidebar" v-if="hasDoc && !playMode" @click.stop>
             <div class="panel-header">Propiedades</div>
             <div class="panel-content" v-if="selectedElementIds.length > 1">
               <div class="element-header">
@@ -1833,7 +1833,7 @@
                   </div>
                   <div class="prop-group half">
     <label>Alto (H)</label>
-    
+
     <input
       v-if="selectedElement.height === 'auto'"
       type="text"
@@ -1841,7 +1841,7 @@
       class="pro-input"
       disabled
     />
-    
+
     <input
       v-else
       type="number"
@@ -3596,7 +3596,7 @@
           </aside>
         </div>
       </div>
-      
+
       <div
           v-if="showCropperModal"
           class="loading-overlay"
@@ -3611,10 +3611,10 @@
             </div>
 
             <div style="flex: 1; min-height: 0; background: #010409; margin-top: 15px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-              <img 
-                ref="cropperImgRef" 
-                :src="selectedElement?.src" 
-                style="max-width: 100%; max-height: 100%; display: block;" 
+              <img
+                ref="cropperImgRef"
+                :src="selectedElement?.src"
+                style="max-width: 100%; max-height: 100%; display: block;"
                 crossorigin="anonymous"
               />
             </div>
@@ -3631,7 +3631,7 @@
                   <i class="ph ph-arrows-left-right"></i>
                 </button>
               </div>
-              
+
               <div style="display: flex; gap: 8px;">
                 <button class="btn-ghost" @click="closeCropper">Cancelar</button>
                 <button class="btn-primary" @click="applyCrop">
@@ -3646,7 +3646,7 @@
     :selected-icon="selectedElement?.iconName"
     @select="(name) => { if (selectedElement) selectedElement.iconName = name }"
   />
-  
+
   <Chatbot @ai-action="handleAiAction" :current-page="pageNum" />
 </div>
 </template>
@@ -3660,6 +3660,7 @@
   import EditorHeader from '@/components/EditorHeader.vue'
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
+  import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
   import Cropper from 'cropperjs';
   import html2canvas from 'html2canvas';
 
@@ -3687,28 +3688,28 @@ const thumbPosInputRef = ref<HTMLInputElement | null>(null)
 // --- NUEVO: FUNCIÓN PARA CAPTURAR PREVIEW (A PRUEBA DE BALAS) ---
 const captureThumbnail = async () => {
   if (playMode.value || isConverting.value || isLoadingProject.value) return;
-  
+
   const slideNode = document.querySelector('.canvas-shadow-box') as HTMLElement;
   if (!slideNode) return;
 
   try {
     // 1. Fijamos un ancho estándar en píxeles para todas las miniaturas (ej. 320px).
     // Esto mantiene el rendimiento al máximo y el peso en RAM al mínimo.
-    const THUMBNAIL_WIDTH = 320; 
-    
+    const THUMBNAIL_WIDTH = 320;
+
     // 2. Calculamos la escala pura basada SÓLO en la resolución original de tu diapositiva.
     // Al forzar esta escala en html2canvas, anulamos por completo el window.devicePixelRatio (Zoom de Windows).
     const exactScale = THUMBNAIL_WIDTH / baseWidth.value;
 
     const canvas = await html2canvas(slideNode, {
-      scale: exactScale, 
+      scale: exactScale,
       width: baseWidth.value,
       height: baseHeight.value,
-      useCORS: true, 
-      logging: false, 
+      useCORS: true,
+      logging: false,
       backgroundColor: currentBgColor.value || '#ffffff',
       allowTaint: true,
-      
+
       // ✨ EL TRUCO MAESTRO: Interceptar el clon antes de la foto
       onclone: (clonedDoc) => {
         // Encontramos el contenedor que tiene el zoom y el paneo de tu editor
@@ -3720,7 +3721,7 @@ const captureThumbnail = async () => {
         }
       }
     });
-    
+
     // Guardamos la foto generada
     generatedThumbnails.value[pageNum.value] = canvas.toDataURL('image/jpeg', 0.8);
   } catch (error) {
@@ -3740,7 +3741,7 @@ const handleAiAction = async (actionData: any) => {
 
   // 1. Extraemos la acción
   const tipoAccion = actionData.actionType || actionData.type;
-  
+
   if (!tipoAccion) {
     console.warn("La IA no envió un comando válido.", actionData);
     return;
@@ -3762,8 +3763,8 @@ const handleAiAction = async (actionData: any) => {
   if (tipoAccion === 'changeBackground') {
     // Aplicamos el nuevo color y borramos la imagen
     slideConfigs.value[currentPage].bgColor = actionData.color || '#000000';
-    slideConfigs.value[currentPage].bgImage = null; 
-    
+    slideConfigs.value[currentPage].bgImage = null;
+
     showToast('Fondo actualizado por la IA', 'success');
   }
 
@@ -3771,9 +3772,9 @@ const handleAiAction = async (actionData: any) => {
   // 📝 ACCIÓN: AÑADIR TEXTO
   // ==========================================
   else if (tipoAccion === 'addText') {
-    const newText = createTemplateElement('text', { 
-      content: actionData.content || 'Texto generado por IA', 
-      x: (baseWidth.value / 2) - 150, 
+    const newText = createTemplateElement('text', {
+      content: actionData.content || 'Texto generado por IA',
+      x: (baseWidth.value / 2) - 150,
       y: (baseHeight.value / 2) - 30,
       color: actionData.color || '#1e293b',
       fontSize: 48,
@@ -3781,19 +3782,19 @@ const handleAiAction = async (actionData: any) => {
     });
 
     currentElements.push(newText);
-    
+
     selectedElementIds.value = [newText.id];
     activeTool.value = 'select';
     showToast('Texto añadido por la IA', 'success');
-  } 
-  
+  }
+
   // ==========================================
   // 🟥 ACCIÓN: AÑADIR FORMA
   // ==========================================
   else if (tipoAccion === 'addShape') {
-    const newShape = createTemplateElement('shape', { 
+    const newShape = createTemplateElement('shape', {
       bgColor: actionData.color || '#2563eb',
-      x: (baseWidth.value / 2) - 100, 
+      x: (baseWidth.value / 2) - 100,
       y: (baseHeight.value / 2) - 100,
       width: 200,
       height: 200,
@@ -3801,7 +3802,7 @@ const handleAiAction = async (actionData: any) => {
     });
 
     currentElements.push(newShape);
-    
+
     selectedElementIds.value = [newShape.id];
     activeTool.value = 'select';
     showToast('Forma añadida por la IA', 'success');
@@ -3815,8 +3816,8 @@ const handleAiAction = async (actionData: any) => {
     showToast('Nueva diapositiva creada', 'success');
   }
 
-  // 🚀 TRUCO MAESTRO PARA VUE 3: 
-  // Al clonar los objetos principales, Vue se da cuenta de que "todo cambió" 
+  // 🚀 TRUCO MAESTRO PARA VUE 3:
+  // Al clonar los objetos principales, Vue se da cuenta de que "todo cambió"
   // y repinta el DOM instantáneamente.
   slideConfigs.value = Object.assign({}, slideConfigs.value);
   documentState.value = Object.assign({}, documentState.value);
@@ -3856,7 +3857,7 @@ const onThumbDragEnd = () => {
 
 const moveSlideToPosition = (fromPage: number, toPage: number) => {
   if (fromPage === toPage) return
-  
+
   // Extraemos el estado de la página origen
   const srcDocState = JSON.parse(JSON.stringify(documentState.value[fromPage] || []))
   const srcSlideConfig = JSON.parse(JSON.stringify(slideConfigs.value[fromPage] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
@@ -3931,8 +3932,8 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   // 2. Añade estas variables de estado (por ejemplo debajo de "const activeTool = ref...")
   const showCropperModal = ref(false);
   const cropperImgRef = ref<HTMLImageElement | null>(null);
-  const API_BASE = `http://${window.location.hostname}:3000/api`;
-  const API_URL = `${API_BASE}/presentations`;
+  const API_BASE = API_BASE_CONFIG
+  const API_URL = PRESENTATIONS_API
   const presentationId = ref<string | null>(null);
   const presentationTitle = ref<string>('Mi Nueva Presentación');
   const isSaving = ref(false);
@@ -3962,9 +3963,9 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     toast.value.message = message
     toast.value.type = type
     toast.value.show = true
-    
+
     if (toastTimeout) clearTimeout(toastTimeout)
-    
+
     // Se oculta automáticamente a los 3.5 segundos
     toastTimeout = setTimeout(() => {
       toast.value.show = false
@@ -4160,17 +4161,17 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   })
   // --- LÓGICA DE RECORTE DE IMÁGENES (CORREGIDA AL 100%) ---
 
-  // 1. Variable pura de Javascript. NADA de ref() ni reactive(). 
+  // 1. Variable pura de Javascript. NADA de ref() ni reactive().
   // Así Vue no la toca y CropperJS funciona perfectamente.
   let myCropper: any = null;
 
   const openCropper = async () => {
     if (!selectedElement.value || !selectedElement.value.src) return;
     showCropperModal.value = true;
-    
+
     // Esperamos que Vue renderice el modal y la etiqueta <img> en el DOM
     await nextTick();
-    
+
     const imgEl = cropperImgRef.value as HTMLImageElement;
     if (!imgEl) return;
 
@@ -4213,7 +4214,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
       showToast('La herramienta aún está cargando...', 'warning');
       return;
     }
-    
+
     // Chequeo de seguridad: asegurar que la instancia está sana
     if (typeof myCropper.getCroppedCanvas !== 'function') {
       console.error("Instancia inválida:", myCropper);
@@ -4222,13 +4223,13 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     }
 
     const croppedCanvas = myCropper.getCroppedCanvas();
-    
+
     if (croppedCanvas) {
       try {
         const newSrc = croppedCanvas.toDataURL('image/png', 0.9);
         selectedElement.value.src = newSrc;
-        saveHistory(); 
-        
+        saveHistory();
+
         closeCropper();
         showToast('Imagen recortada con éxito', 'success');
       } catch (error) {
@@ -4749,7 +4750,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   }
 
   // --- LIFECYCLE E INTERACCIÓN ---
-  
+
 const handleClickOutsideTmpl = (e) => {
   if (myTemplatesOpen.value && myTemplatesBtnRef.value && !myTemplatesBtnRef.value.contains(e.target)) {
     myTemplatesOpen.value = false;
@@ -4772,11 +4773,11 @@ const handleClickOutsideTmpl = (e) => {
     }
     document.addEventListener('keydown', handleGlobalKeydown)
     document.addEventListener('keyup', handleGlobalKeyup)
-    
+
     // NUEVOS LISTENERS DE FULLSCREEN
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
-  
+
     // Cerrar "Mis plantillas" al hacer click fuera
   document.addEventListener('click', (e) => {
     if (myTemplatesOpen.value) {
@@ -4794,11 +4795,11 @@ const handleClickOutsideTmpl = (e) => {
   onUnmounted(() => {
     document.removeEventListener('keydown', handleGlobalKeydown)
     document.removeEventListener('keyup', handleGlobalKeyup)
-    
+
     // REMOVER LISTENERS DE FULLSCREEN
     document.removeEventListener('fullscreenchange', onFullscreenChange)
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
-    
+
     if (timerInterval) clearInterval(timerInterval)
   })
 
@@ -4806,12 +4807,12 @@ const handleClickOutsideTmpl = (e) => {
 
   const copySelectedElements = () => {
     if (selectedElementIds.value.length === 0 || playMode.value) return
-    
+
     // Guardar copias profundas de los elementos seleccionados
     clipboardElements.value = currentPageElements.value
       .filter(el => selectedElementIds.value.includes(el.id))
       .map(el => JSON.parse(JSON.stringify(el)))
-      
+
     console.log(`${clipboardElements.value.length} elementos copiados.`)
   }
 
@@ -4829,7 +4830,7 @@ const handleClickOutsideTmpl = (e) => {
         x: clipboardEl.x + 20, // Desplazar un poco para que no se superponga exactamente
         y: clipboardEl.y + 20,
       }
-      
+
       // Si formaban parte de un grupo, asignarles un nuevo grupo juntos
       if (clipboardEl.groupId) {
           newElement.groupId = newGroupId;
@@ -4839,7 +4840,7 @@ const handleClickOutsideTmpl = (e) => {
       documentState.value[pageNum.value].push(newElement)
       selectedElementIds.value.push(newElement.id)
     })
-    
+
     // Actualizar el portapapeles con las nuevas posiciones para que el siguiente "pegar" se desplace otra vez
     clipboardElements.value = clipboardElements.value.map(el => ({
       ...el,
@@ -4851,18 +4852,18 @@ const handleClickOutsideTmpl = (e) => {
   // --- EDICIÓN DIRECTA DE TEXTO ---
   const enableTextEdit = async (e: MouseEvent, el: any) => {
     if (playMode.value || el.isLocked) return;
-    
+
     // Seleccionamos la herramienta de selección normal por si acaso
     activeTool.value = 'select';
-    
+
     // Activamos el modo edición para este elemento
     editingElementId.value = el.id;
-    
+
     await nextTick(); // Esperamos que el DOM aplique el contenteditable
-    
+
     const target = e.target as HTMLElement;
     target.focus();
-    
+
     // Seleccionamos automáticamente todo el texto como hace Figma
     const selection = window.getSelection();
     const range = document.createRange();
@@ -4873,11 +4874,11 @@ const handleClickOutsideTmpl = (e) => {
 
   const onTextBlur = (e: Event, el: any) => {
     if (editingElementId.value !== el.id) return;
-    
+
     const target = e.target as HTMLElement;
     // Guardamos el texto (usamos innerText para no inyectar etiquetas HTML indeseadas)
-    el.content = target.innerText || ' '; 
-    
+    el.content = target.innerText || ' ';
+
     // Salimos del modo edición
     editingElementId.value = null;
   };
@@ -4921,24 +4922,24 @@ const handleClickOutsideTmpl = (e) => {
 
   const undo = () => {
     if (playMode.value || historyIndex.value <= 0) return // Índice 0 es el estado base original
-    
+
     isUndoRedoAction = true
     historyIndex.value--
     documentState.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
     selectedElementIds.value = [] // Limpiar selección por si el elemento ya no existe
-    
+
     // Pequeño retardo para que el watcher no lo capte
     setTimeout(() => { isUndoRedoAction = false }, 50)
   }
 
   const redo = () => {
     if (playMode.value || historyIndex.value >= history.value.length - 1) return
-    
+
     isUndoRedoAction = true
     historyIndex.value++
     documentState.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
     selectedElementIds.value = []
-    
+
     setTimeout(() => { isUndoRedoAction = false }, 50)
   }
 
@@ -4949,9 +4950,9 @@ watch(
   [() => documentState.value, () => slideConfigs.value],
   () => {
     if (playMode.value || !hasDoc.value) return;
-    
+
     if (thumbnailTimeout) clearTimeout(thumbnailTimeout);
-    
+
     // Retraso de 1.5s. Si el usuario sigue editando, el temporizador se reinicia.
     thumbnailTimeout = setTimeout(() => {
       captureThumbnail();
@@ -4966,7 +4967,7 @@ watch(
     () => {
       if (isUndoRedoAction) return
       if (historyTimeout) clearTimeout(historyTimeout)
-      
+
       // Espera 400ms después de que el usuario termine de hacer cambios rápidos (ej: arrastrar o escribir)
       historyTimeout = setTimeout(() => {
         saveHistory()
@@ -4984,7 +4985,7 @@ watch(
       if (isLoadingProject.value || !hasDoc.value) return;
 
       if (autosaveTimeout) clearTimeout(autosaveTimeout);
-      
+
       // Espera 5 segundos de inactividad antes de guardar
       autosaveTimeout = setTimeout(() => {
         savePresentation(true); // true indica que es autoguardado (silencioso)
@@ -5009,7 +5010,7 @@ watch(
         const isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
         if (!isFullscreen) togglePlayMode()
       }
-      
+
       if (['ArrowRight', ' ', 'ArrowLeft'].includes(e.key)) {
         e.preventDefault()
         changePageTo(pageNum.value + (e.key === 'ArrowLeft' ? -1 : 1))
@@ -5017,7 +5018,7 @@ watch(
       return; // Si estamos en Play Mode, no procesar atajos del editor
     }
     // --- ATAJOS DEL EDITOR ---
-    
+
     // DESHACER (Ctrl + Z o Cmd + Z)
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
@@ -5059,7 +5060,7 @@ watch(
     if (e.code === 'Space') {
       isSpacePressed.value = false;
     }
-  }  
+  }
 
   onUnmounted(() => {
     // ... resto de tu código onUnmounted
@@ -5162,32 +5163,32 @@ watch(
     isLoadingProject.value = true;
     try {
       const data = await presentationService.getPresentation(id);
-      
+
       // 1. Asignamos los datos básicos
       presentationId.value = data._id;
       presentationTitle.value = data.title || 'Sin título';
       docType.value = data.docType || 'blank';
       baseWidth.value = data.baseWidth || 1280;
       baseHeight.value = data.baseHeight || 720;
-      
+
       // 2. Asignamos los objetos, configuraciones y mapeo
       documentState.value = data.documentState || {};
       slideConfigs.value = data.slideConfigs || {};
       pdfPageMap.value = data.pdfPageMap || {};
-      
+
       // 3. Calculamos cuántas páginas tiene
       const pagesArray = Object.keys(documentState.value).map(Number);
       numPages.value = pagesArray.length > 0 ? Math.max(...pagesArray) : 1;
       pageNum.value = 1;
-      
+
       initializeConfigs();
-      
+
       // 4. Si es PDF, lo reconstruimos a partir del Base64
       if (docType.value === 'pdf' && data.pdfBase64) {
         _PDF_BASE64_STORE = data.pdfBase64;
-        
+
         let loadingTask;
-        
+
         // Si el string guardado empieza por http, es nuestro nuevo sistema optimizado (URL)
         if (_PDF_BASE64_STORE.startsWith('http')) {
           loadingTask = pdfjsLib.getDocument(_PDF_BASE64_STORE);
@@ -5200,7 +5201,7 @@ watch(
           }
           loadingTask = pdfjsLib.getDocument({ data: uint8Array });
         }
-        
+
         _RAW_PDF_DOC = markRaw(await loadingTask.promise);
         await generatePdfThumbnails();
       } else {
@@ -5210,7 +5211,7 @@ watch(
       // 5. Activamos la interfaz
       hasDoc.value = true;
       resetHistory();
-      
+
       await renderPage(1);
       setTimeout(fitToScreen, 100);
 
@@ -5236,16 +5237,16 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
 
     // Matriz de transformación matemática del PDF a tu Lienzo
     const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-    
+
     // Altura real de la fuente calculada desde la matriz
     const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
-    
+
     rawItems.push({
       str: item.str,
       x: tx[4],
-      // CORRECCIÓN DE DESPLAZAMIENTO: Restamos el ~80% de la altura para pasar 
+      // CORRECCIÓN DE DESPLAZAMIENTO: Restamos el ~80% de la altura para pasar
       // de la "línea base" (baseline) a la "esquina superior izquierda" (top-left)
-      y: tx[5] - (fontHeight * 0.8), 
+      y: tx[5] - (fontHeight * 0.8),
       fontSize: fontHeight,
       fontName: item.fontName || 'Helvetica, Arial, sans-serif',
       width: item.width * viewport.scale,
@@ -5290,13 +5291,13 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
       if (gap > currentLine.fontSize * 0.2 && !currentLine.str.endsWith(' ')) {
         currentLine.str += ' ';
       }
-      
+
       // Fusionamos la palabra actual en la línea
       currentLine.str += item.str;
       currentLine.right = item.right;
       currentLine.width = currentLine.right - currentLine.x;
       // Ajustamos un poco la Y por si hubo micro-variaciones (subíndices, etc)
-      currentLine.y = Math.min(currentLine.y, item.y); 
+      currentLine.y = Math.min(currentLine.y, item.y);
       currentLine.fontSize = Math.max(currentLine.fontSize, item.fontSize);
     } else {
       // Si no cumple, empieza una nueva línea/elemento
@@ -5341,9 +5342,9 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
 
   const processPdfFile = async (file: File | Blob) => {
   docType.value = 'pdf';
-  presentationId.value = null; 
-  
-  isConverting.value = true; 
+  presentationId.value = null;
+
+  isConverting.value = true;
   showToast('Procesando documento para convertir a HTML editable...', 'info');
 
   const formData = new FormData();
@@ -5359,12 +5360,12 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     if (!response.ok) throw new Error('Error HTTP: ' + response.status);
     const data = await response.json();
 
-    _PDF_BASE64_STORE = data.url; 
+    _PDF_BASE64_STORE = data.url;
 
     // 2. Cargamos el PDF
     const loadingTask = pdfjsLib.getDocument(data.url);
     _RAW_PDF_DOC = markRaw(await loadingTask.promise);
-    
+
     numPages.value = _RAW_PDF_DOC.numPages;
     hasDoc.value = true;
     resetHistory();
@@ -5372,7 +5373,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     slideConfigs.value = {};
     pdfPageMap.value = {};
     pdfThumbnails.value = {};
-    
+
     initializeConfigs();
     await generatePdfThumbnails();
 
@@ -5388,7 +5389,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
 
     setTimeout(() => {
       fitToScreen();
-      savePresentation(true); 
+      savePresentation(true);
       showToast('¡Documento importado con textos editables!', 'success');
     }, 100);
 
@@ -5520,18 +5521,18 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     const viewport = page.getViewport({ scale: 1.0 })
     baseWidth.value = viewport.width
     baseHeight.value = viewport.height
-    
+
     // 🚀 MEJORA DE CALIDAD: Forzamos supermuestreo a 3.5x la resolución original
-    const qualityMultiplier = 3.5; 
-    
+    const qualityMultiplier = 3.5;
+
     // La resolución interna del canvas será enorme (Ultra HD)
     canvas.width = viewport.width * qualityMultiplier
     canvas.height = viewport.height * qualityMultiplier
-    
+
     // Pero visualmente en el navegador medirá lo correcto
     canvas.style.width = `${viewport.width}px`
     canvas.style.height = `${viewport.height}px`
-    
+
     // Le decimos al contexto que escale sus pinceladas
     ctx.scale(qualityMultiplier, qualityMultiplier)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -5539,8 +5540,8 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     // El "truco ninja" para ocultar el texto quemado del fondo
     const originalFillText = ctx.fillText;
     const originalStrokeText = ctx.strokeText;
-    ctx.fillText = function() {}; 
-    ctx.strokeText = function() {}; 
+    ctx.fillText = function() {};
+    ctx.strokeText = function() {};
 
     try {
       await page.render({ canvasContext: ctx, viewport }).promise
@@ -5848,7 +5849,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
       const scaleX = (workspaceRef.value.clientWidth - 60) / baseWidth.value
       const scaleY = (workspaceRef.value.clientHeight - 60) / baseHeight.value
       zoom.value = Math.max(0.1, Math.min(scaleX, scaleY))
-      
+
       // NUEVO: Centrar el lienzo nuevamente
       panX.value = 0;
       panY.value = 0;
@@ -5878,7 +5879,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     if (e.button === 1 || (e.button === 0 && isSpacePressed.value)) {
       e.preventDefault();
       isPanning.value = true;
-      
+
       const startX = e.clientX;
       const startY = e.clientY;
       const initialPanX = panX.value;
@@ -6197,7 +6198,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!isDragging) return;
-      
+
       // Movimiento raw del ratón ajustado al zoom
       const rawDx = (moveEvent.clientX - startX) / zoom.value;
       const rawDy = (moveEvent.clientY - startY) / zoom.value;
@@ -6277,7 +6278,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-    
+
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   };
@@ -6287,7 +6288,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (playMode.value || el.isLocked) return;
     e.preventDefault();
     isResizing = true;
-    
+
     const startX = e.clientX;
     const startY = e.clientY;
     const initialWidth = typeof el.width === 'number' ? el.width : 100;
@@ -6300,7 +6301,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!isResizing) return;
-      
+
       // Diferencia del ratón en la pantalla real
       const dx = (moveEvent.clientX - startX) / zoom.value;
       const dy = (moveEvent.clientY - startY) / zoom.value;
@@ -6380,7 +6381,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (!domElement) return;
 
     // 2. getBoundingClientRect() nos da el cuadrado real que ocupa en la pantalla actual.
-    // El centro absoluto de esta caja es SIEMPRE nuestro eje de rotación perfecto, 
+    // El centro absoluto de esta caja es SIEMPRE nuestro eje de rotación perfecto,
     // ignorando zooms, paneos o si el elemento ya estaba girado.
     const rect = domElement.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
@@ -6392,10 +6393,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!isRotating) return;
-      
+
       // 4. Ángulo actual del ratón respecto al centro
       const currentAngle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
-      
+
       // 5. Sumamos la diferencia angular a la rotación que ya tenía el elemento
       let finalRotation = initialRotation + (currentAngle - startAngle);
 
@@ -6513,7 +6514,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       (document as any).webkitFullscreenElement ||
       (document as any).msFullscreenElement
     )
-    
+
     // Sincronizar el estado de Vue con el estado real del navegador
     if (playMode.value !== isFullscreen) {
       setPlayModeState(isFullscreen)
@@ -6582,7 +6583,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .accordion-item { border-bottom: 1px solid rgba(0,0,0,0.05); }
       .accordion-header { padding: 12px 16px; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; background: rgba(0,0,0,0.05); transition: 0.2s; }
       .accordion-content { padding: 16px; font-size: 0.9rem; line-height: 1.5; background: rgba(0,0,0,0.02); user-select: text; }
-      
+
       .el-audio-wrapper { cursor: pointer; display: flex; align-items: center; justify-content: center; }
       .audio-pill { display: flex; align-items: center; gap: 10px; width: 100%; height: 100%; padding: 0 20px; box-sizing: border-box; font-family: sans-serif; font-size: 0.9rem; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
       .audio-pill i { font-size: 1.5rem; }
@@ -6603,7 +6604,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .play-nav-overlay button { display: flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 50%; background: #444; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s;}
       .play-nav-overlay button:hover:not(:disabled) { background: #58a6ff; }
       .play-nav-overlay button:disabled { opacity: 0.5; cursor: not-allowed; }
-      
+
       .chart-content { display: flex; width: 100%; height: calc(100% - 30px); }
       .chart-bar-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: calc(100% - 30px); gap: 8px; }
       .bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; height: 100%; }
@@ -6620,7 +6621,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .pie-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
       .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; }
       .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-      
+
       .mm-wrapper { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; }
       .mm-level-0 { display: flex; align-items: center; }
       .mm-node-block { display: flex; flex-direction: column; align-items: center; padding: 10px 16px; border: 2px solid transparent; cursor: pointer; transition: 0.2s; position: relative; z-index: 2; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -6650,7 +6651,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       @keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes animSlideIn { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
       @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
-    
+
 /* PLANTILLAS FLOTANTES */
 .templates-floating-menu {
   position: absolute;
@@ -6693,12 +6694,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       <div class="canvas-wrapper play-mode-active" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', transform: 'scale(' + zoom + ')' }">
         <div class="canvas-shadow-box layer-engine" :class="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :style="{ width: '100%', height: '100%', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
             <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
-            
+
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
                 v-show="!el.isHidden"
                 :class="el.animation && el.animation !== 'none' ? 'anim-' + el.animation : ''"
                 :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: el.animation && el.animation !== 'none' ? (index * 0.1) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">
-              
+
               <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
 
               <div v-else-if="el.type === 'mindmap'" class="el-mindmap-container" :style="{ fontFamily: el.fontFamily, '--mm-line-color': el.lineColor, '--mm-line-width': el.lineWidth + 'px' }">
@@ -6770,9 +6771,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                   </tbody>
                 </table>
               </div>
-              
+
               <div v-else-if="el.type === 'shape'" class="el-shape" :style="{ background: el.isGlass ? 'rgba(255,255,255,0.1)' : (el.gradientType && el.gradientType !== 'none' ? (el.gradientType === 'linear' ? 'linear-gradient(135deg, ' + el.bgColor + ', ' + el.gradientColor + ')' : 'radial-gradient(circle, ' + el.bgColor + ', ' + el.gradientColor + ')') : el.bgColor), borderRadius: el.borderRadius + 'px', border: el.borderWidth + 'px ' + (el.borderStyle || 'solid') + ' ' + el.borderColor, boxShadow: el.boxShadow || 'none', backdropFilter: el.isGlass ? 'blur(10px)' : 'none', WebkitBackdropFilter: el.isGlass ? 'blur(10px)' : 'none' }"></div>
-              
+
               <div v-else-if="el.type === 'arrow'" style="width: 100%; height: 100%; display: flex; align-items: center; position: relative;">
                 <div v-if="['start', 'both'].includes(el.arrowHead)" :style="{ width: 0, height: 0, borderTop: (el.strokeWidth * 1.5) + 'px solid transparent', borderBottom: (el.strokeWidth * 1.5) + 'px solid transparent', borderRight: (el.strokeWidth * 2) + 'px solid ' + el.color }"></div>
                 <div :style="{ flex: 1, height: el.strokeWidth + 'px', backgroundColor: el.color }"></div>
@@ -6780,7 +6781,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'icon'" class="el-icon" :style="{ color: el.color, fontSize: el.fontSize + 'px', backgroundColor: el.bgColor || 'transparent', borderRadius: (el.borderRadius || 0) + 'px' }"><i :class="'ph ph-' + el.iconName" :style="{ filter: el.textShadow ? 'drop-shadow(' + el.textShadow + ')' : 'none' }"></i></div>
-              
+
               <div v-else-if="el.type === 'draw'" class="el-draw-board" style="width: 100%; height: 100%;">
                 <svg style="width: 100%; height: 100%; display: block; overflow: visible;">
                     <polyline v-for="(line, idx) in el.lines" :key="idx" :points="line.points.map(p => p.x+','+p.y).join(' ')" :stroke="line.color" :stroke-width="line.size" fill="none" stroke-linecap="round" stroke-linejoin="round" />
@@ -6859,17 +6860,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <div v-if="el.src" :style="{ width: '100%', height: '100%', backgroundImage: 'url(' + el.src + ')', backgroundSize: (el.zoomLevel * 100) + '%', backgroundPosition: el.focusX + '% ' + el.focusY + '%', backgroundRepeat: 'no-repeat' }"></div>
                 <div v-else class="placeholder-box" style="border-radius: 50%"><i class="ph ph-magnifying-glass"></i></div>
               </div>
-              
+
               <div v-else-if="el.type === 'video'" class="el-video-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
               <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="pointer-events: auto;"></iframe>
               <div v-else-if="el.type === 'iframe'" class="el-iframe-container" style="width: 100%; height: 100%;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
                 <iframe v-if="el.src" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
               </div>
-              
+
               <div v-else-if="el.type === '3d'" class="el-3d" style="width: 100%; height: 100%;">
                 <model-viewer v-if="el.src" :src="el.src" :auto-rotate="el.autoRotate" :camera-controls="el.cameraControls" :environment-image="el.envImage" style="width: 100%; height: 100%;"></model-viewer>
               </div>
-              
+
               <div v-else-if="el.type === 'interactive'" class="el-interactive" @click.stop="triggerInteraction(el)">
                 <div class="hotspot-pulse" :style="{ backgroundColor: el.color, boxShadow: '0 0 15px ' + el.color }"></div>
                 <div v-if="el.isOpen" class="interactive-modal" :style="{ backgroundColor: el.modalBgColor || '#ffffff', color: el.modalTextColor || '#333333' }" @click.stop>
@@ -6893,7 +6894,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <audio v-if="el.src" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="el.autoplay"></audio>
               </div>
 
-              <div v-else-if="el.type === 'link'" class="el-link" 
+              <div v-else-if="el.type === 'link'" class="el-link"
                   :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), fontSize: (el.fontSize || 16) + 'px', fontWeight: el.fontWeight || 'bold', fontFamily: el.fontFamily || 'Arial', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }"
                   @click.stop="changePageTo(el.targetPage)">
                 {{ el.text }}
@@ -6913,7 +6914,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             </div>
         </div>
       </div>
-      
+
       <div class="play-nav-overlay">
         <button @click="changePageTo(pageNum - 1)" :disabled="pageNum <= 1"><i class="ph ph-caret-left"></i></button>
         <span>{{ pageNum }} / {{ numPages }}</span>
@@ -6934,15 +6935,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const slideConfigs = ref(JSON.parse(document.getElementById('app-configs-data').textContent));
           const pdfPageMap = ref(JSON.parse(document.getElementById('app-pdf-map').textContent || '{}'));
           const rawPdfB64 = document.getElementById('app-pdf-data').textContent;
-          
+
           const metaData = JSON.parse(document.getElementById('app-meta-data').textContent);
-          const baseWidth = ref(metaData.baseWidth); 
-          const baseHeight = ref(metaData.baseHeight); 
+          const baseWidth = ref(metaData.baseWidth);
+          const baseHeight = ref(metaData.baseHeight);
           const docType = ref(metaData.docType);
-          
+
           const pageNum = ref(1); const numPages = ref(Math.max(...Object.keys(documentState.value).map(Number), 1)); const zoom = ref(1.0);
           const renderTrigger = ref(0); const activeTransition = ref('none');
-          
+
           // NUEVA REFERENCIA DE ESTADO
           const isFullscreen = ref(false);
 
@@ -6984,11 +6985,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const fitToScreen = () => { zoom.value = Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95; };
 
           let pdfDoc = null; const pdfCanvas = ref(null);
-          
+
           const initPdf = async () => {
               if (docType.value === 'pdf' && rawPdfB64) {
                   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-                  
+
                   let loadingTask;
                   // Verificamos si es una URL (nuevo sistema) o Base64 (sistema antiguo)
                   if (rawPdfB64.startsWith('http')) {
@@ -6999,7 +7000,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                       for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
                       loadingTask = pdfjsLib.getDocument({ data: uint8Array });
                   }
-                  
+
                   pdfDoc = await loadingTask.promise;
                   renderPdfPage(pageNum.value);
               }
@@ -7008,31 +7009,31 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const renderPdfPage = async (num) => {
               await nextTick();
               if (docType.value !== 'pdf' || !pdfDoc || !pdfCanvas.value) return;
-              const canvas = pdfCanvas.value; 
-              const ctx = canvas.getContext('2d'); 
+              const canvas = pdfCanvas.value;
+              const ctx = canvas.getContext('2d');
               const actualPdfPage = pdfPageMap.value[num];
-              
-              if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) { 
-                  ctx.clearRect(0, 0, canvas.width, canvas.height); 
-                  return; 
+
+              if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) {
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+                  return;
               }
-              
+
               const page = await pdfDoc.getPage(actualPdfPage);
               const viewport = page.getViewport({ scale: 1.0 });
-              
+
               // 🚀 CALIDAD DE EXPORTACIÓN: Supermuestreo 3.5x
               const qualityMultiplier = 3.5;
-              canvas.width = viewport.width * qualityMultiplier; 
+              canvas.width = viewport.width * qualityMultiplier;
               canvas.height = viewport.height * qualityMultiplier;
-              canvas.style.width = viewport.width + 'px'; 
+              canvas.style.width = viewport.width + 'px';
               canvas.style.height = viewport.height + 'px';
               ctx.scale(qualityMultiplier, qualityMultiplier);
-              
+
               // Ocultamos el texto original también en la exportación
               const originalFillText = ctx.fillText;
               const originalStrokeText = ctx.strokeText;
-              ctx.fillText = function() {}; 
-              ctx.strokeText = function() {}; 
+              ctx.fillText = function() {};
+              ctx.strokeText = function() {};
 
               try {
                   await page.render({ canvasContext: ctx, viewport }).promise;
@@ -7060,7 +7061,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               await nextTick();
               void document.body.offsetWidth; // force reflow
               activeTransition.value = slideConfigs.value[num]?.transition || 'none';
-              
+
               Object.values(documentState.value).forEach(pageItems => {
                 pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
               });
@@ -7107,7 +7108,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           onMounted(() => {
             activeTransition.value = slideConfigs.value[1]?.transition || 'none';
-            
+
             Object.values(documentState.value).forEach(pageItems => {
               pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
             });
@@ -7119,7 +7120,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             }, 1000);
 
             fitToScreen(); initPdf(); window.addEventListener('resize', fitToScreen);
-            
+
             // Eventos de teclado y fullscreen
             document.addEventListener('keydown', (e) => {
               if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
@@ -7129,9 +7130,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             document.addEventListener('webkitfullscreenchange', onFullscreenChange);
           });
 
-          return { 
+          return {
             baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements,
-            currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, 
+            currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube,
             getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle,
             isFullscreen, toggleFullscreen // Expuestos a la vista
           };
@@ -7406,31 +7407,31 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
 
   /* Esquina Superior Izquierda (Giro -45°) */
-  .rotate-handle.nw { 
-    top: -20px; 
-    left: -20px; 
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+  .rotate-handle.nw {
+    top: -20px;
+    left: -20px;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
 
   /* Esquina Superior Derecha (Giro 45°) */
-  .rotate-handle.ne { 
-    top: -20px; 
-    right: -20px; 
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+  .rotate-handle.ne {
+    top: -20px;
+    right: -20px;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
 
   /* Esquina Inferior Izquierda (Giro -135°) */
-  .rotate-handle.sw { 
-    bottom: -20px; 
-    left: -20px; 
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+  .rotate-handle.sw {
+    bottom: -20px;
+    left: -20px;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
 
   /* Esquina Inferior Derecha (Giro 135°) */
-  .rotate-handle.se { 
-    bottom: -20px; 
-    right: -20px; 
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair; 
+  .rotate-handle.se {
+    bottom: -20px;
+    right: -20px;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
   /* Ubicación calculada para envolver la esquina por fuera */
 

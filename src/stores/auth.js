@@ -1,6 +1,7 @@
 // src/stores/auth.js
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { USERS_API } from '@/config/api.js'
 
 export const useAuthStore = defineStore('auth', () => {
   // 1. Recuperamos datos iniciales de forma segura
@@ -19,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Computed para verificar sesión
   const isAuthenticated = computed(() => !!token.value)
 
-  // 2. ✨ MAGIA: Observadores automáticos. 
+  // 2. ✨ MAGIA: Observadores automáticos.
   watch(user, (newUser) => {
     if (newUser) {
       localStorage.setItem('userData', JSON.stringify(newUser))
@@ -53,8 +54,10 @@ export const useAuthStore = defineStore('auth', () => {
     const userId = user.value?._id || user.value?.id;
     if (!token.value || !userId) return;
 
+    const userUrl = `${USERS_API}/user/${userId}`
+
     try {
-      const response = await fetch(`http://10.104.126.179:3000/api/api/v1/users/user/${userId}`, {
+      const response = await fetch(userUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
