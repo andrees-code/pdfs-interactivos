@@ -4027,16 +4027,35 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         coverImage: generatedThumbnails.value[1] || null,
       };
 
+      const payloadJson = JSON.stringify(payload);
+      const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2);
+      console.log(`📤 Enviando presentación (${payloadSizeMB}MB)...`);
+
+      // Validar tamaño ANTES de enviar
+      if (payloadJson.length > 52428800) {
+        throw new Error(`El payload es demasiado grande (${payloadSizeMB}MB). Máximo permitido: 50MB. Intenta comprimir el PDF o reducir imágenes.`);
+      }
+
       const url = presentationId.value ? `${API_URL}/${presentationId.value}` : API_URL;
       const method = presentationId.value ? 'PUT' : 'POST';
+
+      // Usar AbortController para timeout de 120 segundos (máximo)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
       const response = await fetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: payloadJson,
+        signal: controller.signal,
       });
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Sin detalles');
+        throw new Error(`Error HTTP ${response.status}: ${errorText}`);
+      }
 
       const data = await response.json();
 
@@ -4047,14 +4066,28 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         router.replace(`/editorpresentaciones/${data._id}`);
       }
 
+      console.log('✅ Presentación guardada exitosamente');
+
       // Solo mostramos el Toast verde si el usuario le dio al botón o a Ctrl+S
       if (!isAutosave) {
         showToast('¡Presentación guardada con éxito!', 'success');
       }
 
     } catch (error) {
-      console.error('Error al guardar la presentación:', error);
-      if (!isAutosave) showToast('Hubo un problema al guardar la presentación.', 'error');
+      let errorMsg = 'Hubo un problema al guardar la presentación.';
+
+      if (error.name === 'AbortError') {
+        errorMsg = 'Timeout al guardar (120s). El servidor está tardando mucho, intenta de nuevo.';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMsg = 'Error de conexión. Verifica que el backend esté disponible en ' + API_URL;
+      } else if (error.message.includes('demasiado grande')) {
+        errorMsg = error.message;
+      } else if (error.message.includes('Error HTTP')) {
+        errorMsg = error.message;
+      }
+
+      console.error('❌ Error al guardar la presentación:', error);
+      if (!isAutosave) showToast(errorMsg, 'error');
     } finally {
       // Apagamos los loaders
       if (!isAutosave) {
