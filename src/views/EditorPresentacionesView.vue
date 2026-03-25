@@ -3646,11 +3646,13 @@
     :selected-icon="selectedElement?.iconName"
     @select="(name) => { if (selectedElement) selectedElement.iconName = name }"
   />
-    </div>
-  </template>
-
+  
+  <Chatbot @ai-action="handleAiAction" :current-page="pageNum" />
+</div>
+</template>
   <script setup lang="ts">
   import IconPickerModal from '@/components/IconPickerModal.vue'
+  import Chatbot from '@/components/AIChatBot.vue'
   const showIconPicker = ref(false)
   import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, shallowRef } from 'vue'
   import { useRoute, useRouter } from 'vue-router' // 👈 NUEVO
@@ -3732,6 +3734,99 @@ const onThumbDragStart = (e: DragEvent, page: number) => {
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', String(page))
   }
+}
+const handleAiAction = async (actionData: any) => {
+  console.log("🔥 EL EDITOR RECIBIÓ LA ORDEN:", actionData);
+
+  // 1. Extraemos la acción
+  const tipoAccion = actionData.actionType || actionData.type;
+  
+  if (!tipoAccion) {
+    console.warn("La IA no envió un comando válido.", actionData);
+    return;
+  }
+
+  const currentPage = pageNum.value;
+
+  // 2. SEGURIDAD: Garantizamos que la diapositiva existe en la memoria
+  if (!documentState.value[currentPage]) documentState.value[currentPage] = [];
+  if (!slideConfigs.value[currentPage]) {
+    slideConfigs.value[currentPage] = { bgColor: '#ffffff', bgImage: null, transition: 'none' };
+  }
+
+  const currentElements = documentState.value[currentPage];
+
+  // ==========================================
+  // 🎨 ACCIÓN: CAMBIAR FONDO
+  // ==========================================
+  if (tipoAccion === 'changeBackground') {
+    // Aplicamos el nuevo color y borramos la imagen
+    slideConfigs.value[currentPage].bgColor = actionData.color || '#000000';
+    slideConfigs.value[currentPage].bgImage = null; 
+    
+    showToast('Fondo actualizado por la IA', 'success');
+  }
+
+  // ==========================================
+  // 📝 ACCIÓN: AÑADIR TEXTO
+  // ==========================================
+  else if (tipoAccion === 'addText') {
+    const newText = createTemplateElement('text', { 
+      content: actionData.content || 'Texto generado por IA', 
+      x: (baseWidth.value / 2) - 150, 
+      y: (baseHeight.value / 2) - 30,
+      color: actionData.color || '#1e293b',
+      fontSize: 48,
+      fontWeight: '800'
+    });
+
+    currentElements.push(newText);
+    
+    selectedElementIds.value = [newText.id];
+    activeTool.value = 'select';
+    showToast('Texto añadido por la IA', 'success');
+  } 
+  
+  // ==========================================
+  // 🟥 ACCIÓN: AÑADIR FORMA
+  // ==========================================
+  else if (tipoAccion === 'addShape') {
+    const newShape = createTemplateElement('shape', { 
+      bgColor: actionData.color || '#2563eb',
+      x: (baseWidth.value / 2) - 100, 
+      y: (baseHeight.value / 2) - 100,
+      width: 200,
+      height: 200,
+      borderRadius: 12
+    });
+
+    currentElements.push(newShape);
+    
+    selectedElementIds.value = [newShape.id];
+    activeTool.value = 'select';
+    showToast('Forma añadida por la IA', 'success');
+  }
+
+  // ==========================================
+  // 📄 ACCIÓN: NUEVA DIAPOSITIVA
+  // ==========================================
+  else if (tipoAccion === 'addSlide') {
+    addNewSlide();
+    showToast('Nueva diapositiva creada', 'success');
+  }
+
+  // 🚀 TRUCO MAESTRO PARA VUE 3: 
+  // Al clonar los objetos principales, Vue se da cuenta de que "todo cambió" 
+  // y repinta el DOM instantáneamente.
+  slideConfigs.value = Object.assign({}, slideConfigs.value);
+  documentState.value = Object.assign({}, documentState.value);
+
+  // 🚀 GUARDADO DE HISTORIAL (Para poder hacer Ctrl+Z)
+  saveHistory();
+
+  // 🚀 GUARDADO EN BASE DE DATOS (Para que sobreviva si pulsas F5)
+  // Nota: Esto disparará el spinner de "Guardando..." en tu header
+  await savePresentation(true);
 }
 
 const onThumbDragOver = (e: DragEvent, page: number) => {
@@ -5085,6 +5180,8 @@ watch(
       numPages.value = pagesArray.length > 0 ? Math.max(...pagesArray) : 1;
       pageNum.value = 1;
       
+      initializeConfigs();
+      
       // 4. Si es PDF, lo reconstruimos a partir del Base64
       if (docType.value === 'pdf' && data.pdfBase64) {
         _PDF_BASE64_STORE = data.pdfBase64;
@@ -5380,6 +5477,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
 
         numPages.value = Math.max(...Object.keys(documentState.value).map(Number), 1)
         pageNum.value = 1
+        initializeConfigs()
         hasDoc.value = true
 
         if (docType.value === 'pdf' && _PDF_BASE64_STORE) {
@@ -6848,7 +6946,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           // NUEVA REFERENCIA DE ESTADO
           const isFullscreen = ref(false);
 
-          const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
+          const currentPageElements = computed(() => documentState.value[fpageNum.value] || []);
           const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
           const currentBgImage = computed(() => slideConfigs.value[pageNum.value]?.bgImage ? 'url(' + slideConfigs.value[pageNum.value].bgImage + ')' : 'none');
 
