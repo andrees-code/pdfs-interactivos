@@ -5602,15 +5602,48 @@ watch(
 
       initializeConfigs();
 
+      // Función para normalizar URLs de PDFs antiguos que puedan estar rotos
+      const normalizePdfSource = (src: string) => {
+        if (!src) return src;
+        const currentBackend = import.meta.env.VITE_BACKEND_URL || window.location.origin;
+        // Si viene de un deploy antiguo con localhost o rutas locales, intentar mapear
+        if (src.includes('/uploads/') && !src.includes('cloudinary') && !src.includes('res.cloudinary')) {
+          // Para proyectos antiguos, intentar reconstruir desde base64 si existe
+          if (data.pdfBase64 && !data.pdfBase64.startsWith('http')) {
+            return data.pdfBase64; // Usar base64 como fallback
+          }
+          // O intentar cambiar el dominio
+          return src.replace(/^https?:\/\/[^/]+/, currentBackend);
+        }
+        return src;
+      };
+
       // 4. Si es PDF, lo reconstruimos a partir del Base64
       if (docType.value === 'pdf' && data.pdfBase64) {
-        _PDF_BASE64_STORE = data.pdfBase64;
+        _PDF_BASE64_STORE = normalizePdfSource(data.pdfBase64);
 
         let loadingTask;
 
         // Si el string guardado empieza por http, es nuestro nuevo sistema optimizado (URL)
         if (_PDF_BASE64_STORE.startsWith('http')) {
-          loadingTask = pdfjsLib.getDocument(_PDF_BASE64_STORE);
+          try {
+            loadingTask = pdfjsLib.getDocument(_PDF_BASE64_STORE);
+            _RAW_PDF_DOC = markRaw(await loadingTask.promise);
+          } catch (pdfError) {
+            console.warn('Error cargando PDF desde URL, intentando base64:', pdfError);
+            // Fallback a base64 si la URL falla
+            if (data.pdfBase64 && !data.pdfBase64.startsWith('http')) {
+              const pdfData = atob(data.pdfBase64);
+              const uint8Array = new Uint8Array(pdfData.length);
+              for (let i = 0; i < pdfData.length; i++) {
+                uint8Array[i] = pdfData.charCodeAt(i);
+              }
+              loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+              _RAW_PDF_DOC = markRaw(await loadingTask.promise);
+            } else {
+              throw pdfError;
+            }
+          }
         } else {
           // Si no, es un proyecto antiguo en Base64 (lo mantenemos para no romper nada viejo)
           const pdfData = atob(_PDF_BASE64_STORE);
@@ -5619,9 +5652,9 @@ watch(
             uint8Array[i] = pdfData.charCodeAt(i);
           }
           loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+          _RAW_PDF_DOC = markRaw(await loadingTask.promise);
         }
 
-        _RAW_PDF_DOC = markRaw(await loadingTask.promise);
         await generatePdfThumbnails();
       } else {
         _RAW_PDF_DOC = null;
@@ -5636,7 +5669,7 @@ watch(
 
     } catch (error) {
       console.error('Error al cargar la presentación:', error);
-      showToast('El proyecto no existe o fue eliminado.', 'error');
+      showToast('Error al cargar el proyecto. Puede que el archivo no esté disponible.', 'error');
       // ✨ Redirigimos a la biblioteca para sacarlo del error
       router.push('/biblioteca');
     } finally {
