@@ -3906,7 +3906,7 @@ const handleAiAction = async (actionsData: any) => {
         // 🔥 CLAVE: Filtrar (no splice) para disparar reactividad
         const beforeCount = documentState.value[currentPage].length;
         documentState.value[currentPage] = documentState.value[currentPage].filter((el) => el.id !== action.elementId);
-        
+
         if (beforeCount !== documentState.value[currentPage].length) {
           selectedElementIds.value = [];
           hasMadeChanges = true;
@@ -3943,7 +3943,7 @@ const handleAiAction = async (actionsData: any) => {
           }
           return el;
         });
-        
+
         hasMadeChanges = true;
         showToast('✨ Elemento modificado por la IA', 'success');
       }
@@ -4411,25 +4411,50 @@ const commitThumbMove = (currentPage: number, e: Event) => {
       const url = presentationId.value ? `${API_URL}/${presentationId.value}` : API_URL;
       const method = presentationId.value ? 'PUT' : 'POST';
 
-      // Usar AbortController para timeout de 120 segundos (máximo)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      // Función para guardar con reintentos
+      const saveWithRetries = async (maxRetries = 3, timeoutMs = 120000) => {
+        let lastError: Error | null = null;
 
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: payloadJson,
-        signal: controller.signal,
-      });
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            // Usar AbortController para timeout de 120 segundos por intento
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      clearTimeout(timeoutId);
+            const response = await fetch(url, {
+              method: method,
+              headers: { 'Content-Type': 'application/json' },
+              body: payloadJson,
+              signal: controller.signal,
+            });
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Sin detalles');
-        throw new Error(`Error HTTP ${response.status}: ${errorText}`);
-      }
+            clearTimeout(timeoutId);
 
-      const data = await response.json();
+            if (!response.ok) {
+              const errorText = await response.text().catch(() => 'Sin detalles');
+              throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            return await response.json();
+          } catch (error) {
+            lastError = error as Error;
+            console.warn(`Intento ${attempt}/${maxRetries} fallido al guardar:`, error);
+
+            if (attempt < maxRetries) {
+              const delayMs = 1000 * Math.pow(2, attempt - 1);
+              console.log(`Reintentando en ${delayMs}ms...`);
+              if (!isAutosave) {
+                showToast(`Reintentando guardado (intento ${attempt}/${maxRetries})...`, 'info');
+              }
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+          }
+        }
+
+        throw lastError || new Error('Error desconocido al guardar');
+      };
+
+      const data = await saveWithRetries();
 
       // Si es una creación nueva, guardamos el ID y actualizamos la URL
       if (!presentationId.value && data._id) {
@@ -4448,14 +4473,16 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     } catch (error) {
       let errorMsg = 'Hubo un problema al guardar la presentación.';
 
-      if (error.name === 'AbortError') {
-        errorMsg = 'Timeout al guardar (120s). El servidor está tardando mucho, intenta de nuevo.';
-      } else if (error.message.includes('Failed to fetch')) {
-        errorMsg = 'Error de conexión. Verifica que el backend esté disponible en ' + API_URL;
-      } else if (error.message.includes('demasiado grande')) {
-        errorMsg = error.message;
-      } else if (error.message.includes('Error HTTP')) {
-        errorMsg = error.message;
+      const errorStr = error instanceof Error ? error.message : String(error);
+
+      if (errorStr.includes('AbortError') || errorStr.includes('timeout')) {
+        errorMsg = 'Timeout al guardar. El servidor está tardando mucho, intenta de nuevo en unos momentos.';
+      } else if (errorStr.includes('Failed to fetch')) {
+        errorMsg = 'Error de conexión. Verifica tu internet y que el servidor esté disponible.';
+      } else if (errorStr.includes('demasiado grande')) {
+        errorMsg = errorStr;
+      } else if (errorStr.includes('HTTP')) {
+        errorMsg = `Error del servidor: ${errorStr}`;
       }
 
       console.error('❌ Error al guardar la presentación:', error);
@@ -5800,22 +5827,61 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
   docType.value = 'pdf';
   presentationId.value = null;
 
+  // Validar tamaño (máximo 100MB por seguridad)
+  const maxSize = 100 * 1024 * 1024; // 100MB
+  if (file.size > maxSize) {
+    showToast(`El archivo es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo permitido: ${maxSize / 1024 / 1024}MB`, 'error');
+    return;
+  }
+
   isConverting.value = true;
   showToast('Procesando documento para convertir a HTML editable...', 'info');
 
   const formData = new FormData();
   formData.append('file', file as Blob, 'documento.pdf');
 
+  // Función auxiliar para subir con reintentos
+  const uploadWithRetries = async (maxRetries = 3, timeoutMs = 120000) => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        const response = await fetch(`${API_BASE}/upload`, {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Intento ${attempt}/${maxRetries} fallido:`, error);
+
+        if (attempt < maxRetries) {
+          // Backoff exponencial: 2s, 4s, 8s
+          const delayMs = 1000 * Math.pow(2, attempt - 1);
+          console.log(`Reintentando en ${delayMs}ms...`);
+          showToast(`Reintentando conexión (intento ${attempt}/${maxRetries})...`, 'info');
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
+    throw lastError || new Error('Error desconocido al subir el archivo');
+  };
+
   try {
-    // 1. Enviamos el archivo al backend
-    const response = await fetch(`${API_BASE}/upload`, {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) throw new Error('Error HTTP: ' + response.status);
-    const data = await response.json();
-
+    // 1. Enviamos el archivo al backend con reintentos
+    const data = await uploadWithRetries();
     _PDF_BASE64_STORE = data.url;
 
     // 2. Cargamos el PDF
@@ -5850,47 +5916,135 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     }, 100);
 
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Error procesando PDF:', error);
-    showToast('Error al conectar con el servidor para subir el PDF.', 'error');
+
+    // Mensajes de error más claros según el tipo de problema
+    if (errorMsg.includes('AbortError') || errorMsg.includes('timeout')) {
+      showToast(
+        'La conexión tardó demasiado. Intenta con un archivo más pequeño o verifica tu conexión.',
+        'error'
+      );
+    } else if (errorMsg.includes('HTTP 413')) {
+      showToast(
+        'El archivo es demasiado grande para el servidor. Por favor, reduce su tamaño.',
+        'error'
+      );
+    } else if (errorMsg.includes('HTTP')) {
+      showToast(
+        `Error del servidor: ${errorMsg}. Intenta nuevamente en unos momentos.`,
+        'error'
+      );
+    } else if (errorMsg.includes('Failed to fetch')) {
+      showToast(
+        'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
+        'error'
+      );
+    } else {
+      showToast(
+        `Error al subir el PDF: ${errorMsg}`,
+        'error'
+      );
+    }
   } finally {
     isConverting.value = false;
   }
 };
 
   const convertPptxToPdfViaAPI = async (file: File) => {
-    isConverting.value = true
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = async () => {
-      try {
-        const response = await fetch(
-          `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ&ImageResolution=600`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              Parameters: [
-                {
-                  Name: 'File',
-                  FileValue: { Name: file.name, Data: (reader.result as string).split(',')[1] },
-                },
-              ],
-            }),
-          },
-        )
-        if (!response.ok) throw new Error('Fallo API')
-        const pdfBase64 = (await response.json()).Files[0].FileData
-        const byteChars = atob(pdfBase64)
-        const byteNums = new Uint8Array(byteChars.length)
-        for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i)
-        await processPdfFile(new Blob([byteNums], { type: 'application/pdf' }))
-      } catch {
-        showToast('Error al convertir el PowerPoint. Verifica tu API Key.', 'error');
-      } finally {
-        isConverting.value = false
-      }
+    // Validar tamaño (máximo 50MB para compatibilidad con API)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      showToast(`El archivo es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo permitido para PPTX: ${maxSize / 1024 / 1024}MB`, 'error');
+      return;
     }
-  }
+
+    isConverting.value = true;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      // Función para convertir con reintentos
+      const convertWithRetries = async (maxRetries = 3) => {
+        let lastError: Error | null = null;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const response = await fetch(
+              `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ&ImageResolution=600`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  Parameters: [
+                    {
+                      Name: 'File',
+                      FileValue: { Name: file.name, Data: (reader.result as string).split(',')[1] },
+                    },
+                  ],
+                }),
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.Files || !result.Files[0]) {
+              throw new Error('Respuesta inválida de la API de conversión');
+            }
+
+            return result.Files[0].FileData;
+          } catch (error) {
+            lastError = error as Error;
+            console.warn(`Intento ${attempt}/${maxRetries} fallido al convertir PPTX:`, error);
+
+            if (attempt < maxRetries) {
+              const delayMs = 1000 * Math.pow(2, attempt - 1);
+              console.log(`Reintentando en ${delayMs}ms...`);
+              showToast(`Reintentando conversión (intento ${attempt}/${maxRetries})...`, 'info');
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+          }
+        }
+
+        throw lastError || new Error('Error desconocido al convertir PPTX');
+      };
+
+      try {
+        showToast('Convirtiendo PowerPoint a PDF...', 'info');
+        const pdfBase64 = await convertWithRetries();
+
+        const byteChars = atob(pdfBase64);
+        const byteNums = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+          byteNums[i] = byteChars.charCodeAt(i);
+        }
+
+        // Una vez convertido, procesamos como PDF normal
+        await processPdfFile(new Blob([byteNums], { type: 'application/pdf' }));
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('Error al convertir PowerPoint:', error);
+
+        if (errorMsg.includes('API Key') || errorMsg.includes('Secret')) {
+          showToast('Error de configuración en la API de conversión. Contacta al administrador.', 'error');
+        } else if (errorMsg.includes('timeout')) {
+          showToast('La conversión tardó demasiado. Intenta con un archivo más pequeño.', 'error');
+        } else {
+          showToast(`Error al convertir PowerPoint: ${errorMsg}`, 'error');
+        }
+      } finally {
+        isConverting.value = false;
+      }
+    };
+
+    reader.onerror = () => {
+      isConverting.value = false;
+      showToast('Error al leer el archivo. Intenta nuevamente.', 'error');
+    };
+  };
 
   const processHtmlFile = (file: File) => {
     const reader = new FileReader()
