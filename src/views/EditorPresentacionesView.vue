@@ -3675,6 +3675,7 @@
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
+  import pako from 'pako';
   import Cropper from 'cropperjs';
   import html2canvas from 'html2canvas';
 
@@ -4399,17 +4400,18 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         coverImage: generatedThumbnails.value[1] || null,
       };
 
-      const payloadJson = JSON.stringify(payload);
-      const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2);
-      console.log(`📤 Enviando presentación (${payloadSizeMB}MB)...`);
+      const safePayload = tryCompressProjectState(payload)
+      const payloadJson = JSON.stringify(safePayload)
+      const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2)
+      console.log(`📤 Enviando presentación (${payloadSizeMB}MB)...`)
 
       // Validar tamaño ANTES de enviar
       if (payloadJson.length > 52428800) {
-        throw new Error(`El payload es demasiado grande (${payloadSizeMB}MB). Máximo permitido: 50MB. Intenta comprimir el PDF o reducir imágenes.`);
+        throw new Error(`El payload es demasiado grande (${payloadSizeMB}MB). Máximo permitido: 50MB. Intenta comprimir el PDF o reducir imágenes.`)
       }
 
-      const url = presentationId.value ? `${API_URL}/${presentationId.value}` : API_URL;
-      const method = presentationId.value ? 'PUT' : 'POST';
+      const url = presentationId.value ? `${API_URL}/${presentationId.value}` : API_URL
+      const method = presentationId.value ? 'PUT' : 'POST'
 
       // Función para guardar con reintentos
       const saveWithRetries = async (maxRetries = 3, timeoutMs = 120000) => {
@@ -5605,10 +5607,69 @@ watch(
     else if (fileExtension === 'html') await processHtmlFile(file)
   }
 
+  const toBase64 = (u8: Uint8Array): string => {
+    let binary = ''
+    for (let i = 0; i < u8.length; i++) {
+      binary += String.fromCharCode(u8[i])
+    }
+    return btoa(binary)
+  }
+
+  const fromBase64 = (base64: string): Uint8Array => {
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    return bytes
+  }
+
+  const tryDecompressProjectState = (data: any) => {
+    if (!data || !data.compressedState) return
+
+    try {
+      const compressedBytes = fromBase64(data.compressedState)
+      const decompressed = pako.ungzip(compressedBytes, { to: 'string' })
+      const parsed = JSON.parse(decompressed)
+
+      data.documentState = parsed.documentState || {}
+      data.slideConfigs = parsed.slideConfigs || {}
+      data.pdfPageMap = parsed.pdfPageMap || {}
+
+      // No seguimos necesitando la propiedad en memoria
+      delete data.compressedState
+    } catch (error) {
+      console.warn('No se pudo descomprimir el estado de proyecto:', error)
+    }
+  }
+
+  const tryCompressProjectState = (payload: any) => {
+    const rawState = {
+      documentState: payload.documentState || {},
+      slideConfigs: payload.slideConfigs || {},
+      pdfPageMap: payload.pdfPageMap || {},
+    }
+
+    const rawJson = JSON.stringify(rawState)
+
+    // Si la presentación pesa mucho, comprimir antes de enviar
+    if (rawJson.length < 3 * 1024 * 1024) {
+      return payload
+    }
+
+    const compressed = pako.gzip(rawJson)
+    payload.compressedState = toBase64(compressed)
+    payload.documentState = {}
+    payload.slideConfigs = {}
+    payload.pdfPageMap = {}
+
+    return payload
+  }
+
   const loadProjectFromDB = async (id: string) => {
     isLoadingProject.value = true;
     try {
       const data = await presentationService.getPresentation(id);
+
+      tryDecompressProjectState(data);
 
       // 1. Asignamos los datos básicos
       presentationId.value = data._id;
