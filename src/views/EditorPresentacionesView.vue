@@ -3787,7 +3787,9 @@ const handleAiAction = async (actionsData: any) => {
   for (const action of actions) {
     console.log(`⚡ [handleAiAction] Ejecutando acción: ${action.actionType}`, action);
 
-    const actionType = action.actionType || action.type;
+    const rawActionType = (action.actionType || action.type || '').toString();
+    const actionType = rawActionType.trim();
+    const actionTypeNormalized = actionType.replace(/[_\s]/g, '').toLowerCase();
 
     if (!actionType) {
       console.warn("Acción sin tipo:", action);
@@ -3798,7 +3800,7 @@ const handleAiAction = async (actionsData: any) => {
       // ==========================================
       // 📝 ACCIÓN: AÑADIR TEXTO
       // ==========================================
-      if (actionType === 'addText') {
+      if (actionTypeNormalized === 'addtext') {
         const newText = createTemplateElement('text', {
           content: action.content || 'Texto generado por IA',
           x: action.x ?? (baseWidth.value / 2) - 150,
@@ -3949,7 +3951,7 @@ const handleAiAction = async (actionsData: any) => {
       // ==========================================
       // 🖼️ ACCIÓN: AÑADIR IMAGEN
       // ==========================================
-      else if (actionType === 'addImage') {
+      else if (actionType === 'addImage' || actionType === 'add_image' || actionTypeNormalized === 'addimage') {
         const newImage = createTemplateElement('image', {
           src: action.src || '',
           x: action.x ?? (baseWidth.value / 2) - 125,
