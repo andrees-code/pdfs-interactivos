@@ -125,10 +125,25 @@ const sendMessage = async () => {
 
     const data = await response.json()
 
-    // 3. ¡AQUÍ EMITIMOS LA ORDEN AL EDITOR!
-    if (data.action) {
-      console.log("🤖 Chatbot enviando orden al Editor:", data.action);
-      emit('ai-action', data.action);
+    console.log("📥 [AIChatBot] Respuesta del servidor:", { 
+      hasActions: !!data.actions, 
+      actionsCount: data.actions?.length || 0, 
+      actions: data.actions,
+      hasMessage: !!data.message 
+    });
+
+    // 3. ¡AQUÍ EMITIMOS LAS ÓRDENES AL EDITOR!
+    if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
+      console.log("🤖 Chatbot enviando ordenes al Editor:", data.actions);
+      console.log("📤 Emitiendo evento 'ai-action' con", data.actions.length, "acciones");
+      emit('ai-action', data.actions);
+    }
+    // Compatibilidad con acciones antiguas con un solo action
+    else if (data.action) {
+      console.log("🤖 Chatbot enviando orden al Editor (legacy):", data.action);
+      emit('ai-action', [data.action]);
+    } else {
+      console.warn("⚠️ No hay acciones en la respuesta del servidor");
     }
 
     if (data.message && data.message.content) {

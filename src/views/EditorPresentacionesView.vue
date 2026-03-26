@@ -3750,98 +3750,241 @@ const onThumbDragStart = (e: DragEvent, page: number) => {
     e.dataTransfer.setData('text/plain', String(page))
   }
 }
-const handleAiAction = async (actionData: any) => {
-  console.log("🔥 EL EDITOR RECIBIÓ LA ORDEN:", actionData);
+const handleAiAction = async (actionsData: any) => {
+  console.log("🔥 [handleAiAction] TRIGGERED! Recibiendo datos:", actionsData);
 
-  // 1. Extraemos la acción
-  const tipoAccion = actionData.actionType || actionData.type;
+  // Garantizamos que actionsData sea un array
+  const actions = Array.isArray(actionsData) ? actionsData : [actionsData];
 
-  if (!tipoAccion) {
-    console.warn("La IA no envió un comando válido.", actionData);
+  console.log("📋 [handleAiAction] Acciones parseadas:", {
+    actionCount: actions.length,
+    currentPage: pageNum.value,
+    actions: actions
+  });
+
+  if (!actions || actions.length === 0) {
+    console.warn("⚠️ [handleAiAction] No hay acciones para ejecutar.");
     return;
   }
 
   const currentPage = pageNum.value;
 
-  // 2. SEGURIDAD: Garantizamos que la diapositiva existe en la memoria
-  if (!documentState.value[currentPage]) documentState.value[currentPage] = [];
+  console.log(`🎯 [handleAiAction] Ejecutando en página ${currentPage}, documentState actual:`, documentState.value[currentPage]);
+
+  // 🔒 SEGURIDAD: Garantizamos que la diapositiva existe
+  if (!documentState.value[currentPage]) {
+    console.log(`⚙️ [handleAiAction] Creando documentState[${currentPage}]`);
+    documentState.value[currentPage] = [];
+  }
   if (!slideConfigs.value[currentPage]) {
+    console.log(`⚙️ [handleAiAction] Creando slideConfigs[${currentPage}]`);
     slideConfigs.value[currentPage] = { bgColor: '#ffffff', bgImage: null, transition: 'none' };
   }
 
-  const currentElements = documentState.value[currentPage];
+  let hasMadeChanges = false;
 
-  // ==========================================
-  // 🎨 ACCIÓN: CAMBIAR FONDO
-  // ==========================================
-  if (tipoAccion === 'changeBackground') {
-    // Aplicamos el nuevo color y borramos la imagen
-    slideConfigs.value[currentPage].bgColor = actionData.color || '#000000';
-    slideConfigs.value[currentPage].bgImage = null;
+  // 🔥 PROCESAMOS CADA ACCIÓN
+  for (const action of actions) {
+    console.log(`⚡ [handleAiAction] Ejecutando acción: ${action.actionType}`, action);
 
-    showToast('Fondo actualizado por la IA', 'success');
+    const actionType = action.actionType || action.type;
+
+    if (!actionType) {
+      console.warn("Acción sin tipo:", action);
+      continue;
+    }
+
+    try {
+      // ==========================================
+      // 📝 ACCIÓN: AÑADIR TEXTO
+      // ==========================================
+      if (actionType === 'addText') {
+        const newText = createTemplateElement('text', {
+          content: action.content || 'Texto generado por IA',
+          x: action.x ?? (baseWidth.value / 2) - 150,
+          y: action.y ?? (baseHeight.value / 2) - 30,
+          width: action.width ?? 300,
+          height: action.height ?? 'auto',
+          color: action.color || '#1e293b',
+          fontSize: action.fontSize || 48,
+          fontWeight: action.fontWeight || '800',
+          fontFamily: action.fontFamily || 'Arial',
+          textAlign: action.textAlign || 'left',
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+          lineHeight: 1.2,
+          letterSpacing: 0,
+          textShadow: 'none',
+          textBgColor: 'transparent',
+          boxShadow: 'none',
+        });
+
+        // 🔥 CLAVE: Usar spread operator para disparar reactividad
+        documentState.value[currentPage] = [...documentState.value[currentPage], newText];
+        selectedElementIds.value = [newText.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Texto añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🟥 ACCIÓN: AÑADIR FORMA
+      // ==========================================
+      else if (actionType === 'addShape') {
+        const newShape = createTemplateElement('shape', {
+          bgColor: action.bgColor || action.color || '#2563eb',
+          x: action.x ?? (baseWidth.value / 2) - 100,
+          y: action.y ?? (baseHeight.value / 2) - 100,
+          width: action.width ?? 200,
+          height: action.height ?? 200,
+          borderRadius: action.borderRadius ?? 12,
+          borderStyle: 'none',
+          borderColor: '#000000',
+          borderWidth: 1,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+          boxShadow: 'none',
+        });
+
+        // 🔥 CLAVE: Usar spread operator para disparar reactividad
+        documentState.value[currentPage] = [...documentState.value[currentPage], newShape];
+        selectedElementIds.value = [newShape.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Forma añadida por la IA', 'success');
+      }
+
+      // ==========================================
+      // ⭐ ACCIÓN: AÑADIR ICONO
+      // ==========================================
+      else if (actionType === 'addIcon') {
+        const newIcon = createTemplateElement('icon', {
+          iconName: action.iconName || 'ph-star',
+          x: action.x ?? (baseWidth.value / 2) - 32,
+          y: action.y ?? (baseHeight.value / 2) - 32,
+          width: action.width ?? 64,
+          height: action.height ?? 64,
+          color: action.color || '#2563eb',
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+          boxShadow: 'none',
+        });
+
+        // 🔥 CLAVE: Usar spread operator para disparar reactividad
+        documentState.value[currentPage] = [...documentState.value[currentPage], newIcon];
+        selectedElementIds.value = [newIcon.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Icono añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🎨 ACCIÓN: CAMBIAR FONDO
+      // ==========================================
+      else if (actionType === 'changeBackground') {
+        slideConfigs.value[currentPage].bgColor = action.bgColor || action.color || '#000000';
+        slideConfigs.value[currentPage].bgImage = null;
+        hasMadeChanges = true;
+        showToast('✨ Fondo actualizado por la IA', 'success');
+      }
+
+      // ==========================================
+      // 📄 ACCIÓN: NUEVA DIAPOSITIVA
+      // ==========================================
+      else if (actionType === 'addSlide') {
+        addNewSlide();
+        hasMadeChanges = true;
+        showToast('✨ Nueva diapositiva creada', 'success');
+      }
+
+      // ==========================================
+      // 🗑️ ACCIÓN: ELIMINAR ELEMENTO
+      // ==========================================
+      else if (actionType === 'deleteElement' && action.elementId) {
+        // 🔥 CLAVE: Filtrar (no splice) para disparar reactividad
+        const beforeCount = documentState.value[currentPage].length;
+        documentState.value[currentPage] = documentState.value[currentPage].filter((el) => el.id !== action.elementId);
+        
+        if (beforeCount !== documentState.value[currentPage].length) {
+          selectedElementIds.value = [];
+          hasMadeChanges = true;
+          showToast('✨ Elemento eliminado por la IA', 'success');
+        }
+      }
+
+      // ==========================================
+      // ✏️ ACCIÓN: MODIFICAR ELEMENTO
+      // ==========================================
+      else if (actionType === 'modifyElement' && action.elementId) {
+        // 🔥 CLAVE: Map + spread para crear nuevo array y disparar reactividad
+        documentState.value[currentPage] = documentState.value[currentPage].map((el) => {
+          if (el.id === action.elementId) {
+            // Crear nuevo objeto con las actualizaciones
+            const updated = { ...el };
+
+            if (action.content !== undefined) updated.content = action.content;
+            if (action.color !== undefined) updated.color = action.color;
+            if (action.bgColor !== undefined) updated.bgColor = action.bgColor;
+            if (action.fontSize !== undefined) updated.fontSize = action.fontSize;
+            if (action.fontWeight !== undefined) updated.fontWeight = action.fontWeight;
+            if (action.fontFamily !== undefined) updated.fontFamily = action.fontFamily;
+            if (action.textAlign !== undefined) updated.textAlign = action.textAlign;
+            if (action.x !== undefined) updated.x = action.x;
+            if (action.y !== undefined) updated.y = action.y;
+            if (action.width !== undefined) updated.width = action.width;
+            if (action.height !== undefined) updated.height = action.height;
+            if (action.opacity !== undefined) updated.opacity = action.opacity;
+            if (action.rotation !== undefined) updated.rotation = action.rotation;
+            if (action.borderRadius !== undefined) updated.borderRadius = action.borderRadius;
+
+            return updated;
+          }
+          return el;
+        });
+        
+        hasMadeChanges = true;
+        showToast('✨ Elemento modificado por la IA', 'success');
+      }
+
+      else {
+        console.warn(`Tipo de acción desconocido: ${actionType}`);
+      }
+    } catch (error) {
+      console.error(`Error ejecutando acción ${actionType}:`, error);
+      showToast(`Error: ${error}`, 'error');
+    }
   }
 
-  // ==========================================
-  // 📝 ACCIÓN: AÑADIR TEXTO
-  // ==========================================
-  else if (tipoAccion === 'addText') {
-    const newText = createTemplateElement('text', {
-      content: actionData.content || 'Texto generado por IA',
-      x: (baseWidth.value / 2) - 150,
-      y: (baseHeight.value / 2) - 30,
-      color: actionData.color || '#1e293b',
-      fontSize: 48,
-      fontWeight: '800'
+  // 🚀 FORZAR REACTIVIDAD DE VUE 3:
+  // Las acciones ya dispararon reactividad con spread operators
+  // Aquí solo actualizamos las referencias padre para completar el ciclo
+  if (hasMadeChanges) {
+    console.log("✅ [handleAiAction] Cambios detectados, actualizando reactividad...");
+    console.log("📊 Estado después de acciones:", {
+      page: currentPage,
+      elementCount: documentState.value[currentPage]?.length || 0,
+      elements: documentState.value[currentPage],
+      slideConfig: slideConfigs.value[currentPage]
     });
 
-    currentElements.push(newText);
+    // 🔥 Actualizar referencias padre
+    slideConfigs.value = { ...slideConfigs.value };
+    documentState.value = { ...documentState.value };
 
-    selectedElementIds.value = [newText.id];
-    activeTool.value = 'select';
-    showToast('Texto añadido por la IA', 'success');
+    console.log("🔄 Referencias actualizadas para reactividad");
+
+    // 🚀 GUARDAR EN HISTORIAL (Para Ctrl+Z)
+    saveHistory();
+    console.log("📝 Historial guardado");
+
+    // 🚀 GUARDAR EN BD (Para persistencia)
+    await savePresentation(true);
+    console.log("💾 Presentación guardada en BD");
+  } else {
+    console.warn("⚠️ [handleAiAction] No se hicieron cambios");
   }
 
-  // ==========================================
-  // 🟥 ACCIÓN: AÑADIR FORMA
-  // ==========================================
-  else if (tipoAccion === 'addShape') {
-    const newShape = createTemplateElement('shape', {
-      bgColor: actionData.color || '#2563eb',
-      x: (baseWidth.value / 2) - 100,
-      y: (baseHeight.value / 2) - 100,
-      width: 200,
-      height: 200,
-      borderRadius: 12
-    });
-
-    currentElements.push(newShape);
-
-    selectedElementIds.value = [newShape.id];
-    activeTool.value = 'select';
-    showToast('Forma añadida por la IA', 'success');
-  }
-
-  // ==========================================
-  // 📄 ACCIÓN: NUEVA DIAPOSITIVA
-  // ==========================================
-  else if (tipoAccion === 'addSlide') {
-    addNewSlide();
-    showToast('Nueva diapositiva creada', 'success');
-  }
-
-  // 🚀 TRUCO MAESTRO PARA VUE 3:
-  // Al clonar los objetos principales, Vue se da cuenta de que "todo cambió"
-  // y repinta el DOM instantáneamente.
-  slideConfigs.value = Object.assign({}, slideConfigs.value);
-  documentState.value = Object.assign({}, documentState.value);
-
-  // 🚀 GUARDADO DE HISTORIAL (Para poder hacer Ctrl+Z)
-  saveHistory();
-
-  // 🚀 GUARDADO EN BASE DE DATOS (Para que sobreviva si pulsas F5)
-  // Nota: Esto disparará el spinner de "Guardando..." en tu header
-  await savePresentation(true);
+  console.log("🏁 [handleAiAction] Finalizado");
 }
 
 const onThumbDragOver = (e: DragEvent, page: number) => {
