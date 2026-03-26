@@ -3946,6 +3946,233 @@ const handleAiAction = async (actionsData: any) => {
         showToast('✨ Elemento modificado por la IA', 'success');
       }
 
+      // ==========================================
+      // 🖼️ ACCIÓN: AÑADIR IMAGEN
+      // ==========================================
+      else if (actionType === 'addImage') {
+        const newImage = createTemplateElement('image', {
+          src: action.src || '',
+          x: action.x ?? (baseWidth.value / 2) - 125,
+          y: action.y ?? (baseHeight.value / 2) - 125,
+          width: action.width ?? 250,
+          height: action.height ?? 250,
+          fit: action.fit || 'contain',
+          borderRadius: action.borderRadius ?? 0,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newImage];
+        selectedElementIds.value = [newImage.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Imagen añadida por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🎥 ACCIÓN: AÑADIR VÍDEO
+      // ==========================================
+      else if (actionType === 'addVideo') {
+        const newVideo = createTemplateElement('video', {
+          src: action.src || '',
+          x: action.x ?? (baseWidth.value / 2) - 200,
+          y: action.y ?? (baseHeight.value / 2) - 112,
+          width: action.width ?? 400,
+          height: action.height ?? 225,
+          autoplay: action.autoplay ?? false,
+          loop: action.loop ?? false,
+          muted: action.muted ?? false,
+          borderRadius: action.borderRadius ?? 0,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newVideo];
+        selectedElementIds.value = [newVideo.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Vídeo añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 📊 ACCIÓN: AÑADIR TABLA
+      // ==========================================
+      else if (actionType === 'addTable') {
+        const newTable = createTemplateElement('table', {
+          headers: action.headers || ['Col 1', 'Col 2'],
+          rows: action.rows || [['Dato 1', 'Dato 2'], ['Dato 3', 'Dato 4']],
+          x: action.x ?? (baseWidth.value / 2) - 200,
+          y: action.y ?? (baseHeight.value / 2) - 150,
+          width: action.width ?? 400,
+          height: action.height ?? 'auto',
+          color: action.color || '#334155',
+          borderColor: action.borderColor || '#cbd5e1',
+          headerBgColor: action.headerBgColor || '#f1f5f9',
+          rowBgColor1: action.rowBgColor1 || '#ffffff',
+          rowBgColor2: action.rowBgColor2 || '#f8fafc',
+          fontSize: action.fontSize ?? 16,
+          borderRadius: action.borderRadius ?? 8,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newTable];
+        selectedElementIds.value = [newTable.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Tabla añadida por la IA', 'success');
+      }
+
+      // ==========================================
+      // 📈 ACCIÓN: AÑADIR GRÁFICO
+      // ==========================================
+      else if (actionType === 'addChart') {
+        const newChart = createTemplateElement('chart', {
+          chartType: action.chartType || 'bar',
+          chartTitle: action.chartTitle || 'Datos',
+          chartData: action.chartData || [
+            { label: 'Q1', value: 30, color: '#3b82f6' },
+            { label: 'Q2', value: 60, color: '#10b981' },
+            { label: 'Q3', value: 40, color: '#f59e0b' },
+          ],
+          x: action.x ?? (baseWidth.value / 2) - 200,
+          y: action.y ?? (baseHeight.value / 2) - 150,
+          width: action.width ?? 400,
+          height: action.height ?? 300,
+          color: action.color || '#334155',
+          bgColor: action.bgColor || '#ffffff',
+          showValues: action.showValues ?? true,
+          showLegend: action.showLegend ?? true,
+          borderRadius: action.borderRadius ?? 12,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newChart];
+        selectedElementIds.value = [newChart.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Gráfico añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 📱 ACCIÓN: AÑADIR CÓDIGO QR
+      // ==========================================
+      else if (actionType === 'addQrcode') {
+        const newQR = createTemplateElement('qrcode', {
+          qrUrl: action.qrUrl || 'https://',
+          x: action.x ?? (baseWidth.value / 2) - 75,
+          y: action.y ?? (baseHeight.value / 2) - 75,
+          width: action.width ?? 150,
+          height: action.height ?? 150,
+          color: action.color || '#0f172a',
+          bgColor: action.bgColor || '#ffffff',
+          borderRadius: action.borderRadius ?? 8,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newQR];
+        selectedElementIds.value = [newQR.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Código QR añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 📝 ACCIÓN: AÑADIR LISTA
+      // ==========================================
+      else if (actionType === 'addList') {
+        const newList = createTemplateElement('list', {
+          items: action.items || ['Elemento 1', 'Elemento 2', 'Elemento 3'],
+          listType: action.listType || 'ul',
+          x: action.x ?? (baseWidth.value / 2) - 150,
+          y: action.y ?? (baseHeight.value / 2) - 100,
+          width: action.width ?? 300,
+          height: action.height ?? 'auto',
+          color: action.color || '#1e293b',
+          fontSize: action.fontSize ?? 24,
+          fontWeight: action.fontWeight || '400',
+          itemSpacing: action.itemSpacing ?? 10,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newList];
+        selectedElementIds.value = [newList.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Lista añadida por la IA', 'success');
+      }
+
+      // ==========================================
+      // 💻 ACCIÓN: AÑADIR BLOQUE DE CÓDIGO
+      // ==========================================
+      else if (actionType === 'addCodeblock') {
+        const newCode = createTemplateElement('codeblock', {
+          content: action.content || 'console.log("Hello World");',
+          language: action.language || 'javascript',
+          x: action.x ?? (baseWidth.value / 2) - 225,
+          y: action.y ?? (baseHeight.value / 2) - 150,
+          width: action.width ?? 450,
+          height: action.height ?? 'auto',
+          theme: action.theme || 'dark',
+          fontSize: action.fontSize ?? 14,
+          borderRadius: action.borderRadius ?? 8,
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newCode];
+        selectedElementIds.value = [newCode.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Bloque de código añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🔗 ACCIÓN: AÑADIR ENLACE/BOTÓN
+      // ==========================================
+      else if (actionType === 'addLink') {
+        const newLink = createTemplateElement('link', {
+          text: action.text || 'Siguiente...',
+          targetPage: action.targetPage || 1,
+          x: action.x ?? (baseWidth.value / 2) - 80,
+          y: action.y ?? (baseHeight.value / 2) - 22,
+          width: action.width ?? 160,
+          height: action.height ?? 44,
+          bgColor: action.bgColor || '#2563eb',
+          color: action.color || '#ffffff',
+          borderRadius: action.borderRadius ?? 6,
+          fontSize: action.fontSize ?? 14,
+          fontWeight: action.fontWeight || '600',
+          opacity: action.opacity ?? 1,
+          rotation: action.rotation ?? 0,
+        });
+
+        documentState.value[currentPage] = [...documentState.value[currentPage], newLink];
+        selectedElementIds.value = [newLink.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Enlace añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🗑️ ACCIÓN: ELIMINAR ÚLTIMO ELEMENTO
+      // ==========================================
+      else if (actionType === 'deleteLastElement') {
+        if (documentState.value[currentPage].length > 0) {
+          // 🔥 CLAVE: Eliminar el último elemento usando splice para disparar reactividad
+          const removedElement = documentState.value[currentPage].pop();
+          documentState.value[currentPage] = [...documentState.value[currentPage]];
+          selectedElementIds.value = [];
+          hasMadeChanges = true;
+          showToast('✨ Último elemento eliminado por la IA', 'success');
+        } else {
+          showToast('No hay elementos para eliminar', 'warning');
+        }
+      }
+
       else {
         console.warn(`Tipo de acción desconocido: ${actionType}`);
       }
