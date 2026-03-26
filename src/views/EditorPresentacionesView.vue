@@ -5605,7 +5605,11 @@ watch(
       // Función para normalizar URLs de PDFs antiguos que puedan estar rotos
       const normalizePdfSource = (src: string) => {
         if (!src) return src;
-        const currentBackend = import.meta.env.VITE_BACKEND_URL || window.location.origin;
+        const currentBackend = import.meta.env.VITE_BACKEND_URL || 'https://pdfs-bakend.vercel.app';
+        // Reparar URLs de backend antiguo: tu-backend-en-vercel o cualquier otro host inválido
+        if (src.includes('tu-backend-en-vercel.vercel.app')) {
+          src = src.replace(/https?:\/\/tu-backend-en-vercel\.vercel\.app/, currentBackend);
+        }
         // Si viene de un deploy antiguo con localhost o rutas locales, intentar mapear
         if (src.includes('/uploads/') && !src.includes('cloudinary') && !src.includes('res.cloudinary')) {
           // Para proyectos antiguos, intentar reconstruir desde base64 si existe
