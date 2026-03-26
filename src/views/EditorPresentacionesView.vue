@@ -4400,14 +4400,15 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         coverImage: generatedThumbnails.value[1] || null,
       };
 
+      // Primero, comprimimos el estado si es posible y necesario.
       const safePayload = tryCompressProjectState(payload)
       const payloadJson = JSON.stringify(safePayload)
       const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2)
-      console.log(`📤 Enviando presentación (${payloadSizeMB}MB)...`)
+      console.log(`📤 Enviando presentación (${payloadSizeMB}MB) (compressed=${Boolean(safePayload.compressedState)})...`)
 
       // Validar tamaño ANTES de enviar
-      if (payloadJson.length > 52428800) {
-        throw new Error(`El payload es demasiado grande (${payloadSizeMB}MB). Máximo permitido: 50MB. Intenta comprimir el PDF o reducir imágenes.`)
+      if (payloadJson.length > 8 * 1024 * 1024) {
+        throw new Error(`El payload es demasiado grande (${payloadSizeMB}MB). Máximo permitido: 8MB en Vercel. Intenta simplificar tu presentación y vuelve a intentar.`)
       }
 
       const url = presentationId.value ? `${API_URL}/${presentationId.value}` : API_URL
@@ -5649,17 +5650,24 @@ watch(
     }
 
     const rawJson = JSON.stringify(rawState)
+    const fullJson = JSON.stringify(payload)
 
-    // Si la presentación pesa mucho, comprimir antes de enviar
-    if (rawJson.length < 3 * 1024 * 1024) {
+    // Si el documento es grande en contenido de estado (o el payload total supera 2.5MB), forzamos la compresión.
+    const shouldCompress = rawJson.length >= 2 * 1024 * 1024 || fullJson.length >= 3 * 1024 * 1024
+
+    if (!shouldCompress) {
       return payload
     }
 
-    const compressed = pako.gzip(rawJson)
-    payload.compressedState = toBase64(compressed)
-    payload.documentState = {}
-    payload.slideConfigs = {}
-    payload.pdfPageMap = {}
+    try {
+      const compressed = pako.gzip(rawJson)
+      payload.compressedState = toBase64(compressed)
+      payload.documentState = {}
+      payload.slideConfigs = {}
+      payload.pdfPageMap = {}
+    } catch (error) {
+      console.warn('⚠️ No se pudo comprimir el estado de la presentación:', error)
+    }
 
     return payload
   }
