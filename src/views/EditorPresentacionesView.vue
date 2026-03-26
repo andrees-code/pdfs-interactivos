@@ -4387,7 +4387,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     }
 
     try {
-      const payload = {
+      let payload: any = {
         userId: authStore.user?._id || authStore.user?.id,
         title: presentationTitle.value,
         docType: docType.value,
@@ -4399,6 +4399,9 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         pdfBase64: _PDF_BASE64_STORE || null,
         coverImage: generatedThumbnails.value[1] || null,
       };
+
+      // Convertir media base64 a URLs antes de comprimir / enviar
+      payload = await normalizePayloadMedia(payload)
 
       // Primero, comprimimos el estado si es posible y necesario.
       const safePayload = tryCompressProjectState(payload)
@@ -5667,6 +5670,88 @@ watch(
       payload.pdfPageMap = {}
     } catch (error) {
       console.warn('⚠️ No se pudo comprimir el estado de la presentación:', error)
+    }
+
+    return payload
+  }
+
+  const isDataURL = (value: any) => {
+    return typeof value === 'string' && value.startsWith('data:') && value.includes(';base64,')
+  }
+
+  const isLikelyBase64 = (value: any) => {
+    if (typeof value !== 'string' || value.length < 500) return false
+    const candidate = value.replace(/\s+/g, '')
+    return /^[A-Za-z0-9+/=]+$/.test(candidate)
+  }
+
+  const uploadDataURL = async (dataURL: string, suggestedName = 'file', forceMimeType?: string) => {
+    try {
+      let normalized = dataURL
+      let mime = forceMimeType
+
+      if (!isDataURL(dataURL) && isLikelyBase64(dataURL)) {
+        // Base64 sin prefijo -> asumimos mimeType conocido si se pasó, o binario.
+        mime = mime || 'application/octet-stream'
+        normalized = `data:${mime};base64,${dataURL.trim()}`
+      }
+
+      const matches = normalized.match(/^data:(.*?);base64,(.*)$/)
+      if (!matches) {
+        return dataURL
+      }
+
+      mime = mime || matches[1]
+      const rawBase64 = matches[2]
+      const bytes = atob(rawBase64)
+      const array = new Uint8Array(bytes.length)
+      for (let i = 0; i < bytes.length; i++) {
+        array[i] = bytes.charCodeAt(i)
+      }
+
+      const extension = (mime.split('/')[1] || 'bin').split(';')[0]
+      const blob = new Blob([array], { type: mime })
+      const formData = new FormData()
+      formData.append('file', blob, `${suggestedName}.${extension}`)
+
+      const response = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        console.warn('No se pudo subir dataURL:', response.statusText)
+        return dataURL
+      }
+
+      const jsonRes = await response.json()
+      return jsonRes.url || dataURL
+    } catch (error) {
+      console.warn('Error al subir dataURL:', error)
+      return dataURL
+    }
+  }
+
+  const normalizePayloadMedia = async (payload: any) => {
+    if (payload.pdfBase64 && (isDataURL(payload.pdfBase64) || isLikelyBase64(payload.pdfBase64))) {
+      payload.pdfBase64 = await uploadDataURL(payload.pdfBase64, 'presentation_pdf', 'application/pdf')
+    }
+
+    if (payload.coverImage && (isDataURL(payload.coverImage) || isLikelyBase64(payload.coverImage))) {
+      payload.coverImage = await uploadDataURL(payload.coverImage, 'presentation_cover', 'image/png')
+    }
+
+    if (payload.documentState) {
+      for (const page in payload.documentState) {
+        const elements = payload.documentState[page]
+        if (Array.isArray(elements)) {
+          for (const element of elements) {
+            if (element && element.src && isDataURL(element.src)) {
+              element.src = await uploadDataURL(element.src, `element_${element.type || 'img'}`)
+            }
+          }
+        }
+      }
     }
 
     return payload
