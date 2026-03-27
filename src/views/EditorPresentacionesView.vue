@@ -5869,6 +5869,12 @@ watch(
       // Función para normalizar URLs de PDFs antiguos que puedan estar rotos
       const normalizePdfSource = (src: string) => {
         if (!src) return src;
+
+        // ✨ VERCEL BLOB: Evitar que el reparador rompa las nuevas URLs de la nube
+        if (src.includes('.blob.vercel-storage.com')) {
+          return src;
+        }
+
         const currentBackend = import.meta.env.VITE_BACKEND_URL || 'https://pdfs-bakend.vercel.app';
         // Reparar URLs de backend antiguo: tu-backend-en-vercel o cualquier otro host inválido
         if (src.includes('tu-backend-en-vercel.vercel.app')) {
