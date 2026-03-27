@@ -34,11 +34,12 @@
           <p>Por favor, espera mientras optimizamos los gráficos.</p>
         </div>
 
-        <div v-if="playMode" class="play-nav-overlay">
+        <div v-if="playMode" class="play-nav-overlay" :class="{ 'is-idle': !showPlayNav }" @mouseenter="wakeUpPlayNav">
           <button
             @click="changePageTo(pageNum - 1)"
             :disabled="pageNum <= 1"
             title="Anterior (Flecha Izquierda)"
+            
           >
             <i class="ph ph-caret-left"></i>
           </button>
@@ -55,7 +56,7 @@
         </div>
 
         <div class="pro-workspace">
-          <aside class="pro-sidebar left-sidebar" v-if="hasDoc && !playMode" @click.stop>            <div class="panel-header">
+          <aside class="pro-sidebar left-sidebar" v-if="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>            <div class="panel-header">
               <span>Diapositivas</span>
               <span class="badge">{{ numPages }}</span>
             </div>
@@ -274,6 +275,9 @@
               </button>
             </div>
           </aside>
+
+          <!-- Resizer Izquierdo -->
+          <div class="sidebar-resizer" v-if="hasDoc && !playMode" @mousedown.prevent.stop="startResizeSidebar($event, 'left')"></div>
 
           <div class="center-workspace" v-if="hasDoc">
             <div class="pro-top-toolbar" v-if="!playMode" @click.stop>
@@ -1748,7 +1752,10 @@
             </div>
           </div>
 
-          <aside class="pro-sidebar right-sidebar" v-if="hasDoc && !playMode" @click.stop>
+          <!-- Resizer Derecho -->
+          <div class="sidebar-resizer" v-if="hasDoc && !playMode" @mousedown.prevent.stop="startResizeSidebar($event, 'right')"></div>
+
+          <aside class="pro-sidebar right-sidebar" v-if="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
             <div class="panel-header">Propiedades</div>
             <div class="panel-content" v-if="selectedElementIds.length > 1">
               <div class="element-header">
@@ -4510,6 +4517,23 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const docType = ref<'pdf' | 'blank'>('blank')
   const hasDoc = ref(false)
   const playMode = ref(false)
+
+  // --- LÓGICA DE AUTO-OCULTADO DEL MENÚ DE PRESENTACIÓN ---
+const showPlayNav = ref(true);
+let playNavTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const wakeUpPlayNav = () => {
+  if (!playMode.value) return; // Solo funciona en modo presentación
+  
+  showPlayNav.value = true;
+  
+  if (playNavTimeout) clearTimeout(playNavTimeout);
+  
+  playNavTimeout = setTimeout(() => {
+    showPlayNav.value = false;
+  }, 2000); // 2000ms = 2 segundos
+};
+
   const pageNum = ref(1)
   const numPages = ref(0)
   const zoom = ref(1.0)
@@ -4550,6 +4574,49 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const activeTool = ref<ToolType>('select')
   const baseWidth = ref(1280)
   const baseHeight = ref(720)
+
+  const leftSidebarWidth = ref(240)
+  const rightSidebarWidth = ref(280)
+
+  // --- LÓGICA PARA REDIMENSIONAR LOS PANELES LATERALES ---
+const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
+  if (playMode.value) return;
+  e.preventDefault();
+  
+  const startX = e.clientX;
+  const startLeftWidth = leftSidebarWidth.value;
+  const startRightWidth = rightSidebarWidth.value;
+
+  // Límites para que no se hagan invisibles ni ocupen toda la pantalla
+  const MIN_WIDTH = 200;
+  const MAX_WIDTH = 600;
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    if (side === 'left') {
+      // Si movemos a la derecha, suma al ancho inicial
+      const newWidth = startLeftWidth + (moveEvent.clientX - startX);
+      leftSidebarWidth.value = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
+    } else if (side === 'right') {
+      // Para el panel derecho, si movemos el ratón a la izquierda (negativo), sumamos ancho
+      const newWidth = startRightWidth - (moveEvent.clientX - startX);
+      rightSidebarWidth.value = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
+    }
+    
+    // Opcional: reajustar el zoom del lienzo al cambiar el tamaño de los paneles
+    // fitToScreen(); 
+  };
+
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    
+    // Recomendado: forzar un reajuste del lienzo al terminar de arrastrar
+    setTimeout(fitToScreen, 50);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+};
 
   // --- CONFIGURACIÓN DE NUEVO PROYECTO ---
   const showNewProjectModal = ref(false)
@@ -5209,7 +5276,7 @@ const handleClickOutsideTmpl = (e) => {
   }
 };
       onMounted(() => {
-  document.addEventListener('click', handleClickOutsideTmpl);
+    document.addEventListener('click', handleClickOutsideTmpl);
     if (!customElements.get('model-viewer')) {
       const script = document.createElement('script')
       script.type = 'module'
@@ -5225,23 +5292,39 @@ const handleClickOutsideTmpl = (e) => {
     }
     document.addEventListener('keydown', handleGlobalKeydown)
     document.addEventListener('keyup', handleGlobalKeyup)
-
-    // NUEVOS LISTENERS DE FULLSCREEN
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
 
+    // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
+    document.addEventListener('mousemove', wakeUpPlayNav);
+    document.addEventListener('keydown', wakeUpPlayNav);
+
     // Cerrar "Mis plantillas" al hacer click fuera
-  document.addEventListener('click', (e) => {
-    if (myTemplatesOpen.value) {
-      myTemplatesOpen.value = false
+    document.addEventListener('click', (e) => {
+      if (myTemplatesOpen.value) {
+        myTemplatesOpen.value = false
+      }
+    })
+
+    // Cargar proyecto si hay ID en la ruta
+    const routeId = route.params.id as string
+    if (routeId) {
+      loadProjectFromDB(routeId)
     }
   })
 
-  // Cargar proyecto si hay ID en la ruta
-  const routeId = route.params.id as string
-  if (routeId) {
-    loadProjectFromDB(routeId)
-  }
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleGlobalKeydown)
+    document.removeEventListener('keyup', handleGlobalKeyup)
+    document.removeEventListener('fullscreenchange', onFullscreenChange)
+    document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+
+    // 👉 NUEVO: Limpiar los eventos de movimiento al salir
+    document.removeEventListener('mousemove', wakeUpPlayNav);
+    document.removeEventListener('keydown', wakeUpPlayNav);
+    if (playNavTimeout) clearTimeout(playNavTimeout);
+
+    if (timerInterval) clearInterval(timerInterval)
   })
 
   onUnmounted(() => {
@@ -5859,6 +5942,12 @@ watch(
       router.push('/biblioteca');
     } finally {
       isLoadingProject.value = false;
+      
+      // 👉 NUEVO: Iniciar el escáner de optimización en segundo plano al terminar de cargar
+      if (hasDoc.value) {
+        setTimeout(() => {
+          autoOptimizeProjectImages();
+        }, 1000);}
     }
   }
 
@@ -6905,26 +6994,156 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   const clearDrawCanvas = (el: any) => (el.lines = [])
 
   // BASE64 AL SUBIR ARCHIVOS LOCALES
-  const handleLocalMediaUpload = (event: Event, el: any) => {
-    const file = (event.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      el.src = e.target?.result as string
-      if (el.type === '3d') el.name = file.name
+  // --- OPTIMIZADOR DE IMÁGENES AL VUELO ---
+  const optimizeImage = (file: File, maxWidth = 1920, maxHeight = 1080, quality = 0.8): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          // Si la imagen es más grande que nuestro límite, la reducimos manteniendo proporciones
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          // Dibujamos la imagen reducida en un canvas invisible
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Exportamos como WebP (Súper ligero y soporta fondos transparentes)
+            resolve(canvas.toDataURL('image/webp', quality));
+          } else {
+            resolve(img.src); // Fallback por seguridad
+          }
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+  // --- OPTIMIZAR IMÁGENES BASE64 HEREDADAS ---
+  const optimizeBase64Image = (base64Str: string, maxWidth = 1920, maxHeight = 1080, quality = 0.75): Promise<string> => {
+    return new Promise((resolve) => {
+      // Si no es un base64 de imagen o pesa menos de ~400KB, no gastamos recursos en tocarla
+      if (!base64Str.startsWith('data:image/') || base64Str.length < 500000) {
+        return resolve(base64Str);
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/webp', quality));
+        } else {
+          resolve(base64Str); // Fallback si falla el canvas
+        }
+      };
+      img.onerror = () => resolve(base64Str); // Fallback si la imagen está corrupta
+      img.src = base64Str;
+    });
+  };
+
+  // Función que barre todo el proyecto buscando imágenes pesadas
+  const autoOptimizeProjectImages = async () => {
+    let optimizedCount = 0;
+
+    // 1. Revisar fondos de diapositivas
+    for (const page in slideConfigs.value) {
+      const config = slideConfigs.value[page];
+      if (config.bgImage && config.bgImage.startsWith('data:image/') && config.bgImage.length > 500000) {
+        config.bgImage = await optimizeBase64Image(config.bgImage, 2560, 1440, 0.8);
+        optimizedCount++;
+      }
     }
-    reader.readAsDataURL(file)
-  }
-  const setSlideBackgroundImage = (e: Event) => {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      slideConfigs.value[pageNum.value].bgImage = ev.target?.result as string
-      renderPage(pageNum.value)
+
+    // 2. Revisar elementos tipo 'image' en todas las diapositivas
+    for (const page in documentState.value) {
+      const elements = documentState.value[page];
+      for (const el of elements) {
+        if (el.type === 'image' && el.src && el.src.startsWith('data:image/') && el.src.length > 500000) {
+          el.src = await optimizeBase64Image(el.src, 1920, 1080, 0.75);
+          optimizedCount++;
+        }
+      }
     }
-    reader.readAsDataURL(file)
-  }
+
+    // Si encontramos y arreglamos imágenes pesadas, guardamos el proyecto limpio
+    if (optimizedCount > 0) {
+      console.log(`Se han optimizado y aligerado ${optimizedCount} imágenes de este proyecto antiguo.`);
+      savePresentation(true); // Autoguardado silencioso
+    }
+  };
+
+  // BASE64 AL SUBIR ARCHIVOS LOCALES CON OPTIMIZACIÓN
+  const handleLocalMediaUpload = async (event: Event, el: any) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    // Si es una imagen, la pasamos por la trituradora para optimizarla
+    if (file.type.startsWith('image/')) {
+      try {
+        const optimizedSrc = await optimizeImage(file, 1920, 1920, 0.75); // Calidad 75% es perfecta para WebP
+        el.src = optimizedSrc;
+        if (el.type === '3d') el.name = file.name;
+        saveHistory();
+      } catch (error) {
+        console.error("Error optimizando imagen:", error);
+        showToast('Error al procesar la imagen', 'error');
+      }
+    } else {
+      // Archivos no-imagen (audio, video, modelos 3D) van directos
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        el.src = e.target?.result as string;
+        if (el.type === '3d') el.name = file.name;
+        saveHistory();
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const setSlideBackgroundImage = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    if (file.type.startsWith('image/')) {
+      try {
+        // Los fondos suelen necesitar abarcar toda la pantalla, usamos formato panorámico de límite
+        const optimizedSrc = await optimizeImage(file, 2560, 1440, 0.8); 
+        slideConfigs.value[pageNum.value].bgImage = optimizedSrc;
+        renderPage(pageNum.value);
+        saveHistory();
+      } catch (error) {
+        console.error("Error optimizando fondo:", error);
+        showToast('Error al subir el fondo', 'error');
+      }
+    }
+  };
 
   // --- DIBUJO SVG ---
   let isDrawingSVG = false,
@@ -7461,10 +7680,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .audio-minimal.is-playing, .audio-floating.is-playing { animation: pulse-audio 1.5s infinite alternate; }
 
       @keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.4); } to { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); } }
-      .play-nav-overlay { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); padding: 10px 20px; border-radius: 30px; display: flex; gap: 15px; z-index: 10000; color: white; align-items: center; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.5);}
+      .play-nav-overlay { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); padding: 10px 20px; border-radius: 30px; display: flex; gap: 15px; z-index: 10000; color: white; align-items: center; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transition: opacity 0.4s ease, transform 0.4s ease;}
       .play-nav-overlay button { display: flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 50%; background: #444; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s;}
       .play-nav-overlay button:hover:not(:disabled) { background: #58a6ff; }
       .play-nav-overlay button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .play-nav-overlay.is-idle { opacity: 0; pointer-events: none; transform: translate(-50%, 15px); }
 
       .chart-content { display: flex; width: 100%; height: calc(100% - 30px); }
       .chart-bar-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: calc(100% - 30px); gap: 8px; }
@@ -7781,7 +8001,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         </div>
       </div>
 
-      <div class="play-nav-overlay">
+      <div class="play-nav-overlay" :class="{ 'is-idle': !showPlayNav }" @mouseenter="wakeUpPlayNav">
         <button @click="changePageTo(pageNum - 1)" :disabled="pageNum <= 1"><i class="ph ph-caret-left"></i></button>
         <span>{{ pageNum }} / {{ numPages }}</span>
         <button @click="changePageTo(pageNum + 1)" :disabled="pageNum >= numPages"><i class="ph ph-caret-right"></i></button>
@@ -7813,6 +8033,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const renderTrigger = ref(0);
           const activeTransition = ref('none');
           const isFullscreen = ref(false);
+          const showPlayNav = ref(true);
+          let playNavTimeout = null;
+          const wakeUpPlayNav = () => {
+            showPlayNav.value = true;
+            if (playNavTimeout) clearTimeout(playNavTimeout);
+            playNavTimeout = setTimeout(() => { showPlayNav.value = false; }, 2000);
+          };
 
           const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
           const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
@@ -7988,16 +8215,32 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             fitToScreen();
             initPdf();
             window.addEventListener('resize', fitToScreen);
+            
             document.addEventListener('keydown', (e) => {
               if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
               if(e.key === 'ArrowLeft') { e.preventDefault(); changePageTo(pageNum.value - 1); }
             });
+
+            // 👉 1. Escuchar el ratón y teclado para despertar el menú
+            document.addEventListener('mousemove', wakeUpPlayNav);
+            document.addEventListener('keydown', wakeUpPlayNav);
+            wakeUpPlayNav(); // Lo activamos por primera vez al abrir el archivo
+
+            // 👉 2. Pasar de diapositiva al hacer clic en cualquier lugar (estilo PowerPoint real)
+            document.addEventListener('click', (e) => {
+              // Comprobamos que no se esté haciendo clic en un botón o en un elemento interactivo
+              if (!e.target.closest('button') && !e.target.closest('.is-clickable')) {
+                if (pageNum.value < numPages.value) changePageTo(pageNum.value + 1);
+              }
+            });
+
             document.addEventListener('fullscreenchange', onFullscreenChange);
             document.addEventListener('webkitfullscreenchange', onFullscreenChange);
           });
 
+          // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav
           };
         }
       }).mount('#app');
@@ -8194,6 +8437,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     align-items: center;
     font-weight: 600;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.4s ease, transform 0.4s ease;
   }
   .play-nav-overlay button {
     display: flex;
@@ -8216,6 +8460,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .play-nav-overlay button:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+  }
+  .play-nav-overlay.is-idle {
+  opacity: 0;
+  pointer-events: none; /* Evita que bloquee clics cuando es invisible */
+  transform: translate(-50%, 15px); /* Pequeño efecto de caída al ocultarse */
   }
   .text-muted {
     color: var(--text-secondary);
@@ -9633,4 +9882,22 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     pointer-events: none;
     z-index: 1000;
   }
+
+  /* REDIMENSIONADORES DE PANELES LATERALES */
+  .sidebar-resizer {
+  width: 8px; /* Un poco más ancho para que sea fácil de agarrar */
+  margin: 0 -4px; /* Centrado en el borde */
+  cursor: col-resize;
+  background: transparent;
+  z-index: 999; /* Asegura que esté por encima del resto */
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+  .sidebar-resizer:hover,
+  .sidebar-resizer:active {
+    background: var(--accent-primary);
+  }
+
+  
   </style>
