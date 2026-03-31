@@ -1,6 +1,31 @@
-import { PRESENTATIONS_API } from '@/config/api.js'
+import { PRESENTATIONS_API, UPLOAD_API } from '@/config/api.js'
 
 const API_URL = PRESENTATIONS_API
+
+// Helper recursivo simple para interceptar el JSON y transformar URLs de Vercel al proxy interno, o viceversa
+const transformVercelUrls = (data, toProxy = true) => {
+  if (!data) return data;
+  let jsonString = JSON.stringify(data);
+  
+  if (toProxy) {
+    // Convierte URLs de Vercel directamente en URLs hacia el Proxy interno del Backend
+    const vercelRegex = /"https:\/\/[a-z0-9]+\.private\.blob\.vercel-storage\.com[^"]*"/g;
+    jsonString = jsonString.replace(vercelRegex, (match) => {
+      const originalUrl = match.slice(1, -1); // quita las comillas
+      return `"${UPLOAD_API}/file?url=${encodeURIComponent(originalUrl)}"`;
+    });
+  } else {
+    // Revierte URLs del Proxy de vuelta a sus URLs originales de Vercel Blob antes de guardar en BD
+    // formato: "http://.../api/upload/file?url=https%3A%2F%2F...private.blob.vercel..."
+    const proxyRegex = /"([^"]*\/upload\/file\?url=)(https%3A%2F%2F[a-z0-9]+\.private\.blob\.vercel-storage\.com[^"]*)"/g;
+    jsonString = jsonString.replace(proxyRegex, (match, prefix, encodedUrl) => {
+      return `"${decodeURIComponent(encodedUrl)}"`;
+    });
+  }
+  
+  return JSON.parse(jsonString);
+}
+
 
 export const presentationService = {
   /**
@@ -13,7 +38,8 @@ export const presentationService = {
       throw new Error(`Error al obtener la presentación: ${response.statusText}`)
     }
 
-    return await response.json()
+    const data = await response.json()
+    return transformVercelUrls(data, true)
   },
 
   /**
@@ -24,12 +50,14 @@ export const presentationService = {
     const method = id ? 'PUT' : 'POST'
     const url = id ? `${API_URL}/${id}` : API_URL
 
+    const cleanPayload = transformVercelUrls(payload, false)
+
     const response = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanPayload),
     })
 
     if (!response.ok) {
@@ -50,7 +78,8 @@ export const presentationService = {
       throw new Error(`Error al obtener la lista: ${response.statusText}`)
     }
 
-    return await response.json()
+    const data = await response.json()
+    return transformVercelUrls(data, true)
   },
 
 /**
