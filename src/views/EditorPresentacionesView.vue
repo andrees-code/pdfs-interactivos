@@ -5792,7 +5792,7 @@ watch(
           src = src.replace(/https?:\/\/tu-backend-en-vercel\.vercel\.app/, currentBackend);
         }
         // Si viene de un deploy antiguo con localhost o rutas locales, intentar mapear
-        if (src.includes('/uploads/') && !src.includes('cloudinary') && !src.includes('res.cloudinary')) {
+        if (src.includes('/uploads/') && !src.includes('cloudinary') && !src.includes('res.cloudinary') && !src.includes('blob.vercel-storage.com')) {
           // Para proyectos antiguos, intentar reconstruir desde base64 si existe
           if (data.pdfBase64 && !data.pdfBase64.startsWith('http')) {
             return data.pdfBase64; // Usar base64 como fallback
