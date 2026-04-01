@@ -56,9 +56,20 @@ import { ref, computed, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { CHAT_API } from '@/config/api.js'
 
-// 1. Recibimos la página actual del editor
 const props = defineProps({
   currentPage: {
+    type: Number,
+    default: 1
+  },
+  documentState: {
+    type: Object,
+    default: () => ({})
+  },
+  slideConfigs: {
+    type: Object,
+    default: () => ({})
+  },
+  numPages: {
     type: Number,
     default: 1
   }
@@ -115,7 +126,10 @@ const sendMessage = async () => {
       body: JSON.stringify({
         messages: messages.value,
         userId: userId,
-        currentPage: props.currentPage // Pasamos la página actual a la IA
+        currentPage: props.currentPage, // Pasamos la página actual a la IA
+        documentState: props.documentState,
+        slideConfigs: props.slideConfigs,
+        numPages: props.numPages
       })
     })
 

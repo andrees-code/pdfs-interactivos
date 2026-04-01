@@ -3668,7 +3668,13 @@
     @select="(name) => { if (selectedElement) selectedElement.iconName = name }"
   />
 
-  <Chatbot @ai-action="handleAiAction" :current-page="pageNum" />
+  <Chatbot 
+    :currentPage="pageNum"
+    :documentState="documentState"
+    :slideConfigs="slideConfigs"
+    :numPages="numPages"
+    @ai-action="handleAiAction" 
+  />
 </div>
 </template>
   <script setup lang="ts">
@@ -3776,28 +3782,29 @@ const handleAiAction = async (actionsData: any) => {
   }
 
   const currentPage = pageNum.value;
-
-  console.log(`🎯 [handleAiAction] Ejecutando en página ${currentPage}, documentState actual:`, documentState.value[currentPage]);
-
-  // 🔒 SEGURIDAD: Garantizamos que la diapositiva existe
-  if (!documentState.value[currentPage]) {
-    console.log(`⚙️ [handleAiAction] Creando documentState[${currentPage}]`);
-    documentState.value[currentPage] = [];
-  }
-  if (!slideConfigs.value[currentPage]) {
-    console.log(`⚙️ [handleAiAction] Creando slideConfigs[${currentPage}]`);
-    slideConfigs.value[currentPage] = { bgColor: '#ffffff', bgImage: null, transition: 'none' };
-  }
-
   let hasMadeChanges = false;
 
   // 🔥 PROCESAMOS CADA ACCIÓN
   for (const action of actions) {
-    console.log(`⚡ [handleAiAction] Ejecutando acción: ${action.actionType}`, action);
+    const targetPage = Number(action.targetPage || action.slideNum || pageNum.value);
+
+    console.log(`⚡ [handleAiAction] Ejecutando acción en pág ${targetPage}: ${action.actionType}`, action);
+
+    // 🔒 SEGURIDAD: Garantizamos que la diapositiva específica existe
+    if (!documentState.value[targetPage]) {
+      console.log(`⚙️ [handleAiAction] Creando documentState[${targetPage}]`);
+      documentState.value[targetPage] = [];
+    }
+    if (!slideConfigs.value[targetPage]) {
+      console.log(`⚙️ [handleAiAction] Creando slideConfigs[${targetPage}]`);
+      slideConfigs.value[targetPage] = { bgColor: '#ffffff', bgImage: null, transition: 'none' };
+    }
 
     const rawActionType = (action.actionType || action.type || '').toString();
     const actionType = rawActionType.trim();
     const actionTypeNormalized = actionType.replace(/[_\s]/g, '').toLowerCase();
+    const isSpecialAction = ['addtext', 'addshape', 'addicon', 'changebackground', 'addslide', 'deleteelement', 'modifyelement', 'addimage', 'addvideo', 'addtable', 'addchart', 'addqrcode', 'addlist', 'addcodeblock', 'addlink', 'deletelastelement', 'add3d', 'addiframe'].includes(actionTypeNormalized);
+    let handledExplicitly = false;
 
     if (!actionType) {
       console.warn("Acción sin tipo:", action);
@@ -3830,7 +3837,7 @@ const handleAiAction = async (actionsData: any) => {
         });
 
         // 🔥 CLAVE: Usar spread operator para disparar reactividad
-        documentState.value[currentPage] = [...documentState.value[currentPage], newText];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newText];
         selectedElementIds.value = [newText.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -3857,7 +3864,7 @@ const handleAiAction = async (actionsData: any) => {
         });
 
         // 🔥 CLAVE: Usar spread operator para disparar reactividad
-        documentState.value[currentPage] = [...documentState.value[currentPage], newShape];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newShape];
         selectedElementIds.value = [newShape.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -3881,7 +3888,7 @@ const handleAiAction = async (actionsData: any) => {
         });
 
         // 🔥 CLAVE: Usar spread operator para disparar reactividad
-        documentState.value[currentPage] = [...documentState.value[currentPage], newIcon];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newIcon];
         selectedElementIds.value = [newIcon.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -3892,8 +3899,8 @@ const handleAiAction = async (actionsData: any) => {
       // 🎨 ACCIÓN: CAMBIAR FONDO
       // ==========================================
       else if (actionType === 'changeBackground') {
-        slideConfigs.value[currentPage].bgColor = action.bgColor || action.color || '#000000';
-        slideConfigs.value[currentPage].bgImage = null;
+        slideConfigs.value[targetPage].bgColor = action.bgColor || action.color || '#000000';
+        slideConfigs.value[targetPage].bgImage = null;
         hasMadeChanges = true;
         showToast('✨ Fondo actualizado por la IA', 'success');
       }
@@ -3912,10 +3919,10 @@ const handleAiAction = async (actionsData: any) => {
       // ==========================================
       else if (actionType === 'deleteElement' && action.elementId) {
         // 🔥 CLAVE: Filtrar (no splice) para disparar reactividad
-        const beforeCount = documentState.value[currentPage].length;
-        documentState.value[currentPage] = documentState.value[currentPage].filter((el) => el.id !== action.elementId);
+        const beforeCount = documentState.value[targetPage].length;
+        documentState.value[targetPage] = documentState.value[targetPage].filter((el) => el.id !== action.elementId);
 
-        if (beforeCount !== documentState.value[currentPage].length) {
+        if (beforeCount !== documentState.value[targetPage].length) {
           selectedElementIds.value = [];
           hasMadeChanges = true;
           showToast('✨ Elemento eliminado por la IA', 'success');
@@ -3926,10 +3933,9 @@ const handleAiAction = async (actionsData: any) => {
       // ✏️ ACCIÓN: MODIFICAR ELEMENTO
       // ==========================================
       else if (actionType === 'modifyElement' && action.elementId) {
-        // 🔥 CLAVE: Map + spread para crear nuevo array y disparar reactividad
-        documentState.value[currentPage] = documentState.value[currentPage].map((el) => {
+        // Ejecutamos en la página objetivo
+        documentState.value[targetPage] = documentState.value[targetPage].map((el) => {
           if (el.id === action.elementId) {
-            // Crear nuevo objeto con las actualizaciones
             const updated = { ...el };
 
             if (action.content !== undefined) updated.content = action.content;
@@ -3972,7 +3978,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newImage];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newImage];
         selectedElementIds.value = [newImage.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -3997,7 +4003,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newVideo];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newVideo];
         selectedElementIds.value = [newVideo.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4026,7 +4032,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newTable];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newTable];
         selectedElementIds.value = [newTable.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4058,7 +4064,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newChart];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newChart];
         selectedElementIds.value = [newChart.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4082,7 +4088,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newQR];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newQR];
         selectedElementIds.value = [newQR.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4108,7 +4114,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newList];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newList];
         selectedElementIds.value = [newList.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4133,7 +4139,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newCode];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newCode];
         selectedElementIds.value = [newCode.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4160,7 +4166,7 @@ const handleAiAction = async (actionsData: any) => {
           rotation: action.rotation ?? 0,
         });
 
-        documentState.value[currentPage] = [...documentState.value[currentPage], newLink];
+        documentState.value[targetPage] = [...documentState.value[targetPage], newLink];
         selectedElementIds.value = [newLink.id];
         activeTool.value = 'select';
         hasMadeChanges = true;
@@ -4168,13 +4174,76 @@ const handleAiAction = async (actionsData: any) => {
       }
 
       // ==========================================
+      // 🧊 ACCIÓN: AÑADIR MODELO 3D
+      // ==========================================
+      else if (actionTypeNormalized === 'add3d') {
+        const new3D = createTemplateElement('3d', {
+          src: action.src || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+          x: action.x ?? (baseWidth.value / 2) - 150,
+          y: action.y ?? (baseHeight.value / 2) - 150,
+          width: action.width ?? 300,
+          height: action.height ?? 300,
+          autoRotate: action.autoRotate ?? true,
+          cameraControls: action.cameraControls ?? true,
+        });
+
+        documentState.value[targetPage] = [...documentState.value[targetPage], new3D];
+        selectedElementIds.value = [new3D.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Modelo 3D añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🌐 ACCIÓN: AÑADIR IFRAME
+      // ==========================================
+      else if (actionTypeNormalized === 'addiframe') {
+        const newIframe = createTemplateElement('iframe', {
+          src: action.src || 'https://es.wikipedia.org',
+          x: action.x ?? (baseWidth.value / 2) - 250,
+          y: action.y ?? (baseHeight.value / 2) - 150,
+          width: action.width ?? 500,
+          height: action.height ?? 300,
+          borderRadius: action.borderRadius ?? 8,
+          borderWidth: action.borderWidth ?? 0,
+          borderColor: action.borderColor || '#000000',
+        });
+
+        documentState.value[targetPage] = [...documentState.value[targetPage], newIframe];
+        selectedElementIds.value = [newIframe.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast('✨ Iframe añadido por la IA', 'success');
+      }
+
+      // ==========================================
+      // 🔮 ACCIÓN: GENÉRICO FALLBACK
+      // ==========================================
+      else if (actionTypeNormalized.startsWith('add') && !isSpecialAction) {
+        let typeSlug = actionTypeNormalized.replace(/^add/, '');
+        const newEl = createTemplateElement(typeSlug as ToolType, {
+          x: action.x ?? (baseWidth.value / 2) - 100,
+          y: action.y ?? (baseHeight.value / 2) - 100,
+          width: action.width ?? 200,
+          height: action.height ?? 'auto',
+          ...action
+        });
+
+        documentState.value[targetPage] = [...documentState.value[targetPage], newEl];
+        selectedElementIds.value = [newEl.id];
+        activeTool.value = 'select';
+        hasMadeChanges = true;
+        showToast(`✨ Elemento ${typeSlug} añadido por la IA`, 'success');
+      }
+
+      // ==========================================
       // 🗑️ ACCIÓN: ELIMINAR ÚLTIMO ELEMENTO
       // ==========================================
       else if (actionType === 'deleteLastElement') {
-        if (documentState.value[currentPage].length > 0) {
+        if (documentState.value[targetPage].length > 0) {
           // 🔥 CLAVE: Eliminar el último elemento usando splice para disparar reactividad
-          const removedElement = documentState.value[currentPage].pop();
-          documentState.value[currentPage] = [...documentState.value[currentPage]];
+          documentState.value[targetPage].pop();
+          documentState.value[targetPage] = [...documentState.value[targetPage]];
           selectedElementIds.value = [];
           hasMadeChanges = true;
           showToast('✨ Último elemento eliminado por la IA', 'success');
