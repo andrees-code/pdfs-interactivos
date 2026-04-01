@@ -6349,11 +6349,22 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
         hasDoc.value = true
 
         if (docType.value === 'pdf' && _PDF_BASE64_STORE) {
-          const pdfData = atob(_PDF_BASE64_STORE)
-          const uint8Array = new Uint8Array(pdfData.length)
-          for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i)
+          let loadingTask;
+          const pdfStr = _PDF_BASE64_STORE.trim();
+          if (pdfStr.startsWith('http') || pdfStr.startsWith('/')) {
+            loadingTask = pdfjsLib.getDocument(pdfStr);
+          } else {
+            let rawBase64 = pdfStr.replace(/\\s+/g, '');
+            if (rawBase64.includes('base64,')) {
+              rawBase64 = rawBase64.split('base64,')[1];
+            }
+            const pdfData = atob(rawBase64);
+            const uint8Array = new Uint8Array(pdfData.length);
+            for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
+            
+            loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+          }
 
-          const loadingTask = pdfjsLib.getDocument({ data: uint8Array })
           _RAW_PDF_DOC = markRaw(await loadingTask.promise)
           await generatePdfThumbnails()
         } else {
