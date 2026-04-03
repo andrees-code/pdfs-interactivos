@@ -39,7 +39,7 @@
             @click="changePageTo(pageNum - 1)"
             :disabled="pageNum <= 1"
             title="Anterior (Flecha Izquierda)"
-            
+
           >
             <i class="ph ph-caret-left"></i>
           </button>
@@ -3668,12 +3668,12 @@
     @select="(name) => { if (selectedElement) selectedElement.iconName = name }"
   />
 
-  <Chatbot 
+  <Chatbot
     :currentPage="pageNum"
     :documentState="documentState"
     :slideConfigs="slideConfigs"
     :numPages="numPages"
-    @ai-action="handleAiAction" 
+    @ai-action="handleAiAction"
   />
 </div>
 </template>
@@ -4593,11 +4593,11 @@ let playNavTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const wakeUpPlayNav = () => {
   if (!playMode.value) return; // Solo funciona en modo presentación
-  
+
   showPlayNav.value = true;
-  
+
   if (playNavTimeout) clearTimeout(playNavTimeout);
-  
+
   playNavTimeout = setTimeout(() => {
     showPlayNav.value = false;
   }, 2000); // 2000ms = 2 segundos
@@ -4651,7 +4651,7 @@ const wakeUpPlayNav = () => {
 const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   if (playMode.value) return;
   e.preventDefault();
-  
+
   const startX = e.clientX;
   const startLeftWidth = leftSidebarWidth.value;
   const startRightWidth = rightSidebarWidth.value;
@@ -4670,15 +4670,15 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       const newWidth = startRightWidth - (moveEvent.clientX - startX);
       rightSidebarWidth.value = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
     }
-    
+
     // Opcional: reajustar el zoom del lienzo al cambiar el tamaño de los paneles
-    // fitToScreen(); 
+    // fitToScreen();
   };
 
   const onMouseUp = () => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
-    
+
     // Recomendado: forzar un reajuste del lienzo al terminar de arrastrar
     setTimeout(fitToScreen, 50);
   };
@@ -6020,7 +6020,7 @@ watch(
       router.push('/biblioteca');
     } finally {
       isLoadingProject.value = false;
-      
+
       // 👉 NUEVO: Iniciar el escáner de optimización en segundo plano al terminar de cargar
       if (hasDoc.value) {
         setTimeout(() => {
@@ -6207,7 +6207,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     if (safeUrl && safeUrl.includes('.vercel-storage.com')) {
       safeUrl = `${API_BASE}/upload/file?url=${encodeURIComponent(safeUrl)}`;
     }
-    
+
     _PDF_BASE64_STORE = safeUrl;
 
     // 2. Cargamos el PDF
@@ -6286,90 +6286,53 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     }
 
     isConverting.value = true;
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      // Función para convertir con reintentos
-      const convertWithRetries = async (maxRetries = 3) => {
-        let lastError: Error | null = null;
 
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            const response = await fetch(
-              `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=DxcAISlmv67N1pyEtVKUVPh1Y56Y20FQ&ImageResolution=600`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  Parameters: [
-                    {
-                      Name: 'File',
-                      FileValue: { Name: file.name, Data: (reader.result as string).split(',')[1] },
-                    },
-                  ],
-                }),
-              },
-            );
+    const formData = new FormData();
+    // Gotenberg exige que el campo se llame 'files'
+    formData.append('files', file);
 
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+    const convertWithRetries = async (maxRetries = 3) => {
+      let lastError: Error | null = null;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          // Asegúrate de definir esta variable de entorno en Vercel, o reemplázala con tu URL fija
+          // ✨ Reemplaza 'tuusuario' y 'mi-conversor-pptx' por los tuyos de Hugging Face
+          const gotenbergUrl = import.meta.env.VITE_GOTENBERG_URL || 'https://andrees04-mi-conversor-pptx.hf.space/forms/libreoffice/convert';
 
-            const result = await response.json();
+          const response = await fetch(gotenbergUrl, {
+            method: 'POST',
+            body: formData,
+          });
 
-            if (!result.Files || !result.Files[0]) {
-              throw new Error('Respuesta inválida de la API de conversión');
-            }
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
-            return result.Files[0].FileData;
-          } catch (error) {
-            lastError = error as Error;
-            console.warn(`Intento ${attempt}/${maxRetries} fallido al convertir PPTX:`, error);
-
-            if (attempt < maxRetries) {
-              const delayMs = 1000 * Math.pow(2, attempt - 1);
-              console.log(`Reintentando en ${delayMs}ms...`);
-              showToast(`Reintentando conversión (intento ${attempt}/${maxRetries})...`, 'info');
-              await new Promise(resolve => setTimeout(resolve, delayMs));
-            }
+          // Gotenberg devuelve el binario PDF directamente, cero decodificaciones extra 🚀
+          return await response.blob();
+        } catch (error) {
+          lastError = error as Error;
+          console.warn(`Intento ${attempt}/${maxRetries} fallido al convertir PPTX:`, error);
+          if (attempt < maxRetries) {
+            const delayMs = 1000 * Math.pow(2, attempt - 1);
+            showToast(`Reintentando conversión (intento ${attempt}/${maxRetries})...`, 'info');
+            await new Promise(resolve => setTimeout(resolve, delayMs));
           }
         }
-
-        throw lastError || new Error('Error desconocido al convertir PPTX');
-      };
-
-      try {
-        showToast('Convirtiendo PowerPoint a PDF...', 'info');
-        const pdfBase64 = await convertWithRetries();
-
-        const byteChars = atob(pdfBase64);
-        const byteNums = new Uint8Array(byteChars.length);
-        for (let i = 0; i < byteChars.length; i++) {
-          byteNums[i] = byteChars.charCodeAt(i);
-        }
-
-        // Una vez convertido, procesamos como PDF normal
-        await processPdfFile(new Blob([byteNums], { type: 'application/pdf' }));
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error('Error al convertir PowerPoint:', error);
-
-        if (errorMsg.includes('API Key') || errorMsg.includes('Secret')) {
-          showToast('Error de configuración en la API de conversión. Contacta al administrador.', 'error');
-        } else if (errorMsg.includes('timeout')) {
-          showToast('La conversión tardó demasiado. Intenta con un archivo más pequeño.', 'error');
-        } else {
-          showToast(`Error al convertir PowerPoint: ${errorMsg}`, 'error');
-        }
-      } finally {
-        isConverting.value = false;
       }
+      throw lastError || new Error('Error de red al convertir el archivo PPTX.');
     };
 
-    reader.onerror = () => {
+    try {
+      showToast('Convirtiendo PowerPoint a PDF (Gratis)...', 'info');
+      const pdfBlob = await convertWithRetries();
+      // Le pasamos el Blob directamente a tu procesador de PDFs
+      await processPdfFile(pdfBlob);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('Error al convertir PowerPoint:', error);
+      showToast(`Error al convertir PowerPoint: ${errorMsg}`, 'error');
+    } finally {
       isConverting.value = false;
-      showToast('Error al leer el archivo. Intenta nuevamente.', 'error');
-    };
+    }
   };
 
   const processHtmlFile = (file: File) => {
@@ -6430,7 +6393,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
             const pdfData = atob(rawBase64);
             const uint8Array = new Uint8Array(pdfData.length);
             for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
-            
+
             loadingTask = pdfjsLib.getDocument({ data: uint8Array });
           }
 
@@ -7112,7 +7075,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          
+
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
             // Exportamos como WebP (Súper ligero y soporta fondos transparentes)
@@ -7149,7 +7112,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        
+
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/webp', quality));
@@ -7228,7 +7191,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (file.type.startsWith('image/')) {
       try {
         // Los fondos suelen necesitar abarcar toda la pantalla, usamos formato panorámico de límite
-        const optimizedSrc = await optimizeImage(file, 2560, 1440, 0.8); 
+        const optimizedSrc = await optimizeImage(file, 2560, 1440, 0.8);
         slideConfigs.value[pageNum.value].bgImage = optimizedSrc;
         renderPage(pageNum.value);
         saveHistory();
@@ -8309,7 +8272,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             fitToScreen();
             initPdf();
             window.addEventListener('resize', fitToScreen);
-            
+
             document.addEventListener('keydown', (e) => {
               if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
               if(e.key === 'ArrowLeft') { e.preventDefault(); changePageTo(pageNum.value - 1); }
@@ -9993,5 +9956,5 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     background: var(--accent-primary);
   }
 
-  
+
   </style>
