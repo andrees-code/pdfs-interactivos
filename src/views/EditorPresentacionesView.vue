@@ -1346,7 +1346,7 @@
                       }"
                     >
                       <img
-                        v-if="el.src"
+                v-if="el.src && el.src.trim() !== ''"
                         :src="el.src"
                         class="el-content-fitted"
                         :style="{ objectFit: el.fit }"
@@ -1369,8 +1369,8 @@
                         boxShadow: el.boxShadow || '0 10px 25px rgba(0,0,0,0.2)',
                       }"
                     >
-                      <div
-                        v-if="el.src"
+              <div
+                v-if="el.src && el.src.trim() !== ''"
                         :style="{
                           width: '100%',
                           height: '100%',
@@ -1395,9 +1395,10 @@
                         boxShadow: el.boxShadow || 'none',
                       }"
                     >
-                      <template v-if="el.src">
+              <template v-if="el.src && el.src.trim() !== ''">
                         <iframe
                           v-if="isYouTube(el.src)"
+                          src="about:blank"
                           :src="getYouTubeEmbedUrl(el.src)"
                           class="el-content-fitted"
                           frameborder="0"
@@ -1434,7 +1435,8 @@
                       }"
                     >
                       <iframe
-                        v-if="el.src"
+                v-if="el.src && el.src.trim() !== ''"
+                        src="about:blank"
                         :src="el.src"
                         width="100%"
                         height="100%"
@@ -1499,7 +1501,7 @@
                         <i class="ph" :class="el.isPlaying ? 'ph-stop' : 'ph-play'"></i>
                       </div>
                       <audio
-                        v-if="el.src"
+                  v-if="el.src && el.src.trim() !== ''"
                         :ref="'audio_' + el.id"
                         :src="el.src"
                         :loop="el.loop"
@@ -1509,7 +1511,7 @@
 
                     <div v-else-if="el.type === '3d'" class="el-3d">
                       <model-viewer
-                        v-if="el.src"
+                  v-if="el.src && el.src.trim() !== ''"
                         :src="el.src"
                         :auto-rotate="el.autoRotate"
                         :camera-controls="el.cameraControls"
@@ -4728,11 +4730,11 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   }
 
   const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff')
-  const currentBgImage = computed(() =>
-    slideConfigs.value[pageNum.value]?.bgImage
-      ? `url(${slideConfigs.value[pageNum.value].bgImage})`
-      : 'none',
-  )
+  const currentBgImage = computed(() => {
+    const bg = slideConfigs.value[pageNum.value]?.bgImage;
+    if (!bg || bg.trim() === '' || bg === 'none') return 'none';
+    return `url("${bg}")`;
+  })
   const isAllGrouped = computed(() => {
     const els = currentPageElements.value.filter((e) => selectedElementIds.value.includes(e.id))
     if (els.length < 2) return false
@@ -5883,10 +5885,17 @@ watch(
       }
 
       const jsonRes = await response.json()
+      let finalUrl = dataURL;
       if (jsonRes.url && jsonRes.url.includes('.vercel-storage.com')) {
-        return `${API_BASE}/upload/file?url=${encodeURIComponent(jsonRes.url)}`;
+        finalUrl = `${API_BASE}/upload/file?url=${encodeURIComponent(jsonRes.url)}`;
+      } else if (jsonRes.url) {
+        finalUrl = jsonRes.url;
       }
-      return jsonRes.url || dataURL
+      if (typeof finalUrl === 'string' && finalUrl.startsWith('/')) {
+        const origin = API_BASE.replace(/\/api\/?$/, '');
+        finalUrl = `${origin}${finalUrl}`;
+      }
+      return finalUrl;
     } catch (error) {
       console.warn('Error al subir dataURL:', error)
       return dataURL
@@ -5905,7 +5914,8 @@ watch(
       for (const page in payload.slideConfigs) {
         const config = payload.slideConfigs[page]
         if (config.bgImage && (isDataURL(config.bgImage) || isLikelyBase64(config.bgImage))) {
-          config.bgImage = await uploadDataURL(config.bgImage, 'bg_image', 'image/jpeg')
+          // Quitamos la restricción de 'image/jpeg' para no corromper la lectura de los fondos nativos WebP
+          config.bgImage = await uploadDataURL(config.bgImage, 'bg_image')
         }
       }
     }
@@ -6411,8 +6421,9 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
             loadingTask = pdfjsLib.getDocument({ data: uint8Array });
           }
 
-          _RAW_PDF_DOC = markRaw(await loadingTask.promise)
-          await generatePdfThumbnails()
+          const pdfDocHtml = markRaw(await loadingTask.promise)
+          showToast('Migrando HTML antiguo al formato hiperligero...', 'info');
+          await migratePdfDocToNative(pdfDocHtml, false);
         } else {
           _RAW_PDF_DOC = null
           pdfThumbnails.value = {}
@@ -7672,6 +7683,21 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     }
   }
 
+  const absolutizeUrl = (url: string) => {
+    if (!url) return url;
+    if (url.startsWith('data:')) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    let base = API_BASE;
+    if (base.startsWith('/')) {
+      base = window.location.origin + base;
+    }
+    const backendOrigin = base.replace(/\/api\/?$/, '');
+    if (url.startsWith('/')) {
+      return `${backendOrigin}${url}`;
+    }
+    return `${backendOrigin}/${url}`;
+  };
+
   // --- EXPORTACIÓN HTML ---
   const exportPresentation = async () => {
     if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank')
@@ -7685,20 +7711,60 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const safeJson = (data: any) =>
       JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
 
-      // Filtrar elementos fuera del canvas antes de exportar
-  const filteredDocumentState: Record<number, any[]> = {}
-  for (const [page, elements] of Object.entries(documentState.value)) {
-    filteredDocumentState[Number(page)] = (elements as any[]).filter(el => {
-      const elWidth = typeof el.width === 'number' ? el.width : 150
-      const elHeight = typeof el.height === 'number' ? el.height : 50
-      return (
-        el.x < baseWidth.value &&
-        el.y < baseHeight.value &&
-        el.x + elWidth > 0 &&
-        el.y + elHeight > 0
-      )
-    })
-  }
+    // 🚀 NUEVO: Helper para convertir URLs de fondos/imágenes a Base64 y hacer el HTML 100% Offline
+    const urlToBase64 = async (url: string) => {
+      if (!url || url.startsWith('data:')) return url;
+      try {
+        const response = await fetch(url, { mode: 'cors' });
+        if (!response.ok) throw new Error('Fetch fallido');
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.warn('CORS o Red: No se pudo descargar la imagen para incrustar. Dejando URL absoluta:', error);
+        return url; // Fallback a la URL si el servidor bloquea la lectura
+      }
+    };
+
+    // Filtrar elementos fuera del canvas y empaquetar imágenes/audios en Base64
+    const filteredDocumentState: Record<number, any[]> = {};
+    for (const [page, elements] of Object.entries(documentState.value)) {
+      const processedElements = [];
+      for (const el of (elements as any[])) {
+        const elWidth = typeof el.width === 'number' ? el.width : 150;
+        const elHeight = typeof el.height === 'number' ? el.height : 50;
+        if (
+          el.x < baseWidth.value &&
+          el.y < baseHeight.value &&
+          el.x + elWidth > 0 &&
+          el.y + elHeight > 0
+        ) {
+          const newEl = { ...el };
+          if (newEl.src) {
+            const absolute = absolutizeUrl(newEl.src);
+            if (['image', 'audio', 'magnifier'].includes(newEl.type)) {
+              newEl.src = await urlToBase64(absolute);
+            } else {
+              newEl.src = absolute;
+            }
+          }
+          processedElements.push(newEl);
+        }
+      }
+      filteredDocumentState[Number(page)] = processedElements;
+    }
+
+    // Asegurar que los fondos se incrusten (Embed) en el archivo HTML para uso local
+    const exportConfigs = JSON.parse(JSON.stringify(slideConfigs.value));
+    for (const page in exportConfigs) {
+      if (exportConfigs[page].bgImage) {
+        const absolute = absolutizeUrl(exportConfigs[page].bgImage);
+        exportConfigs[page].bgImage = await urlToBase64(absolute);
+      }
+    }
 
     const htmlContent = `<!DOCTYPE html>
   <html lang="es">
@@ -7707,7 +7773,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Presentación Pro</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\/script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"><\/script>
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"><\/script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web/src/regular/style.css" />
     <style>
@@ -7843,14 +7908,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   <body>
     <script type="application/json" id="app-meta-data">{"baseWidth": ${baseWidth.value}, "baseHeight": ${baseHeight.value}, "docType": "${docType.value}"}<\/script>
     <script type="application/json" id="app-state-data">${safeJson(filteredDocumentState)}<\/script>
-    <script type="application/json" id="app-configs-data">${safeJson(slideConfigs.value)}<\/script>
-    <script type="application/json" id="app-pdf-map">${safeJson(pdfPageMap.value)}<\/script>
-    <script type="application/json" id="app-pdf-data">${_PDF_BASE64_STORE}<\/script>
+    <script type="application/json" id="app-configs-data">${safeJson(exportConfigs)}<\/script>
 
-    <div id="app" @keydown.esc="toggleFullscreen">
+    <div id="app"></div>
+
+    <script type="text/x-template" id="app-template">
       <div class="canvas-wrapper play-mode-active" :style="{ transform: 'scale(' + zoom + ')' }">
         <div class="canvas-shadow-box layer-engine" :class="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
-            <canvas ref="pdfCanvas" class="layer-pdf"></canvas>
 
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
                 v-show="!el.isHidden"
@@ -7993,7 +8057,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'image'" class="el-image-container" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), filter: 'grayscale('+(el.grayscale||0)+'%) blur('+(el.blur||0)+'px) sepia('+(el.sepia||0)+'%)', overflow: 'hidden', width: '100%', height: '100%' }">
-                <img v-if="el.src" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit }" />
+                <img v-if="el.src && el.src.trim() !== ''" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit }" />
               </div>
 
               <div v-else-if="el.type === 'qrcode'" style="width: 100%; height: 100%; padding: 10px; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.05);" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px' }">
@@ -8014,23 +8078,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'magnifier'" class="el-magnifier" :style="{ borderRadius: '50%', border: (el.borderWidth || 4) + 'px solid ' + (el.borderColor || '#fff'), overflow: 'hidden', width: '100%', height: '100%', boxShadow: el.boxShadow || '0 10px 25px rgba(0,0,0,0.5)' }">
-                <div v-if="el.src" :style="{ width: '100%', height: '100%', backgroundImage: 'url(' + el.src + ')', backgroundSize: (el.zoomLevel * 100) + '%', backgroundPosition: el.focusX + '% ' + el.focusY + '%', backgroundRepeat: 'no-repeat' }"></div>
+                <div v-if="el.src && el.src.trim() !== ''" :style="{ width: '100%', height: '100%', backgroundImage: 'url(' + el.src + ')', backgroundSize: (el.zoomLevel * 100) + '%', backgroundPosition: el.focusX + '% ' + el.focusY + '%', backgroundRepeat: 'no-repeat' }"></div>
                 <div v-else class="placeholder-box" style="border-radius: 50%"><i class="ph ph-magnifying-glass"></i></div>
               </div>
 
               <div v-else-if="el.type === 'video'" class="el-video-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-                <template v-if="el.src">
-                  <iframe v-if="isYouTube(el.src)" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <template v-if="el.src && el.src.trim() !== ''">
+                  <iframe v-if="isYouTube(el.src)" src="about:blank" :src="getYouTubeEmbedUrl(el.src)" class="el-content-fitted" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                   <video v-else :src="el.src" :controls="true" :autoplay="el.autoplay" :loop="el.loop" :muted="el.muted" class="el-content-fitted" :style="{ objectFit: el.fit }"></video>
                 </template>
               </div>
 
               <div v-else-if="el.type === 'iframe'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-                <iframe v-if="el.src" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
+                <iframe v-if="el.src && el.src.trim() !== ''" src="about:blank" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
               </div>
 
               <div v-else-if="el.type === '3d'" class="el-3d" style="width: 100%; height: 100%;">
-                <model-viewer v-if="el.src" :src="el.src" :auto-rotate="el.autoRotate" :camera-controls="el.cameraControls" :environment-image="el.envImage" style="width: 100%; height: 100%;"></model-viewer>
+                <model-viewer v-if="el.src && el.src.trim() !== ''" :src="el.src" :auto-rotate="el.autoRotate" :camera-controls="el.cameraControls" :environment-image="el.envImage" style="width: 100%; height: 100%;"></model-viewer>
               </div>
 
               <div v-else-if="el.type === 'interactive'" class="el-interactive" @click.stop="triggerInteraction(el)">
@@ -8053,7 +8117,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <div v-else-if="el.variant === 'floating'" class="audio-floating" :class="{ 'is-playing': el.isPlaying }" :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: '50%', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }">
                   <i class="ph" :class="el.isPlaying ? 'ph-stop' : 'ph-play'"></i>
                 </div>
-                <audio v-if="el.src" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="el.autoplay"></audio>
+                <audio v-if="el.src && el.src.trim() !== ''" :ref="'audio_'+el.id" :src="el.src" :loop="el.loop" :autoplay="el.autoplay"></audio>
               </div>
 
               <div v-else-if="el.type === 'link'" class="el-link"
@@ -8086,17 +8150,16 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           <i class="ph" :class="isFullscreen ? 'ph-corners-in' : 'ph-corners-out'"></i>
         </button>
       </div>
-    </div>
+    <\/script>
 
     <script>
       const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
       createApp({
+        template: '#app-template',
         setup() {
           const documentState = ref(JSON.parse(document.getElementById('app-state-data').textContent));
           const slideConfigs = ref(JSON.parse(document.getElementById('app-configs-data').textContent));
-          const pdfPageMap = ref(JSON.parse(document.getElementById('app-pdf-map').textContent || '{}'));
-          const rawPdfB64 = document.getElementById('app-pdf-data').textContent;
 
           const metaData = JSON.parse(document.getElementById('app-meta-data').textContent);
           const baseWidth = ref(metaData.baseWidth);
@@ -8119,7 +8182,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           const currentPageElements = computed(() => documentState.value[pageNum.value] || []);
           const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff');
-          const currentBgImage = computed(() => slideConfigs.value[pageNum.value]?.bgImage ? 'url(' + slideConfigs.value[pageNum.value].bgImage + ')' : 'none');
+          const currentBgImage = computed(() => {
+            const bg = slideConfigs.value[pageNum.value]?.bgImage;
+            if (!bg || bg.trim() === '' || bg === 'none') return 'none';
+            return 'url("' + bg + '")';
+          });
 
           const isYouTube = (url) => url && url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
           const getYouTubeEmbedUrl = (url) => {
@@ -8153,67 +8220,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           const fitToScreen = () => { zoom.value = Math.min(Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95, 1.0); };
 
-          let pdfDoc = null; const pdfCanvas = ref(null);
-
-          const initPdf = async () => {
-            if (docType.value === 'pdf' && rawPdfB64) {
-              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-              let loadingTask;
-              if (rawPdfB64.startsWith('http')) {
-                loadingTask = pdfjsLib.getDocument(rawPdfB64);
-              } else {
-                const pdfData = atob(rawPdfB64);
-                const uint8Array = new Uint8Array(pdfData.length);
-                for (let i = 0; i < pdfData.length; i++) uint8Array[i] = pdfData.charCodeAt(i);
-                loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-              }
-              pdfDoc = await loadingTask.promise;
-              await renderPdfPage(pageNum.value);
-            }
-          };
-
-          const renderPdfPage = async (num) => {
-            await nextTick();
-            const canvas = pdfCanvas.value;
-            if (docType.value !== 'pdf' || !pdfDoc || !canvas) {
-              if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-              return;
-            }
-            const ctx = canvas.getContext('2d');
-            const actualPdfPage = pdfPageMap.value[num];
-
-            if (!actualPdfPage || actualPdfPage <= 0 || actualPdfPage > pdfDoc.numPages) {
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              return;
-            }
-
-            const page = await pdfDoc.getPage(actualPdfPage);
-            const viewport = page.getViewport({ scale: 1.0 });
-
-            baseWidth.value = viewport.width;
-            baseHeight.value = viewport.height;
-
-            // 🚀 ESTABILIDAD EXPORTACIÓN: 2.5x previene que móviles o laptops se queden sin memoria
-            const qualityMultiplier = 2.5;
-            canvas.width = viewport.width * qualityMultiplier;
-            canvas.height = viewport.height * qualityMultiplier;
-            canvas.style.width = viewport.width + 'px';
-            canvas.style.height = viewport.height + 'px';
-            ctx.scale(qualityMultiplier, qualityMultiplier);
-
-            const originalFillText = ctx.fillText;
-            const originalStrokeText = ctx.strokeText;
-            ctx.fillText = function() {};
-            ctx.strokeText = function() {};
-
-            try {
-              await page.render({ canvasContext: ctx, viewport }).promise;
-            } finally {
-              ctx.fillText = originalFillText;
-              ctx.strokeText = originalStrokeText;
-            }
-          }
-
           const closeAllInteractives = () => {
             Object.values(documentState.value).forEach(pageItems => {
               pageItems.forEach(el => {
@@ -8238,7 +8244,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
               });
 
-              if (docType.value === 'pdf') await renderPdfPage(num);
             }
           };
 
@@ -8290,7 +8295,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             }, 1000);
 
             fitToScreen();
-            initPdf();
             window.addEventListener('resize', fitToScreen);
 
             document.addEventListener('keydown', (e) => {
@@ -8317,7 +8321,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, pdfCanvas, changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav
           };
         }
       }).mount('#app');
