@@ -7745,11 +7745,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const newEl = { ...el };
           if (newEl.src) {
             const absolute = absolutizeUrl(newEl.src);
-            if (['image', 'audio', 'magnifier'].includes(newEl.type)) {
+            if (['image', 'audio', 'magnifier', '3d'].includes(newEl.type)) {
               newEl.src = await urlToBase64(absolute);
             } else {
               newEl.src = absolute;
             }
+          }
+          if (newEl.type === '3d' && newEl.envImage) {
+            const absEnv = absolutizeUrl(newEl.envImage);
+            newEl.envImage = await urlToBase64(absEnv);
           }
           processedElements.push(newEl);
         }
