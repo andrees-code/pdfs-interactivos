@@ -5900,10 +5900,14 @@ watch(
       _PDF_BASE64_STORE = payload.pdfBase64;
     }
 
-    if (payload.coverImage && (isDataURL(payload.coverImage) || isLikelyBase64(payload.coverImage))) {
-      payload.coverImage = await uploadDataURL(payload.coverImage, 'presentation_cover', 'image/png')
-      // Evita crear cientos de portadas duplicadas en el servidor
-      generatedThumbnails.value[1] = payload.coverImage;
+    // También optimizamos los fondos de diapositiva que antes se quedaban atrapados en un bucle Base64
+    if (payload.slideConfigs) {
+      for (const page in payload.slideConfigs) {
+        const config = payload.slideConfigs[page]
+        if (config.bgImage && (isDataURL(config.bgImage) || isLikelyBase64(config.bgImage))) {
+          config.bgImage = await uploadDataURL(config.bgImage, 'bg_image', 'image/jpeg')
+        }
+      }
     }
 
     if (payload.documentState) {
@@ -7669,9 +7673,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
 
   // --- EXPORTACIÓN HTML ---
-  const exportPresentation = () => {
+  const exportPresentation = async () => {
     if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank')
       return alert('El proyecto está vacío.')
+
+    showToast('Preparando exportación y optimizando recursos...', 'info');
+    
+    // 🚀 FORZAMOS GUARDADO: Convierte PDFs gigantes y Base64 en URLs de Vercel/Mongo antes de exportar
+    await savePresentation(true);
 
     const safeJson = (data: any) =>
       JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
