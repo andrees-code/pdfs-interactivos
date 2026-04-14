@@ -5405,6 +5405,12 @@ const handleClickOutsideTmpl = (e) => {
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
 
     if (timerInterval) clearInterval(timerInterval)
+
+    // 🚀 Limpieza del motor PDF en RAM para prevenir Memory Leaks
+    if (_RAW_PDF_DOC) {
+      try { _RAW_PDF_DOC.destroy(); } catch (e) {}
+      _RAW_PDF_DOC = null;
+    }
   })
 
   // --- LÓGICA DE ATAJOS DE TECLADO ---
@@ -5516,8 +5522,8 @@ const handleClickOutsideTmpl = (e) => {
     // Guardar un clon absoluto (profundo) del estado actual
     history.value.push(JSON.parse(JSON.stringify(documentState.value)))
 
-    // Limitar a los últimos 50 pasos para no colapsar la memoria RAM
-    if (history.value.length > 50) {
+    // 🚀 Limitar a 25 pasos. Reduce masivamente el peso inactivo en la RAM.
+    if (history.value.length > 25) {
       history.value.shift()
     } else {
       historyIndex.value++
@@ -5815,7 +5821,7 @@ watch(
     }
 
     try {
-      const compressed = pako.gzip(rawJson)
+      const compressed = pako.gzip(rawJson, { level: 6 }) // level 6 = mejor balance compresión/velocidad
       payload.compressedState = toBase64(compressed)
       payload.documentState = {}
       payload.slideConfigs = {}
@@ -5890,10 +5896,14 @@ watch(
   const normalizePayloadMedia = async (payload: any) => {
     if (payload.pdfBase64 && (isDataURL(payload.pdfBase64) || isLikelyBase64(payload.pdfBase64))) {
       payload.pdfBase64 = await uploadDataURL(payload.pdfBase64, 'presentation_pdf', 'application/pdf')
+      // Evita re-subir los ~30MB de PDF si el usuario pulsa Guardar varias veces
+      _PDF_BASE64_STORE = payload.pdfBase64;
     }
 
     if (payload.coverImage && (isDataURL(payload.coverImage) || isLikelyBase64(payload.coverImage))) {
       payload.coverImage = await uploadDataURL(payload.coverImage, 'presentation_cover', 'image/png')
+      // Evita crear cientos de portadas duplicadas en el servidor
+      generatedThumbnails.value[1] = payload.coverImage;
     }
 
     if (payload.documentState) {
@@ -6432,8 +6442,8 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
     baseWidth.value = viewport.width
     baseHeight.value = viewport.height
 
-    // 🚀 MEJORA DE CALIDAD: Forzamos supermuestreo a 3.5x la resolución original
-    const qualityMultiplier = 3.5;
+    // 🚀 RENDIMIENTO: 2.0x es el balance óptimo (Retina Display). 3.5x ahoga la VRAM.
+    const qualityMultiplier = 2.0;
 
     // La resolución interna del canvas será enorme (Ultra HD)
     canvas.width = viewport.width * qualityMultiplier
@@ -8174,7 +8184,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             baseWidth.value = viewport.width;
             baseHeight.value = viewport.height;
 
-            const qualityMultiplier = 5.0;
+            // 🚀 ESTABILIDAD EXPORTACIÓN: 2.5x previene que móviles o laptops se queden sin memoria
+            const qualityMultiplier = 2.5;
             canvas.width = viewport.width * qualityMultiplier;
             canvas.height = viewport.height * qualityMultiplier;
             canvas.style.width = viewport.width + 'px';
