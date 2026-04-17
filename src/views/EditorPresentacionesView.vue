@@ -528,7 +528,7 @@
               @wheel="handleCanvasWheel"
               @mousedown="handleCanvasPanStart"
               @click="handleCanvasClickOutside"
-              :class="{ 'is-panning': isPanning, 'space-pressed': isSpacePressed }"
+              :class="{ 'is-panning': isPanning, 'space-pressed': isSpacePressed, 'is-picking-target': isSelectingTargetForEvent }"
             >
               <div
                 class="canvas-wrapper"
@@ -643,7 +643,8 @@
                       mixBlendMode: el.mixBlendMode || 'normal',
                     }"
                     @mousedown.stop="startDrag($event, el)"
-                    @click.stop
+                    @click.stop="playMode ? executeEvents(el, 'click') : null"
+                    @mouseenter="playMode ? executeEvents(el, 'hover') : null"
                   >
                     <div
                       v-if="el.type === 'text' || el.type === 'sticky'"
@@ -844,7 +845,7 @@
                           transition: opacity 0.2s;
                         "
                         :style="{ opacity: item.checked ? 0.6 : 1 }"
-                        @click.stop="playMode ? (item.checked = !item.checked) : null"
+                        @click.stop="playMode ? (executeEvents(el, 'click', idx), item.checked = !item.checked) : null"
                       >
                         <i
                           class="ph"
@@ -1304,7 +1305,7 @@
                       <span
                         v-for="s in el.maxStars"
                         :key="s"
-                        @click.stop="playMode && el.isInteractive ? (el.rating = s) : null"
+                        @click.stop="playMode && el.isInteractive ? (executeEvents(el, 'click'), el.rating = s) : null"
                         :style="{
                           cursor: playMode && el.isInteractive ? 'pointer' : 'default',
                           opacity: s <= el.rating ? 1 : 0.25,
@@ -1467,7 +1468,7 @@
                     <div
                       v-else-if="el.type === 'audio'"
                       class="el-audio-wrapper"
-                      @click.stop="playAudio(el)"
+                      @click.stop="playMode ? executeEvents(el, 'click') : null; playAudio(el)"
                       :style="{ width: '100%', height: '100%' }"
                     >
                       <div
@@ -1543,7 +1544,7 @@
                     <div
                       v-else-if="el.type === 'interactive'"
                       class="el-interactive"
-                      @click.stop="triggerInteraction(el)"
+                      @click.stop="playMode ? executeEvents(el, 'click') : null; triggerInteraction(el)"
                     >
                       <div
                         class="hotspot-pulse"
@@ -1603,7 +1604,7 @@
                       >
                         <div
                           class="accordion-header"
-                          @click.stop="playMode ? (item.isOpen = !item.isOpen) : null"
+                          @click.stop="playMode ? (executeEvents(el, 'click', idx), item.isOpen = !item.isOpen) : null"
                         >
                           <span>{{ item.title }}</span>
                           <i class="ph" :class="item.isOpen ? 'ph-caret-up' : 'ph-caret-down'"></i>
@@ -1820,6 +1821,67 @@
             </div>
 
             <div class="panel-content" v-else-if="selectedElement">
+              <!-- --- MOTOR DE EVENTOS (EDA) --- -->
+              <div class="prop-section" style="border: 1px solid #4a90e2; border-radius: 8px; background: rgba(74, 144, 226, 0.05); padding: 12px; margin-bottom: 16px;">
+                <h4 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <span style="font-weight: 600; color: #4a90e2; display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> Interactividad</span>
+                  <button class="tool-btn" style="background: #4a90e2; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" @click="selectedElement.events = selectedElement.events || []; selectedElement.events.push({ id: 'ev_' + Date.now(), trigger: 'click', action: 'show', targetId: '' })">
+                    <i class="ph ph-plus"></i></button>
+                </h4>
+                
+                <div v-if="!selectedElement.events || selectedElement.events.length === 0" style="text-align: center; color: #888; font-size: 0.85rem; padding: 10px;">
+                  No hay eventos configurados.
+                </div>
+                
+                <div v-for="(ev, index) in selectedElement.events || []" :key="ev.id" style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                      <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Accionador (Trigger)</label>
+                      <select v-model="ev.trigger" class="pro-input" style="width: 100%;">
+                        <option value="click">Al hacer Clic</option>
+                        <option value="hover">Al pasar Ratón</option>
+                      </select>
+                    </div>
+                    <button class="btn-icon-danger" style="margin-top: 18px;" @click="selectedElement.events.splice(index, 1)"><i class="ph ph-trash"></i></button>
+                  </div>
+                  
+                  <div style="margin-bottom: 8px;" v-if="['checkbox', 'accordion', 'list'].includes(selectedElement.type)">
+                    <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Acciona desde sub-elemento:</label>
+                    <select v-model="ev.sourceSubId" class="pro-input" style="width: 100%;">
+                      <option :value="undefined">Todo el componente</option>
+                      <option v-for="(item, iIdx) in selectedElement.items" :key="iIdx" :value="iIdx">
+                         Ítem {{ iIdx + 1 }}: "{{ item.text || item.title || item }}"
+                      </option>
+                    </select>
+                  </div>
+                  
+                  <div style="margin-bottom: 8px;">
+                    <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Acción</label>
+                    <select v-model="ev.action" class="pro-input" style="width: 100%;">
+                      <option value="show">Mostrar elemento</option>
+                      <option value="hide">Ocultar elemento</option>
+                      <option value="toggle">Alternar visibilidad</option>
+                      <option value="goToPage">Ir a página num</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Objetivo (Target)</label>
+                    <input v-if="ev.action === 'goToPage'" type="number" v-model="ev.targetId" class="pro-input" style="width: 100%;" placeholder="Nº de Página" min="1" :max="numPages" />
+                    <div v-else style="display: flex; gap: 4px;">
+                      <select v-model="ev.targetId" class="pro-input" style="flex: 1;">
+                        <option disabled value="">-- Seleccionar --</option>
+                        <option v-for="targetEl in currentPageElements" :key="targetEl.id" :value="targetEl.id" v-show="targetEl.id !== selectedElement.id">
+                          {{ getElementDisplayName(targetEl) }}
+                        </option>
+                      </select>
+                      <button class="tool-btn" :class="{ 'is-active': isSelectingTargetForEvent === ev.id }" @click="isSelectingTargetForEvent = isSelectingTargetForEvent === ev.id ? null : ev.id" :title="isSelectingTargetForEvent === ev.id ? 'Seleccionando (Haz clic en el lienzo)' : 'Seleccionar objetivo visualmente'" style="min-width: 32px; padding: 0 8px; flex-shrink: 0; background: var(--bg-panel); border: 1px solid var(--border-color);">
+                        <i class="ph ph-crosshair"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="element-header">
                 <div class="badge-type">
                   <i :class="`ph ${getIconClassForType(selectedElement.type)}`"></i>
@@ -3725,6 +3787,27 @@ const getPdfjsLib = async () => {
 // --- NUEVO: ESTADO PARA LAS MINIATURAS GENERADAS ---
 const generatedThumbnails = ref<Record<number, string>>({});
 
+// --- NUEVO: EDA FIGMA MODE ---
+const isSelectingTargetForEvent = ref<string | null>(null);
+
+const getElementDisplayName = (el: any) => {
+  let name = el.name || el.type.toUpperCase();
+  let excerpt = '';
+  if (el.type === 'text') excerpt = el.content;
+  else if (el.type === 'link') excerpt = el.text;
+  else if (el.type === 'checkbox' && el.items?.length > 0) excerpt = el.items[0].text;
+  else if (el.type === 'accordion' && el.items?.length > 0) excerpt = el.items[0].title;
+  else if (el.type === 'list' && el.items?.length > 0) excerpt = el.items[0];
+  else if (el.type === 'poll' || el.type === 'chart') excerpt = el.chartTitle;
+  else if (el.type === 'interactive') excerpt = el.modalTitle;
+
+  if (excerpt) {
+    if (excerpt.length > 20) excerpt = excerpt.substring(0, 20) + '...';
+    return `${name}: "${excerpt}"`;
+  }
+  return `${name} (${el.id.substring(3, 7)})`;
+};
+
 
   const myTemplatesOpen = ref(false)
   const myTemplatesBtnRef = ref<HTMLElement | null>(null)
@@ -5363,6 +5446,11 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     },
   }
 
+  // --- EXTENSIÓN: MOTOR DE EVENTOS (EDA) ---
+  Object.keys(ELEMENT_DEFAULTS).forEach(key => {
+    ELEMENT_DEFAULTS[key].events = [];
+  });
+
   // --- LIFECYCLE E INTERACCIÓN ---
 
 const handleClickOutsideTmpl = (e) => {
@@ -6761,6 +6849,27 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       renderPage(num)
     }
   }
+
+  const executeEvents = (element: any, triggerType: 'click' | 'hover', subIndex: number | null = null) => {
+    if (!playMode.value || !element.events) return;
+    element.events.filter((ev: any) => ev.trigger === triggerType && (ev.sourceSubId === undefined || ev.sourceSubId === null || ev.sourceSubId === subIndex)).forEach((ev: any) => {
+      if (ev.action === 'goToPage') {
+        changePageTo(Number(ev.targetId));
+        return;
+      }
+      const targetElement = currentPageElements.value.find((el: any) => el.id === ev.targetId);
+      if (targetElement) {
+        if (ev.action === 'show') {
+          targetElement.isHidden = false;
+        } else if (ev.action === 'hide') {
+          targetElement.isHidden = true;
+        } else if (ev.action === 'toggle') {
+          targetElement.isHidden = !targetElement.isHidden;
+        }
+      }
+    });
+  };
+
   const changeZoom = (delta: number) => (zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4)))
 
   const fitToScreen = () => {
@@ -7269,7 +7378,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     initialHeight = 0;
 
   const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
-    if (playMode.value || isResizing || el.isLocked || (el.type === 'draw' && !isHandle)) return;
+    if (playMode.value) return;
+
+    if (isSelectingTargetForEvent.value) {
+      e.stopPropagation();
+      e.preventDefault();
+      const targetEv = selectedElement.value?.events?.find((ev: any) => ev.id === isSelectingTargetForEvent.value);
+      if (targetEv) targetEv.targetId = el.id;
+      isSelectingTargetForEvent.value = null;
+      return;
+    }
+
+    if (isResizing || el.isLocked || (el.type === 'draw' && !isHandle)) return;
     if (editingElementId.value === el.id) return;
 
     // Si hay una herramienta activa distinta de select, crear elemento en esa posición
@@ -7906,10 +8026,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
                 v-show="!el.isHidden"
+                @click.stop="executeEvents(el, 'click')"
+                @mouseenter="executeEvents(el, 'hover')"
                 :class="el.animation && el.animation !== 'none' ? 'anim-' + el.animation : ''"
-                :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: el.animation && el.animation !== 'none' ? (index * 0.1) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">
-
-              <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
+                :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: el.animation && el.animation !== 'none' ? (index * 0.1) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">              <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
 
               <div v-else-if="el.type === 'mindmap'" class="el-mindmap-container" :style="{ fontFamily: el.fontFamily, '--mm-line-color': el.lineColor, '--mm-line-width': el.lineWidth + 'px' }">
                 <div class="mm-wrapper">
@@ -7960,7 +8080,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'checkbox'" class="el-checkbox-list" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, lineHeight: el.lineHeight || 1.4, display: 'flex', flexDirection: 'column', gap: el.itemSpacing + 'px' }">
-                <div v-for="(item, idx) in el.items" :key="idx" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; transition: opacity 0.2s;" :style="{ opacity: item.checked ? 0.6 : 1 }" @click.stop="item.checked = !item.checked">
+                <div v-for="(item, idx) in el.items" :key="idx" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; transition: opacity 0.2s;" :style="{ opacity: item.checked ? 0.6 : 1 }" @click.stop="executeEvents(el, 'click', idx); item.checked = !item.checked">
                   <i class="ph" :class="item.checked ? 'ph-check-square' : 'ph-square'" :style="{ color: item.checked ? el.checkedColor : el.color, fontSize: (el.fontSize * 1.2) + 'px', marginTop: '2px' }"></i>
                   <span :style="{ textDecoration: item.checked && el.strikeThrough ? 'line-through' : 'none' }">{{ item.text }}</span>
                 </div>
@@ -8057,7 +8177,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'rating'" class="el-rating" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;" :style="{ color: el.color, fontSize: el.fontSize + 'px' }">
-                <span v-for="s in el.maxStars" :key="s" @click.stop="el.isInteractive ? el.rating = s : null" :style="{ cursor: el.isInteractive ? 'pointer' : 'default', opacity: s <= el.rating ? 1 : 0.25, transition: '0.2s' }">★</span>
+                <span v-for="s in el.maxStars" :key="s" @click.stop="el.isInteractive ? (executeEvents(el, 'click'), el.rating = s) : null" :style="{ cursor: el.isInteractive ? 'pointer' : 'default', opacity: s <= el.rating ? 1 : 0.25, transition: '0.2s' }">★</span>
               </div>
 
               <div v-else-if="el.type === 'timer'" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-variant-numeric: tabular-nums;"
@@ -8085,7 +8205,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <model-viewer v-if="el.src && el.src.trim() !== ''" :src="el.src" :auto-rotate="el.autoRotate" :camera-controls="el.cameraControls" :environment-image="el.envImage" style="width: 100%; height: 100%;"></model-viewer>
               </div>
 
-              <div v-else-if="el.type === 'interactive'" class="el-interactive" @click.stop="triggerInteraction(el)">
+              <div v-else-if="el.type === 'interactive'" class="el-interactive" @click.stop="executeEvents(el, 'click'); triggerInteraction(el)">
                 <div class="hotspot-pulse" :style="{ backgroundColor: el.color, boxShadow: '0 0 15px ' + el.color }"></div>
                 <div v-if="el.isOpen" class="interactive-modal" :style="{ backgroundColor: el.modalBgColor || '#ffffff', color: el.modalTextColor || '#333333' }" @click.stop>
                   <h4 class="modal-title" :style="{ borderBottomColor: el.modalTextColor || '#333333' }">{{ el.modalTitle }}</h4>
@@ -8093,7 +8213,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 </div>
               </div>
 
-              <div v-else-if="el.type === 'audio'" class="el-audio-wrapper" @click.stop="playAudio(el)" :style="{ width: '100%', height: '100%' }">
+              <div v-else-if="el.type === 'audio'" class="el-audio-wrapper" @click.stop="executeEvents(el, 'click'); playAudio(el)" :style="{ width: '100%', height: '100%' }">
                 <div v-if="el.variant === 'pill'" class="audio-pill" :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px' }">
                   <i class="ph" :class="el.isPlaying ? 'ph-pause-circle' : 'ph-play-circle'"></i>
                   <span class="audio-label">{{ el.isPlaying ? 'Reproduciendo...' : 'Audio' }}</span>
@@ -8110,13 +8230,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
               <div v-else-if="el.type === 'link'" class="el-link"
                   :style="{ backgroundColor: el.bgColor, color: el.color, borderRadius: el.borderRadius + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), fontSize: (el.fontSize || 16) + 'px', fontWeight: el.fontWeight || 'bold', fontFamily: el.fontFamily || 'Arial', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }"
-                  @click.stop="changePageTo(el.targetPage)">
+                  @click.stop="executeEvents(el, 'click'); changePageTo(el.targetPage)">
                 {{ el.text }}
               </div>
 
               <div v-else-if="el.type === 'accordion'" class="el-accordion" :style="{ backgroundColor: el.bgColor, color: el.color, boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }">
                 <div v-for="(item, idx) in el.items" :key="idx" class="accordion-item" :style="{ borderBottomColor: el.color }">
-                  <div class="accordion-header" @click.stop="item.isOpen = !item.isOpen">
+                  <div class="accordion-header" @click.stop="executeEvents(el, 'click', idx); item.isOpen = !item.isOpen">
                     <span>{{ item.title }}</span>
                     <i class="ph" :class="item.isOpen ? 'ph-caret-up' : 'ph-caret-down'"></i>
                   </div>
@@ -8235,6 +8355,26 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             }
           };
 
+          const executeEvents = (element, triggerType, subIndex = null) => {
+            if (!element.events) return;
+            element.events.filter(ev => ev.trigger === triggerType && (ev.sourceSubId === undefined || ev.sourceSubId === null || ev.sourceSubId === subIndex)).forEach(ev => {
+              if (ev.action === 'goToPage') {
+                changePageTo(Number(ev.targetId));
+                return;
+              }
+              const targetElement = currentPageElements.value.find(el => el.id === ev.targetId);
+              if (targetElement) {
+                if (ev.action === 'show') {
+                  targetElement.isHidden = false;
+                } else if (ev.action === 'hide') {
+                  targetElement.isHidden = true;
+                } else if (ev.action === 'toggle') {
+                  targetElement.isHidden = !targetElement.isHidden;
+                }
+              }
+            });
+          };
+
           const triggerInteraction = (el) => {
             currentPageElements.value.forEach(item => { if(item.id !== el.id && item.type === 'interactive') item.isOpen = false });
             el.isOpen = !el.isOpen;
@@ -8309,7 +8449,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav
           };
         }
       }).mount('#app');
@@ -9966,6 +10106,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .sidebar-resizer:hover,
   .sidebar-resizer:active {
     background: var(--accent-primary);
+  }
+
+  /* FIGMA TARGET SELECTION UX */
+  .pro-canvas-area.is-picking-target .interactive-element:hover {
+    outline: 3px dashed var(--accent-primary) !important;
+    outline-offset: 4px;
+    cursor: crosshair !important;
+    z-index: 99999 !important;
+  }
+  .pro-canvas-area.is-picking-target .interactive-element {
+    cursor: crosshair !important;
   }
 
 
