@@ -135,9 +135,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import * as pdfjsLib from 'pdfjs-dist';
-// Inicializar worker igual que en editor
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
+let pdfjsLibInstance: any = null;
+const getPdfjsLib = async () => {
+  if (pdfjsLibInstance) return pdfjsLibInstance;
+  const pdfLib = await import('pdfjs-dist');
+  // @ts-ignore
+  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.js?worker');
+  pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+  pdfjsLibInstance = pdfLib;
+  return pdfLib;
+};
 import { useAuthStore } from '@/stores/auth'
 import { presentationService } from '@/services/presentacion.service'
 
@@ -200,6 +207,7 @@ const generatePdfPreview = async (base64Data: string) => {
     for (let i = 0; i < len; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
+    const pdfjsLib = await getPdfjsLib();
     const loadingTask = pdfjsLib.getDocument({ data: bytes });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);

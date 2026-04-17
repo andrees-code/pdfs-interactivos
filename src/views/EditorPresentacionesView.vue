@@ -571,7 +571,22 @@
                     }"
                   ></div>
 
-                  <canvas ref="pdfCanvas" class="layer-pdf" v-show="docType === 'pdf'"></canvas>
+                  <Suspense v-if="docType === 'pdf'">
+                    <template #default>
+                      <PdfViewer 
+                        v-if="_PDF_BASE64_STORE"
+                        :pdfBase64="_PDF_BASE64_STORE"
+                        :pageNum="pageNum"
+                        @document-loaded="(doc) => { _RAW_PDF_DOC = doc; numPages = doc.numPages; }"
+                      />
+                    </template>
+                    <template #fallback>
+                      <div class="pdf-loading-fallback" style="padding: 20px; text-align: center; color: #888;">
+                        <i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite; font-size: 2rem;"></i>
+                        <p>Cargando Visor de PDF...</p>
+                      </div>
+                    </template>
+                  </Suspense>
 
                   <div
                     v-if="
@@ -3683,9 +3698,8 @@
   import IconPickerModal from '@/components/IconPickerModal.vue'
   import Chatbot from '@/components/AIChatBot.vue'
   const showIconPicker = ref(false)
-  import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, shallowRef } from 'vue'
-  import { useRoute, useRouter } from 'vue-router' // 👈 NUEVO
-  import * as pdfjsLib from 'pdfjs-dist'
+  import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, shallowRef, defineAsyncComponent } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
   import EditorHeader from '@/components/EditorHeader.vue'
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
@@ -3694,6 +3708,20 @@
   import Cropper from 'cropperjs';
   import html2canvas from 'html2canvas';
 
+// --- REFAC: Lazy load de PdfViewer y pdfjs-dist ---
+const PdfViewer = defineAsyncComponent(() => import('@/components/PdfViewer.vue'));
+
+let pdfjsLibInstance: any = null;
+const getPdfjsLib = async () => {
+  if (pdfjsLibInstance) return pdfjsLibInstance;
+  const pdfLib = await import('pdfjs-dist');
+  // @ts-ignore
+  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.js?worker');
+  pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+  pdfjsLibInstance = pdfLib;
+  return pdfLib;
+};
+
 // --- NUEVO: ESTADO PARA LAS MINIATURAS GENERADAS ---
 const generatedThumbnails = ref<Record<number, string>>({});
 
@@ -3701,11 +3729,7 @@ const generatedThumbnails = ref<Record<number, string>>({});
   const myTemplatesOpen = ref(false)
   const myTemplatesBtnRef = ref<HTMLElement | null>(null)
   const authStore = useAuthStore();
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url,
-  ).toString()
-
+  
   // --- REORDENACIÓN DE DIAPOSITIVAS POR DRAG & DROP Y POS. NUMÉRICA ---
 const thumbDragSource = ref<number | null>(null)
 const thumbDragTarget = ref<number | null>(null)
@@ -5997,6 +6021,7 @@ watch(
         // Si el string guardado empieza por http, es nuestro nuevo sistema optimizado (URL)
         if (_PDF_BASE64_STORE.startsWith('http')) {
           try {
+            const pdfjsLib = await getPdfjsLib();
             loadingTask = pdfjsLib.getDocument(_PDF_BASE64_STORE);
             _RAW_PDF_DOC = markRaw(await loadingTask.promise);
           } catch (pdfError) {
@@ -6021,6 +6046,7 @@ watch(
           for (let i = 0; i < pdfData.length; i++) {
             uint8Array[i] = pdfData.charCodeAt(i);
           }
+          const pdfjsLib = await getPdfjsLib();
           loadingTask = pdfjsLib.getDocument({ data: uint8Array });
           _RAW_PDF_DOC = markRaw(await loadingTask.promise);
         }
@@ -6055,12 +6081,13 @@ watch(
 
   // --- NUEVO: EXTRACTOR DE TEXTO A ELEMENTOS NATIVOS ---
 // --- NUEVO Y MEJORADO: EXTRACTOR Y AGRUPADOR DE TEXTO ---
-const extractTextToNativeElements = async (page, pageNum, viewport) => {
+const extractTextToNativeElements = async (page: any, pageIndex: number, viewport: any) => {
   const textContent = await page.getTextContent();
-  const rawItems = [];
+  const rawItems: any[] = [];
+  const pdfjsLib = await getPdfjsLib();
 
   // 1. Extraer y corregir coordenadas de todos los fragmentos
-  textContent.items.forEach((item) => {
+  textContent.items.forEach((item: any) => {
     if (!item.str.trim() && item.str !== ' ') return; // Ignorar basura vacía, pero mantener espacios
 
     // Matriz de transformación matemática del PDF a tu Lienzo
@@ -6234,6 +6261,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
 
     _PDF_BASE64_STORE = safeUrl;
 
+    const pdfjsLib = await getPdfjsLib();
     // 2. Cargamos el PDF
     const loadingTask = pdfjsLib.getDocument(safeUrl);
     _RAW_PDF_DOC = markRaw(await loadingTask.promise);
@@ -6407,6 +6435,7 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
         if (docType.value === 'pdf' && _PDF_BASE64_STORE) {
           let loadingTask;
           const pdfStr = _PDF_BASE64_STORE.trim();
+          const pdfjsLib = await getPdfjsLib();
           if (pdfStr.startsWith('http') || pdfStr.startsWith('/')) {
             loadingTask = pdfjsLib.getDocument(pdfStr);
           } else {
@@ -6440,54 +6469,9 @@ const extractTextToNativeElements = async (page, pageNum, viewport) => {
   }
 
  const renderPage = async (num: number) => {
-  await nextTick()
-  const canvas = pdfCanvas.value
-  const ctx = canvas?.getContext('2d')
-  if (!canvas || !ctx) return
-
-  const actualPdfPage = pdfPageMap.value[num]
-  if (
-    docType.value === 'pdf' &&
-    _RAW_PDF_DOC &&
-    actualPdfPage > 0 &&
-    actualPdfPage <= _RAW_PDF_DOC.numPages
-  ) {
-    const page = await _RAW_PDF_DOC.getPage(actualPdfPage)
-    const viewport = page.getViewport({ scale: 1.0 })
-    baseWidth.value = viewport.width
-    baseHeight.value = viewport.height
-
-    // 🚀 RENDIMIENTO: 2.0x es el balance óptimo (Retina Display). 3.5x ahoga la VRAM.
-    const qualityMultiplier = 2.0;
-
-    // La resolución interna del canvas será enorme (Ultra HD)
-    canvas.width = viewport.width * qualityMultiplier
-    canvas.height = viewport.height * qualityMultiplier
-
-    // Pero visualmente en el navegador medirá lo correcto
-    canvas.style.width = `${viewport.width}px`
-    canvas.style.height = `${viewport.height}px`
-
-    // Le decimos al contexto que escale sus pinceladas
-    ctx.scale(qualityMultiplier, qualityMultiplier)
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // El "truco ninja" para ocultar el texto quemado del fondo
-    const originalFillText = ctx.fillText;
-    const originalStrokeText = ctx.strokeText;
-    ctx.fillText = function() {};
-    ctx.strokeText = function() {};
-
-    try {
-      await page.render({ canvasContext: ctx, viewport }).promise
-    } finally {
-      ctx.fillText = originalFillText;
-      ctx.strokeText = originalStrokeText;
-    }
-  } else {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-  }
-}
+   // La renderización ha sido delegada a PdfViewer.vue
+   return;
+ }
 
   // --- CREACIÓN DE PROYECTO (MODAL) ---
   const confirmCreateProject = () => {
