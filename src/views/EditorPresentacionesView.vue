@@ -573,7 +573,7 @@
 
                   <Suspense v-if="docType === 'pdf'">
                     <template #default>
-                      <PdfViewer 
+                      <PdfViewer
                         v-if="_PDF_BASE64_STORE"
                         :pdfBase64="_PDF_BASE64_STORE"
                         :pageNum="pageNum"
@@ -1825,11 +1825,11 @@
                   <button class="tool-btn" style="background: #4a90e2; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" @click="selectedElement.events = selectedElement.events || []; selectedElement.events.push({ id: 'ev_' + Date.now(), trigger: 'click', action: 'show', targetId: '' })">
                     <i class="ph ph-plus"></i></button>
                 </h4>
-                
+
                 <div v-if="!selectedElement.events || selectedElement.events.length === 0" style="text-align: center; color: #888; font-size: 0.85rem; padding: 10px;">
                   No hay eventos configurados.
                 </div>
-                
+
                 <div v-for="(ev, index) in selectedElement.events || []" :key="ev.id" style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
                   <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <div style="flex: 1;">
@@ -1841,7 +1841,7 @@
                     </div>
                     <button class="btn-icon-danger" style="margin-top: 18px;" @click="selectedElement.events.splice(index, 1)"><i class="ph ph-trash"></i></button>
                   </div>
-                  
+
                   <div style="margin-bottom: 8px;" v-if="['checkbox', 'accordion', 'list'].includes(selectedElement.type)">
                     <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Acciona desde sub-elemento:</label>
                     <select v-model="ev.sourceSubId" class="pro-input" style="width: 100%;">
@@ -1851,7 +1851,7 @@
                       </option>
                     </select>
                   </div>
-                  
+
                   <div style="margin-bottom: 8px;">
                     <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Acción</label>
                     <select v-model="ev.action" class="pro-input" style="width: 100%;">
@@ -1861,7 +1861,7 @@
                       <option value="goToPage">Ir a página num</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Objetivo (Target)</label>
                     <input v-if="ev.action === 'goToPage'" type="number" v-model="ev.targetId" class="pro-input" style="width: 100%;" placeholder="Nº de Página" min="1" :max="numPages" />
@@ -3850,7 +3850,7 @@ const getElementDisplayName = (el: any) => {
   const myTemplatesOpen = ref(false)
   const myTemplatesBtnRef = ref<HTMLElement | null>(null)
   const authStore = useAuthStore();
-  
+
   // --- REORDENACIÓN DE DIAPOSITIVAS POR DRAG & DROP Y POS. NUMÉRICA ---
 const thumbDragSource = ref<number | null>(null)
 const thumbDragTarget = ref<number | null>(null)
@@ -6277,9 +6277,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
     // Calculamos el ancho real asumiendo la escala exacta del viewport
     const calculatedWidth = Math.abs(item.width * viewport.scale);
-    
+
     // CORRECCIÓN DE DESPLAZAMIENTO: Ajuste con line-height web (1.2)
-    // La línea base suele estar en el 80% del alto. Con line-height 1.2, 
+    // La línea base suele estar en el 80% del alto. Con line-height 1.2,
     // la caja visual de HTML se empuja hacia arriba la mitad del espacio extra.
     const lineHeightMultiplier = 1.2;
     const boxHeight = fontHeight * lineHeightMultiplier;
@@ -6343,7 +6343,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
   // 4. Paso 2 - Agrupación en Párrafos (Y-Proximity & Alignment)
   lines.sort((a, b) => a.y - b.y);
-  
+
   const paragraphs: any[] = [];
   let currentPara: any = null;
 
@@ -6358,7 +6358,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     // Diferencia exacta (deltaY) entre 1.0x y 1.5x el tamaño de la fuente
     const isBelow = deltaY >= currentPara.fontSize * 1.0 && deltaY <= currentPara.fontSize * 1.5;
     const isSameFont = Math.abs(currentPara.fontSize - line.fontSize) < 3;
-    const isAligned = line.x >= currentPara.x - currentPara.fontSize * 2 && 
+    const isAligned = line.x >= currentPara.x - currentPara.fontSize * 2 &&
                       line.x <= currentPara.right + currentPara.fontSize * 2;
 
     if (isBelow && isSameFont && isAligned) {
@@ -7799,15 +7799,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     isRotating = true;
 
     // 1. Obtenemos el elemento exacto del DOM
-    const domElement = (e.target as HTMLElement).closest('.interactive-element');
+    const domElement = (e.target as HTMLElement).closest('.interactive-element') as HTMLElement;
     if (!domElement) return;
 
-    // 2. getBoundingClientRect() nos da el cuadrado real que ocupa en la pantalla actual.
-    // El centro absoluto de esta caja es SIEMPRE nuestro eje de rotación perfecto,
-    // ignorando zooms, paneos o si el elemento ya estaba girado.
-    const rect = domElement.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+      // 2. El centro de una caja rotada (BoundingClientRect) es siempre constante y exacto.
+      // Nos da el pivote matemáticamente perfecto en coordenadas reales de la pantalla
+      // evitando latencias de cálculo anidado.
+      const rect = domElement.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
 
     // 3. Ángulo en el instante exacto en que hacemos clic
     const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
@@ -7965,7 +7965,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       return alert('El proyecto está vacío.')
 
     showToast('Preparando exportación y optimizando recursos...', 'info');
-    
+
     // 🚀 FORZAMOS GUARDADO: Convierte PDFs gigantes y Base64 en URLs de Vercel/Mongo antes de exportar
     await savePresentation(true);
 
@@ -8128,11 +8128,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
       .slide-trans-dissolve-enter-active, .slide-trans-dissolve-leave-active { transition: opacity 0.6s ease; }
       .slide-trans-dissolve-enter-from, .slide-trans-dissolve-leave-to { opacity: 0; }
-      
+
       .slide-trans-slide-up-enter-active, .slide-trans-slide-up-leave-active { transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
       .slide-trans-slide-up-enter-from { opacity: 0; transform: translateY(50px); }
       .slide-trans-slide-up-leave-to { opacity: 0; transform: translateY(-50px); }
-      
+
       .slide-trans-zoom-enter-active, .slide-trans-zoom-leave-active { transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
       .slide-trans-zoom-enter-from { opacity: 0; transform: scale(0.95); }
       .slide-trans-zoom-leave-to { opacity: 0; transform: scale(1.05); }
@@ -8140,11 +8140,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .slide-trans-push-left-enter-active, .slide-trans-push-left-leave-active { transition: transform 0.5s ease; }
       .slide-trans-push-left-enter-from { transform: translateX(100%); }
       .slide-trans-push-left-leave-to { transform: translateX(-100%); }
-      
+
       .slide-trans-push-right-enter-active, .slide-trans-push-right-leave-active { transition: transform 0.5s ease; }
       .slide-trans-push-right-enter-from { transform: translateX(-100%); }
       .slide-trans-push-right-leave-to { transform: translateX(100%); }
-      
+
       .slide-trans-wipe-enter-active, .slide-trans-wipe-leave-active { transition: clip-path 0.5s ease; }
       .slide-trans-wipe-enter-from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
       .slide-trans-wipe-leave-to { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
@@ -8467,7 +8467,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             return Math.max(0, ...currentPageElements.value.map(el => el.animationOrder || 0));
           });
           const advancePresentation = () => {
-            if (currentAnimationStep.value < maxAnimationStep.value) { currentAnimationStep.value++; } 
+            if (currentAnimationStep.value < maxAnimationStep.value) { currentAnimationStep.value++; }
             else if (pageNum.value < numPages.value) { changePageTo(pageNum.value + 1); }
           };
 
@@ -8919,32 +8919,32 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     z-index: 101;
   }
 
-  /* Esquina Superior Izquierda (Giro -45°) */
+  /* Esquina Superior Izquierda */
   .rotate-handle.nw {
     top: -20px;
     left: -20px;
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(0 12 12)'%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
 
-  /* Esquina Superior Derecha (Giro 45°) */
+  /* Esquina Superior Derecha */
   .rotate-handle.ne {
     top: -20px;
     right: -20px;
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(45 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(90 12 12)'%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
 
-  /* Esquina Inferior Izquierda (Giro -135°) */
+  /* Esquina Inferior Izquierda */
   .rotate-handle.sw {
     bottom: -20px;
     left: -20px;
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(-135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(270 12 12)'%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
 
-  /* Esquina Inferior Derecha (Giro 135°) */
+  /* Esquina Inferior Derecha */
   .rotate-handle.se {
     bottom: -20px;
     right: -20px;
-    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(135 12 12)'%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 9c0 4.418 3.582 8 8 8s8-3.582 8-8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 9H3V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 9h4V5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg transform='rotate(180 12 12)'%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M 12 4 A 8 8 0 0 0 4 12 M 12 2 L 16 4 L 12 6 M 2 12 L 4 16 L 6 12' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
   }
   /* Ubicación calculada para envolver la esquina por fuera */
 
@@ -9698,7 +9698,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     background: rgba(0, 0, 0, 0.2);
   }
   .interactive-element {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+      transition: opacity 0.2s;
   will-change: transform, opacity;
 
     position: absolute;
