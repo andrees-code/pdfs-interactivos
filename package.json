@@ -1,8 +1,9 @@
 {
-  "name": "pdfs",
-  "version": "0.0.0",
+  "name": "docflow",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "DocFlow - Plataforma profesional para gestión y edición de PDFs interactivos con IA",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
@@ -13,7 +14,8 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "generate-favicons": "node scripts/generate-favicons.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

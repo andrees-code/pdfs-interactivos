@@ -4,7 +4,7 @@
       <div class="header-left">
         <div class="pro-logo">
           <span class="logo-icon text-gradient">🚀</span>
-          <span class="logo-text">Present<span class="text-accent">Pro</span></span>
+          <span class="logo-text">Doc<span class="text-accent">Flow</span></span>
         </div>
         <div class="divider-vertical"></div>
         <h1 class="page-title">Mi Biblioteca</h1>
@@ -24,14 +24,14 @@
               <span class="user-email">{{ authStore.user?.email || 'email@ejemplo.com' }}</span>
             </div>
             <div class="dropdown-divider"></div>
-            
+
             <button class="dropdown-item" @click="navigate('/')">
               <i class="ph ph-house"></i> Inicio
             </button>
             <button class="dropdown-item is-active" @click="toggleUserMenu">
               <i class="ph ph-books"></i> Biblioteca
             </button>
-            
+
             <div class="dropdown-divider"></div>
             <button class="dropdown-item btn-logout" @click="handleLogout">
               <i class="ph ph-sign-out"></i> Cerrar Sesión
@@ -68,16 +68,16 @@
       </div>
 
       <div v-else class="projects-grid">
-        <div 
-          v-for="(project, idx) in presentations" 
-          :key="project._id" 
+        <div
+          v-for="(project, idx) in presentations"
+          :key="project._id"
           class="project-card glass-panel anim-slide-up"
           :style="{ animationDelay: `${0.1 + (idx * 0.05)}s` }"
         >
-          <div 
-            class="project-thumbnail" 
+          <div
+            class="project-thumbnail"
             @click="editProject(project._id)"
-            :style="{ 
+            :style="{
               backgroundImage: projectThumbnails[project._id] && projectThumbnails[project._id].startsWith('data:image') || projectThumbnails[project._id]?.startsWith('blob:') || projectThumbnails[project._id]?.startsWith('http') ? 'url(' + projectThumbnails[project._id] + ')' : 'none',
               backgroundColor: projectThumbnails[project._id] && projectThumbnails[project._id].startsWith('#') ? projectThumbnails[project._id] : 'transparent',
               backgroundSize: 'cover',
@@ -85,16 +85,16 @@
             }"
           >
             <i v-if="!projectThumbnails[project._id]" :class="project.docType === 'pdf' ? 'ph ph-file-pdf' : 'ph ph-presentation-chart'" class="thumb-icon"></i>
-            
+
             <!-- Capa Miniatura Nativa para "las herramientas" -->
-            <div 
-              class="mini-canvas-layer" 
-              v-if="!project.coverImage && project.documentState && project.documentState[1]" 
+            <div
+              class="mini-canvas-layer"
+              v-if="!project.coverImage && project.documentState && project.documentState[1]"
               style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 5;"
             >
-              <div 
-                v-for="el in project.documentState[1]" 
-                :key="'mini-'+el.id" 
+              <div
+                v-for="el in project.documentState[1]"
+                :key="'mini-'+el.id"
                 :style="getMiniElementStyle(el, project)"
               >
                 <!-- Solo renderizamos texto si es sticky, text o mindmap -->
@@ -110,13 +110,13 @@
               </button>
             </div>
           </div>
-          
+
           <div class="project-info">
             <div class="info-content">
               <h3 class="project-title">{{ project.title || 'Presentación sin título' }}</h3>
               <p class="project-date">Modificado: {{ formatDate(project.updatedAt) }}</p>
             </div>
-            
+
             <div class="project-actions">
               <button class="tool-btn" title="Editar" @click="editProject(project._id)">
                 <i class="ph ph-pencil-simple"></i>
@@ -212,13 +212,13 @@ const generatePdfPreview = async (base64Data: string) => {
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 0.5 });
-    
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    
+
     await page.render({ canvasContext: ctx, viewport }).promise;
     return canvas.toDataURL('image/jpeg', 0.8);
   } catch (error) {
@@ -257,7 +257,7 @@ const loadPresentations = async () => {
     const userId = authStore.user?._id || authStore.user?.id
     const allData = await presentationService.getUserPresentations(userId)
     presentations.value = allData.filter((p: any) => p.userId === userId)
-    
+
     // Generar vistas previas nativas extrayendo Base64 u Objetos de las bases de datos de la presentacion
     if (typeof generateThumbnailsForLibrary === 'function') {
       generateThumbnailsForLibrary(presentations.value)
@@ -270,11 +270,11 @@ const loadPresentations = async () => {
 }
 
 const createNewProject = () => {
-  router.push('/editorpresentaciones') 
+  router.push('/editorpresentaciones')
 }
 
 const editProject = (id: string) => {
-  router.push(`/editorpresentaciones/${id}`) 
+  router.push(`/editorpresentaciones/${id}`)
 }
 
 const deleteProject = async (id: string, title: string) => {
@@ -296,7 +296,7 @@ const getMiniElementStyle = (el: any, p: any): any => {
    const bh = p.baseHeight || 720;
    const scaleX = 100 / bw;
    const scaleY = 100 / bh;
-   const fakeThumbnailWidth = 300; 
+   const fakeThumbnailWidth = 300;
    const fontScale = fakeThumbnailWidth / bw;
 
    let br = (el.borderRadius ? el.borderRadius * fontScale : 0) + 'px';
@@ -304,7 +304,7 @@ const getMiniElementStyle = (el: any, p: any): any => {
    else if (el.type === 'sticky') br = '0 0 4px 1px';
 
    // Parse shadows safely
-   let shadow = el.boxShadow || 'none';
+   const shadow = el.boxShadow || 'none';
    if (shadow !== 'none' && shadow.includes('px')) {
       // Intentar escalar box-shadow pero es complejo, lo dejamos nativo o sutil:
       // Solo tomamos el string crudo, en preview se verá bien
@@ -356,7 +356,7 @@ const formatDate = (dateString: string) => {
   flex-direction: column;
   min-height: 100vh;
   background-color: var(--bg-base);
-  background-image: 
+  background-image:
     radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
   color: var(--text-primary);
@@ -724,8 +724,8 @@ const formatDate = (dateString: string) => {
   margin-bottom: 20px;
 }
 
-@keyframes spin { 
-  to { transform: rotate(360deg); } 
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .empty-workspace {

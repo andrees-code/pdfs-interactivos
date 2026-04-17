@@ -3829,7 +3829,7 @@ const generatedThumbnails = ref<Record<number, string>>({});
 const isSelectingTargetForEvent = ref<string | null>(null);
 
 const getElementDisplayName = (el: any) => {
-  let name = el.name || el.type.toUpperCase();
+  const name = el.name || el.type.toUpperCase();
   let excerpt = '';
   if (el.type === 'text') excerpt = el.content;
   else if (el.type === 'link') excerpt = el.text;
@@ -3951,7 +3951,7 @@ const handleAiAction = async (actionsData: any) => {
     const actionType = rawActionType.trim();
     const actionTypeNormalized = actionType.replace(/[_\s]/g, '').toLowerCase();
     const isSpecialAction = ['addtext', 'addshape', 'addicon', 'changebackground', 'addslide', 'deleteelement', 'modifyelement', 'addimage', 'addvideo', 'addtable', 'addchart', 'addqrcode', 'addlist', 'addcodeblock', 'addlink', 'deletelastelement', 'add3d', 'addiframe'].includes(actionTypeNormalized);
-    let handledExplicitly = false;
+    const handledExplicitly = false;
 
     if (!actionType) {
       console.warn("Acción sin tipo:", action);
@@ -4367,7 +4367,7 @@ const handleAiAction = async (actionsData: any) => {
       // 🔮 ACCIÓN: GENÉRICO FALLBACK
       // ==========================================
       else if (actionTypeNormalized.startsWith('add') && !isSpecialAction) {
-        let typeSlug = actionTypeNormalized.replace(/^add/, '');
+        const typeSlug = actionTypeNormalized.replace(/^add/, '');
         const newEl = createTemplateElement(typeSlug as ToolType, {
           x: action.x ?? (baseWidth.value / 2) - 100,
           y: action.y ?? (baseHeight.value / 2) - 100,

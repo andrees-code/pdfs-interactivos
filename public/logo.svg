@@ -1,0 +1,46 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+  <defs>
+    <linearGradient id="docFlowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366F1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle (optional, remove if not needed) -->
+  <circle cx="100" cy="100" r="95" fill="none" stroke="url(#docFlowGradient)" stroke-width="1" opacity="0.2"/>
+  
+  <!-- Main document shape -->
+  <g transform="translate(50, 30)">
+    <!-- Left side of document (back layer) -->
+    <path d="M 10 0 L 10 110 Q 10 120 20 120 L 80 120 Q 90 120 90 110 L 90 10 Q 90 0 80 0 Z" 
+          fill="url(#docFlowGradient)" opacity="0.3"/>
+    
+    <!-- Right side of document (front layer) -->
+    <path d="M 15 8 L 15 112 Q 15 118 21 118 L 75 118 Q 81 118 81 112 L 81 8 Q 81 2 75 2 Z" 
+          fill="url(#docFlowGradient)"/>
+    
+    <!-- Decorative lines (transformation effect) -->
+    <g stroke="url(#docFlowGradient)" stroke-width="2.5" stroke-linecap="round" fill="none">
+      <!-- Line 1 - top -->
+      <path d="M 25 20 Q 40 15 55 22" opacity="0.8"/>
+      
+      <!-- Line 2 - middle -->
+      <path d="M 22 45 Q 48 38 70 48" opacity="0.9"/>
+      
+      <!-- Line 3 - lower -->
+      <path d="M 20 70 Q 42 62 75 75" opacity="0.8"/>
+      
+      <!-- Flowing element - dots forming curve -->
+      <circle cx="20" cy="95" r="1.5" fill="url(#docFlowGradient)"/>
+      <circle cx="30" cy="102" r="1.5" fill="url(#docFlowGradient)"/>
+      <circle cx="45" cy="108" r="1.5" fill="url(#docFlowGradient)"/>
+      <circle cx="65" cy="105" r="1.5" fill="url(#docFlowGradient)"/>
+    </g>
+  </g>
+  
+  <!-- Text "DocFlow" -->
+  <text x="100" y="170" font-family="Arial, sans-serif" font-size="24" font-weight="700" 
+        text-anchor="middle" fill="url(#docFlowGradient)" letter-spacing="1">
+    DocFlow
+  </text>
+</svg>

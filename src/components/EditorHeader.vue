@@ -3,9 +3,9 @@
     <div class="header-left">
       <div class="pro-logo">
         <span class="logo-icon">🚀</span>
-        <span class="logo-text">Present<span class="text-accent">Pro</span></span>
+        <span class="logo-text">Doc<span class="text-accent">Flow</span></span>
       </div>
-      
+
       <div class="file-menu">
         <label class="menu-item" :class="{ 'is-loading': isConverting }">
           <input
@@ -18,7 +18,7 @@
           <i class="ph ph-upload-simple"></i>
           {{ isConverting ? 'Convirtiendo...' : 'Importar Archivo' }}
         </label>
-        
+
         <button
           class="menu-item btn-save"
           :disabled="!hasDoc || isConverting || isSaving"
@@ -78,14 +78,14 @@
             <span class="user-email">{{ authStore.user?.email || 'email@ejemplo.com' }}</span>
           </div>
           <div class="dropdown-divider"></div>
-          
+
           <button class="dropdown-item" @click="navigate('/')">
             <i class="ph ph-house"></i> Inicio
           </button>
           <button class="dropdown-item" @click="navigate('/biblioteca')">
             <i class="ph ph-books"></i> Biblioteca
           </button>
-          
+
           <div class="dropdown-divider"></div>
           <button class="dropdown-item btn-logout" @click="handleLogout">
             <i class="ph ph-sign-out"></i> Cerrar Sesión
@@ -105,7 +105,7 @@ const authStore = useAuthStore();
 const router = useRouter();
 
 const isUserMenuOpen = ref(false);
-const userMenuRef = ref<HTMLElement | null>(null); 
+const userMenuRef = ref<HTMLElement | null>(null);
 
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value;
@@ -147,8 +147,8 @@ defineProps<{
   hasDoc: boolean;
   zoom: number;
   playMode: boolean;
-  isSaving: boolean; 
-  isAutosaving?: boolean; 
+  isSaving: boolean;
+  isAutosaving?: boolean;
 }>();
 
 defineEmits<{
