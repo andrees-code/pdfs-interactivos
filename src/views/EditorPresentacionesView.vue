@@ -528,6 +528,7 @@
               @wheel="handleCanvasWheel"
               @mousedown="handleCanvasPanStart"
               @click="handleCanvasClickOutside"
+              :style="themeVariables"
               :class="{ 'is-panning': isPanning, 'space-pressed': isSpacePressed, 'is-picking-target': isSelectingTargetForEvent }"
             >
               <div
@@ -535,11 +536,10 @@
                 :class="{ 'play-mode-active': playMode }"
                 :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }"
               >
-                <div
+                <Transition :name="playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" mode="out-in">
+                  <div
                   class="canvas-shadow-box layer-engine"
-                  :class="[
-                    playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : '',
-                  ]"
+                  :key="pageNum"
                   :style="{
                     width: `${baseWidth}px`,
                     height: `${baseHeight}px`,
@@ -549,7 +549,7 @@
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
                   }"
-                  @click.self="handleCanvasClick"
+                  @click="handleCanvasClick"
                 >
                 <div
                     v-for="(guide, idx) in activeGuides"
@@ -623,10 +623,9 @@
                           ['link', 'interactive', 'audio', 'checkbox', 'rating'].includes(el.type),
                         'no-pointer': playMode && (el.type === 'draw' || el.type === 'mindmap'),
                         'is-hidden-editor': el.isHidden && !playMode,
+                        'is-waiting-animation': playMode && (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && !el.isHidden && (el.animationOrder || 0) > currentAnimationStep,
                       },
-                      playMode && el.animation && el.animation !== 'none' && !el.isHidden
-                        ? 'anim-' + el.animation
-                        : '',
+                      playMode && (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && !el.isHidden && (el.animationOrder || 0) <= currentAnimationStep ? 'anim-' + (el.animationType || el.animation) : ''
                     ]"
                     :style="{
                       left: `${el.x}px`,
@@ -636,10 +635,7 @@
                       zIndex: index + 10,
                       opacity: el.opacity ?? 1,
                       transform: `rotate(${el.rotation || 0}deg)`,
-                      animationDelay:
-                        playMode && el.animation && el.animation !== 'none'
-                          ? `${index * 0.1}s`
-                          : '0s',
+                      animationDelay: playMode && (el.animationTrigger === 'withPrevious' || el.animationTrigger === 'afterPrevious') ? `${index * 0.05}s` : '0s',
                       mixBlendMode: el.mixBlendMode || 'normal',
                     }"
                     @mousedown.stop="startDrag($event, el)"
@@ -1642,6 +1638,7 @@
                     </div>
                   </div>
                 </div>
+                </Transition>
               </div>
             </main>
           </div>
@@ -1902,12 +1899,26 @@
               <div class="prop-section" v-if="selectedElement.type !== 'draw'">
                 <div class="section-title">Animación (Entrada)</div>
                 <div class="prop-group mb-0">
-                  <select v-model="selectedElement.animation" class="pro-input">
+                  <label>Efecto</label>
+                  <select v-model="selectedElement.animationType" class="pro-input">
                     <option value="none">Ninguna</option>
                     <option value="fade-in">Desvanecer (Fade In)</option>
-                    <option value="slide-in">Entrar desde abajo</option>
+                    <option value="slide-up">Deslizar Arriba</option>
+                    <option value="zoom-in">Acercar (Zoom In)</option>
                     <option value="bounce">Rebote</option>
                   </select>
+                </div>
+                <div class="prop-group mb-0 mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
+                  <label>Desencadenador</label>
+                  <select v-model="selectedElement.animationTrigger" class="pro-input">
+                    <option value="onClick">Al Hacer Clic</option>
+                    <option value="withPrevious">Con la anterior</option>
+                    <option value="afterPrevious">Después de la anterior</option>
+                  </select>
+                </div>
+                <div class="prop-group mb-0 mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
+                  <label>Paso en el Timeline (Orden)</label>
+                  <input type="number" v-model="selectedElement.animationOrder" class="pro-input" min="0" />
                 </div>
               </div>
 
@@ -2464,7 +2475,7 @@
                     <div class="color-picker-wrapper">
                       <input
                         type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                         class="pro-color-picker"
                       />
@@ -2564,7 +2575,7 @@
   <div class="color-picker-wrapper">
     <input
       type="color"
-      :value="selectedElement.textBgColor === 'transparent' ? '#ffffff' : selectedElement.textBgColor"
+      :value="(selectedElement.textBgColor === 'transparent' || selectedElement.textBgColor.startsWith('var')) ? '#ffffff' : selectedElement.textBgColor"
       @input="updateColorDebounced(selectedElement, 'textBgColor', $event)"
       class="pro-color-picker"
     />
@@ -2681,7 +2692,7 @@
                   <div class="color-picker-wrapper">
                     <input
                       type="color"
-                      :value="selectedElement.bgColor"
+                      :value="selectedElement.bgColor.startsWith('var') ? '#000000' : selectedElement.bgColor"
                       @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                       class="pro-color-picker"
                     />
@@ -2732,7 +2743,7 @@
                     <div class="color-picker-wrapper">
                       <input
                         type="color"
-                        :value="selectedElement.gradientColor"
+                        :value="selectedElement.gradientColor.startsWith('var') ? '#000000' : selectedElement.gradientColor"
                         @input="updateColorDebounced(selectedElement, 'gradientColor', $event)"
                         class="pro-color-picker"
                       />
@@ -2790,7 +2801,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                      :value="selectedElement.borderColor"
+                      :value="selectedElement.borderColor.startsWith('var') ? '#000000' : selectedElement.borderColor"
                       @input="updateColorDebounced(selectedElement, 'borderColor', $event)"
                           class="pro-color-picker"
                         />
@@ -2885,7 +2896,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -2939,7 +2950,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -2950,7 +2961,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.bgColor"
+                        :value="selectedElement.bgColor.startsWith('var') ? '#000000' : selectedElement.bgColor"
                         @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
@@ -2982,7 +2993,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -3260,7 +3271,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -3343,7 +3354,7 @@
                         />
                         <input
                           type="color"
-                        :value="item.color"
+                        :value="item.color.startsWith('var') ? '#000000' : item.color"
                         @input="updateColorDebounced(item, 'color', $event)"
                           class="pro-color-picker half"
                           style="height: 28px"
@@ -3413,7 +3424,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -3439,7 +3450,7 @@
                   <div class="prop-group">
                     <label>Color del Pulso</label>
                     <div class="color-picker-wrapper">
-                    <input type="color" :value="selectedElement.color" @input="updateColorDebounced(selectedElement, 'color', $event)" class="pro-color-picker" />
+                    <input type="color" :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color" @input="updateColorDebounced(selectedElement, 'color', $event)" class="pro-color-picker" />
                     </div>
                   </div>
                   <div class="prop-group section-divider">Ventana Desplegable</div>
@@ -3505,7 +3516,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.bgColor"
+                        :value="selectedElement.bgColor.startsWith('var') ? '#000000' : selectedElement.bgColor"
                         @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
@@ -3516,7 +3527,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -3578,7 +3589,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.bgColor"
+                        :value="selectedElement.bgColor.startsWith('var') ? '#000000' : selectedElement.bgColor"
                         @input="updateColorDebounced(selectedElement, 'bgColor', $event)"
                           class="pro-color-picker"
                         />
@@ -3589,7 +3600,7 @@
                       <div class="color-picker-wrapper">
                         <input
                           type="color"
-                        :value="selectedElement.color"
+                        :value="selectedElement.color.startsWith('var') ? '#000000' : selectedElement.color"
                         @input="updateColorDebounced(selectedElement, 'color', $event)"
                           class="pro-color-picker"
                         />
@@ -3645,9 +3656,12 @@
                   <label>Transición de Entrada</label>
                   <select v-model="slideConfigs[pageNum].transition" class="pro-input">
                     <option value="none">Ninguna</option>
-                    <option value="fade">Desvanecer (Fade)</option>
-                    <option value="slide">Deslizar (Slide)</option>
-                    <option value="zoom">Acercar (Zoom)</option>
+                    <option value="dissolve">Desvanecer (Dissolve / Fade)</option>
+                    <option value="slide-up">Deslizar Arriba</option>
+                    <option value="push-left">Empujar Izquierda</option>
+                    <option value="push-right">Empujar Derecha</option>
+                    <option value="wipe">Barrido (Wipe)</option>
+                    <option value="zoom">Zoom</option>
                   </select>
                 </div>
                 <div class="prop-group mt-2">
@@ -3783,6 +3797,30 @@ const getPdfjsLib = async () => {
   pdfjsLibInstance = pdfLib;
   return pdfLib;
 };
+
+// --- NUEVO: TIMELINE ANIMATOR PARA EL PLAYMODE ---
+const currentAnimationStep = ref(0);
+
+const maxAnimationStep = computed(() => {
+  if (!currentPageElements.value) return 0;
+  return Math.max(0, ...currentPageElements.value.map(el => el.animationOrder || 0));
+});
+
+const advancePresentation = () => {
+  if (currentAnimationStep.value < maxAnimationStep.value) {
+    currentAnimationStep.value++;
+  } else if (pageNum.value < numPages.value) {
+    changePageTo(pageNum.value + 1);
+  }
+};
+
+// --- NUEVO: MOTOR DE TEMAS (VARIABLES CSS) ---
+const themeVariables = computed(() => {
+  const t = projectConfigs.value.template || 'blank';
+  if (t === 'modern') return { '--pres-bg': '#f8fafc', '--pres-text': '#334155', '--pres-accent': '#2563eb' };
+  if (t === 'dark') return { '--pres-bg': '#0d1117', '--pres-text': '#c9d1d9', '--pres-accent': '#58a6ff' };
+  return { '--pres-bg': '#ffffff', '--pres-text': '#1e293b', '--pres-accent': '#3b82f6' };
+});
 
 // --- NUEVO: ESTADO PARA LAS MINIATURAS GENERADAS ---
 const generatedThumbnails = ref<Record<number, string>>({});
@@ -5075,7 +5113,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       height: 44,
       text: 'Siguiente...',
       targetPage: 1,
-      bgColor: '#2563eb',
+      bgColor: 'var(--pres-accent)',
       color: '#ffffff',
       borderRadius: 6,
       borderWidth: 0,
@@ -5083,7 +5121,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       fontFamily: 'Helvetica, Arial, sans-serif',
       fontSize: 14,
       fontWeight: '600',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     accordion: {
       name: 'Acordeón',
@@ -5092,14 +5132,16 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       bgColor: '#ffffff',
       color: '#334155',
       items: [{ title: 'Sección 1', content: 'Detalle...', isOpen: false }],
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     text: {
       name: 'Texto',
       width: 300,
       height: 'auto',
       content: 'Escribe aquí...',
-      color: '#1e293b',
+      color: 'var(--pres-text)',
       fontSize: 32,
       fontWeight: '400',
       fontFamily: 'Helvetica, Arial, sans-serif',
@@ -5111,7 +5153,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       letterSpacing: 0,
       textShadow: 'none',
       textBgColor: 'transparent',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     list: {
       name: 'Lista',
@@ -5120,12 +5164,14 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       items: ['Elemento 1', 'Elemento 2', 'Elemento 3'],
       listType: 'ul',
       bulletStyle: 'disc',
-      color: '#1e293b',
+      color: 'var(--pres-text)',
       fontSize: 24,
       fontWeight: '400',
       fontFamily: 'Helvetica, Arial, sans-serif',
       itemSpacing: 10,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     checkbox: {
       name: 'Tareas',
@@ -5135,14 +5181,16 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
         { text: 'Tarea 1', checked: false },
         { text: 'Tarea 2', checked: true },
       ],
-      checkedColor: '#10b981',
-      color: '#1e293b',
+      checkedColor: 'var(--pres-accent)',
+      color: 'var(--pres-text)',
       fontSize: 20,
       fontWeight: '400',
       fontFamily: 'Helvetica, Arial, sans-serif',
       itemSpacing: 12,
       strikeThrough: true,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     table: {
       name: 'Tabla',
@@ -5153,17 +5201,19 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
         ['Dato 1', 'Dato 2'],
         ['Dato 3', 'Dato 4'],
       ],
-      color: '#334155',
+      color: 'var(--pres-text)',
       borderColor: '#cbd5e1',
       borderWidth: 1,
-      headerBgColor: '#f1f5f9',
-      rowBgColor1: '#ffffff',
-      rowBgColor2: '#f8fafc',
+      headerBgColor: 'var(--pres-bg)',
+      rowBgColor1: 'transparent',
+      rowBgColor2: 'rgba(0,0,0,0.05)',
       fontSize: 16,
       fontFamily: 'Helvetica, Arial, sans-serif',
       textAlign: 'left',
       borderRadius: 8,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     sticky: {
       name: 'Nota',
@@ -5182,7 +5232,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       letterSpacing: 0,
       textShadow: 'none',
       textBgColor: '#fef08a',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
       boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
     },
     mindmap: {
@@ -5192,13 +5244,15 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       lineColor: '#94a3b8',
       lineWidth: 2,
       fontFamily: 'Helvetica, Arial, sans-serif',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
       nodes: [
         {
           id: 'm1',
           text: 'Tema Central',
           parentId: null,
-          bgColor: '#3b82f6',
+          bgColor: 'var(--pres-accent)',
           color: '#ffffff',
           shape: 'round',
           note: '',
@@ -5230,25 +5284,29 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       name: 'Forma',
       width: 150,
       height: 150,
-      bgColor: '#f1f5f9',
+      bgColor: 'var(--pres-bg)',
       gradientType: 'none',
-      gradientColor: '#cbd5e1',
+      gradientColor: 'var(--pres-accent)',
       borderRadius: 8,
       borderWidth: 1,
       borderStyle: 'solid',
-      borderColor: '#cbd5e1',
+      borderColor: 'var(--pres-accent)',
       boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
       isGlass: false,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     arrow: {
       name: 'Flecha',
       width: 200,
       height: 'auto',
-      color: '#64748b',
+      color: 'var(--pres-accent)',
       strokeWidth: 3,
       arrowHead: 'end',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     image: {
       name: 'Imagen',
@@ -5262,7 +5320,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       grayscale: 0,
       blur: 0,
       sepia: 0,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     video: {
       name: 'Vídeo',
@@ -5276,7 +5336,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       borderRadius: 0,
       borderWidth: 0,
       borderColor: '#000000',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     '3d': {
       name: 'Modelo 3D',
@@ -5286,48 +5348,56 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       autoRotate: true,
       cameraControls: true,
       envImage: '',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     interactive: {
       name: 'Hotspot',
       width: 40,
       height: 40,
-      color: '#3b82f6',
+      color: 'var(--pres-accent)',
       modalTitle: 'Info',
       contentHtml: '<p>Edita el HTML.</p>',
       isOpen: false,
       modalBgColor: '#ffffff',
       modalTextColor: '#1e293b',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     icon: {
       name: 'Icono',
       width: 64,
       height: 64,
-      color: '#475569',
+      color: 'var(--pres-text)',
       bgColor: 'transparent',
       borderRadius: 0,
       iconName: 'star',
       fontSize: 64,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     chart: {
       name: 'Gráfico',
       width: 400,
       height: 300,
-      color: '#334155',
-      bgColor: '#ffffff',
+      color: 'var(--pres-text)',
+      bgColor: 'transparent',
       chartType: 'bar',
       chartTitle: 'Datos',
       showValues: true,
       showLegend: true,
       borderRadius: 12,
       chartData: [
-        { label: 'Q1', value: 30, color: '#3b82f6' },
+        { label: 'Q1', value: 30, color: 'var(--pres-accent)' },
         { label: 'Q2', value: 60, color: '#10b981' },
         { label: 'Q3', value: 40, color: '#f59e0b' },
       ],
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     iframe: {
       name: 'Iframe',
@@ -5337,20 +5407,24 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       borderRadius: 8,
       borderWidth: 1,
       borderColor: '#cbd5e1',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     audio: {
       name: 'Audio',
       width: 160,
       height: 48,
       src: '',
-      bgColor: '#1e293b',
-      color: '#ffffff',
+      bgColor: 'var(--pres-bg)',
+      color: 'var(--pres-text)',
       borderRadius: 24,
       loop: false,
       autoplay: false,
       isPlaying: false,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
       variant: 'pill',
     },
     draw: {
@@ -5360,7 +5434,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       brushSize: 4,
       brushColor: '#ef4444',
       lines: [],
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     qrcode: {
       name: 'Código QR',
@@ -5370,28 +5446,34 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       color: '#0f172a',
       bgColor: '#ffffff',
       borderRadius: 8,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     progress: {
       name: 'Progreso',
       width: 300,
       height: 12,
       progress: 50,
-      color: '#3b82f6',
-      bgColor: '#e2e8f0',
+      color: 'var(--pres-accent)',
+      bgColor: 'rgba(0,0,0,0.1)',
       borderRadius: 6,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     timer: {
       name: 'Temporizador',
       width: 180,
       height: 60,
       duration: 5,
-      color: '#1e293b',
-      bgColor: '#f8fafc',
+      color: 'var(--pres-text)',
+      bgColor: 'var(--pres-bg)',
       fontSize: 36,
       borderRadius: 8,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
       timeLeft: 300,
       isRunning: false,
     },
@@ -5404,7 +5486,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       theme: 'dark',
       fontSize: 14,
       borderRadius: 8,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     magnifier: {
       name: 'Lupa',
@@ -5417,21 +5501,25 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       borderWidth: 4,
       borderColor: '#ffffff',
       boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     poll: {
       name: 'Encuesta',
       width: 350,
       height: 'auto',
-      color: '#334155',
-      bgColor: '#ffffff',
+      color: 'var(--pres-text)',
+      bgColor: 'var(--pres-bg)',
       chartTitle: 'Resultados',
       borderRadius: 12,
       chartData: [
-        { label: 'Opción A', value: 65, color: '#3b82f6' },
-        { label: 'Opción B', value: 35, color: '#e2e8f0' },
+        { label: 'Opción A', value: 65, color: 'var(--pres-accent)' },
+        { label: 'Opción B', value: 35, color: 'rgba(0,0,0,0.1)' },
       ],
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
     rating: {
       name: 'Puntuación',
@@ -5439,9 +5527,11 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       height: 'auto',
       rating: 3,
       maxStars: 5,
-      color: '#f59e0b',
+      color: 'var(--pres-accent)',
       fontSize: 32,
-      animation: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
       isInteractive: true,
     },
   }
@@ -5737,7 +5827,7 @@ watch(
 
       if (['ArrowRight', ' ', 'ArrowLeft'].includes(e.key)) {
         e.preventDefault()
-        changePageTo(pageNum.value + (e.key === 'ArrowLeft' ? -1 : 1))
+        e.key === 'ArrowLeft' ? changePageTo(pageNum.value - 1) : advancePresentation();
       }
       return; // Si estamos en Play Mode, no procesar atajos del editor
     }
@@ -6181,106 +6271,147 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     // Matriz de transformación matemática del PDF a tu Lienzo
     const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
 
-    // Altura real de la fuente calculada desde la matriz
-    const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+    // Altura real de la fuente calculada desde la matriz.
+    // Usamos fallback a tx[3] por si la rotación/escala difiere en ciertos PDFs
+    const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3])) || Math.abs(tx[3]);
+
+    // Calculamos el ancho real asumiendo la escala exacta del viewport
+    const calculatedWidth = Math.abs(item.width * viewport.scale);
+    
+    // CORRECCIÓN DE DESPLAZAMIENTO: Ajuste con line-height web (1.2)
+    // La línea base suele estar en el 80% del alto. Con line-height 1.2, 
+    // la caja visual de HTML se empuja hacia arriba la mitad del espacio extra.
+    const lineHeightMultiplier = 1.2;
+    const boxHeight = fontHeight * lineHeightMultiplier;
+    const offsetHeight = (boxHeight - fontHeight) / 2;
+    const yTopLeft = tx[5] - (fontHeight * 0.8) - offsetHeight;
 
     rawItems.push({
       str: item.str,
       x: tx[4],
-      // CORRECCIÓN DE DESPLAZAMIENTO: Restamos el ~80% de la altura para pasar
-      // de la "línea base" (baseline) a la "esquina superior izquierda" (top-left)
-      y: tx[5] - (fontHeight * 0.8),
+      y: yTopLeft,
       fontSize: fontHeight,
       fontName: item.fontName || 'Helvetica, Arial, sans-serif',
-      width: item.width * viewport.scale,
-      right: tx[4] + (item.width * viewport.scale)
+      width: calculatedWidth,
+      right: tx[4] + calculatedWidth
     });
   });
 
-  // 2. Ordenar de arriba hacia abajo y de izquierda a derecha
+  // 2. Ordenar fragmentos (arriba hacia abajo, izquierda a derecha)
   rawItems.sort((a, b) => {
-    // Si están en la misma línea (diferencia Y muy pequeña), ordenamos por X
-    if (Math.abs(a.y - b.y) < a.fontSize * 0.5) {
+    if (Math.abs(a.y - b.y) < Math.max(a.fontSize, b.fontSize) * 0.5) {
       return a.x - b.x;
     }
     return a.y - b.y;
   });
 
-  // 3. Agrupar palabras sueltas en oraciones/líneas
-  const groupedLines = [];
-  let currentLine = null;
+  // 3. Paso 1 - Agrupación en Líneas (X-Proximity)
+  const lines: any[] = [];
+  let currentLine: any = null;
 
   for (const item of rawItems) {
-    // Si es solo un espacio, lo saltamos pero dejamos que influya en el gap
     if (!item.str.trim()) continue;
 
     if (!currentLine) {
       currentLine = { ...item };
-      groupedLines.push(currentLine);
+      lines.push(currentLine);
       continue;
     }
 
-    // Condiciones para agrupar:
-    // - Misma línea (Y similar)
-    // - Cercanía horizontal (X no está a kilómetros de distancia)
-    // - Tamaño de fuente similar
-    const isSameLine = Math.abs(currentLine.y - item.y) < currentLine.fontSize * 0.5;
-    const isCloseHorizontally = (item.x - currentLine.right) < (currentLine.fontSize * 3);
+    const isSameLine = Math.abs(currentLine.y - item.y) < currentLine.fontSize * 0.3;
+    // Tolerancia horizontal basada estrictamente en el tamaño del espacio (aprox 0.25 del fontHeight)
+    const spaceWidth = currentLine.fontSize * 0.25;
+    const gap = item.x - currentLine.right;
+    const isCloseHorizontally = gap <= (spaceWidth * 2.5); // Permitimos hasta ~2.5 espacios de distancia para la misma línea
     const isSameFont = Math.abs(currentLine.fontSize - item.fontSize) < 3;
 
     if (isSameLine && isCloseHorizontally && isSameFont) {
-      // Calculamos si falta un espacio (si la separación es mayor al 20% del tamaño de la fuente)
-      const gap = item.x - currentLine.right;
-      if (gap > currentLine.fontSize * 0.2 && !currentLine.str.endsWith(' ')) {
+      if (gap > spaceWidth * 0.8 && !currentLine.str.endsWith(' ')) {
         currentLine.str += ' ';
       }
 
-      // Fusionamos la palabra actual en la línea
       currentLine.str += item.str;
       currentLine.right = item.right;
       currentLine.width = currentLine.right - currentLine.x;
-      // Ajustamos un poco la Y por si hubo micro-variaciones (subíndices, etc)
       currentLine.y = Math.min(currentLine.y, item.y);
       currentLine.fontSize = Math.max(currentLine.fontSize, item.fontSize);
     } else {
-      // Si no cumple, empieza una nueva línea/elemento
       currentLine = { ...item };
-      groupedLines.push(currentLine);
+      lines.push(currentLine);
     }
   }
 
-  // 4. Inyectar las líneas agrupadas en tu Editor
-  const newElements = groupedLines.map((line) => ({
-    id: `el_pdf_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-    type: 'text',
-    x: Math.round(line.x),
-    y: Math.round(line.y),
-    width: Math.round(line.width) + 15, // +15px de margen de respiro para evitar cortes
-    height: 'auto',
-    content: line.str.trim(),
-    color: '#1e293b', // Puedes usar rgba(0,0,0,0) aquí si no pudiste aplicar el "truco ninja" del canvas
-    fontSize: Math.max(12, Math.round(line.fontSize)),
-    fontWeight: '400',
-    fontFamily: line.fontName,
-    fontStyle: 'normal',
-    textAlign: 'left',
-    textTransform: 'none',
-    textDecoration: 'none',
-    lineHeight: 1.2,
-    letterSpacing: 0,
-    textShadow: 'none',
-    textBgColor: 'transparent',
-    animation: 'none',
-    opacity: 1,
-    rotation: 0,
-    mixBlendMode: 'normal',
-    isHidden: false,
-    isLocked: false,
-    groupId: null,
-  }));
+  // 4. Paso 2 - Agrupación en Párrafos (Y-Proximity & Alignment)
+  lines.sort((a, b) => a.y - b.y);
+  
+  const paragraphs: any[] = [];
+  let currentPara: any = null;
 
-  if (!documentState.value[pageNum]) documentState.value[pageNum] = [];
-  documentState.value[pageNum].push(...newElements);
+  for (const line of lines) {
+    if (!currentPara) {
+      currentPara = { ...line, lastLineY: line.y };
+      paragraphs.push(currentPara);
+      continue;
+    }
+
+    const deltaY = line.y - currentPara.lastLineY;
+    // Diferencia exacta (deltaY) entre 1.0x y 1.5x el tamaño de la fuente
+    const isBelow = deltaY >= currentPara.fontSize * 1.0 && deltaY <= currentPara.fontSize * 1.5;
+    const isSameFont = Math.abs(currentPara.fontSize - line.fontSize) < 3;
+    const isAligned = line.x >= currentPara.x - currentPara.fontSize * 2 && 
+                      line.x <= currentPara.right + currentPara.fontSize * 2;
+
+    if (isBelow && isSameFont && isAligned) {
+      currentPara.str += '\n' + line.str;
+      currentPara.x = Math.min(currentPara.x, line.x);
+      currentPara.right = Math.max(currentPara.right, line.right);
+      // El width resultante sea igual al de la línea más ancha del bloque
+      currentPara.width = Math.max(currentPara.width, line.width);
+      currentPara.lastLineY = line.y;
+    } else {
+      currentPara = { ...line, lastLineY: line.y };
+      paragraphs.push(currentPara);
+    }
+  }
+
+  // 5. Inyectar los párrafos agrupados en el Editor
+  const newElements = paragraphs.map((para) => {
+    const safeX = Math.max(-50, Math.round(para.x));
+    const safeY = Math.max(-50, Math.round(para.y));
+
+    return {
+      id: `el_pdf_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      type: 'text',
+      x: safeX,
+      y: safeY,
+      // width de la línea más ancha + un pequeño padding de +4px
+      width: Math.round(para.width) + 4,
+      height: 'auto',
+      content: para.str.trim(),
+      color: '#1e293b',
+      fontSize: Math.max(12, Math.round(para.fontSize)),
+      fontWeight: '400',
+      fontFamily: para.fontName,
+      fontStyle: 'normal',
+      textAlign: 'left',
+      textTransform: 'none',
+      textDecoration: 'none',
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      textShadow: 'none',
+      textBgColor: 'transparent',
+      animation: 'none',
+      opacity: 1, // Fuerza opacidad 1
+      rotation: 0,
+      mixBlendMode: 'normal',
+      isHidden: false,
+      isLocked: false,
+      groupId: null,
+    };
+  });
+
+  if (!documentState.value[pageIndex]) documentState.value[pageIndex] = [];
+  documentState.value[pageIndex].push(...newElements);
 };
 
   const processPdfFile = async (file: File | Blob) => {
@@ -6353,6 +6484,13 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     // 2. Cargamos el PDF
     const loadingTask = pdfjsLib.getDocument(safeUrl);
     _RAW_PDF_DOC = markRaw(await loadingTask.promise);
+
+    // ✨ MAGIA: Ajuste Dinámico de Resolución
+    // Leemos la página 1 para configurar las dimensiones globales del lienzo al formato 1:1 del PDF
+    const firstPage = await _RAW_PDF_DOC.getPage(1);
+    const firstViewport = firstPage.getViewport({ scale: 1.0 });
+    baseWidth.value = Math.round(firstViewport.width);
+    baseHeight.value = Math.round(firstViewport.height);
 
     numPages.value = _RAW_PDF_DOC.numPages;
     hasDoc.value = true;
@@ -6617,7 +6755,10 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       isHidden: false,
       isLocked: false,
       groupId: null,
-      ...(ELEMENT_DEFAULTS[type] || {}),
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+      ...JSON.parse(JSON.stringify(ELEMENT_DEFAULTS[type] || {})),
       ...overrides,
     }
   }
@@ -6658,7 +6799,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         }),
         createTemplateElement('shape', {
           width: 100,
-          height: 8,
+          height: 6,
           bgColor: '#10b981',
           x: 50,
           y: 280,
@@ -6840,6 +6981,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       await captureThumbnail();
     }
       pageNum.value = num
+      currentAnimationStep.value = 0
       selectedElementIds.value = []
       renderTrigger.value++
       activeTransition.value = 'none'
@@ -7030,6 +7172,12 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     if (playMode.value) return;
     if (wasDraggingOrPanning) return;
 
+    // Ignorar clics sobre elementos interactivos o controladores ya existentes
+    const target = e.target as HTMLElement;
+    if (target.closest('.interactive-element') || target.closest('.figma-bounding-box')) {
+      return;
+    }
+
     if (activeTool.value === 'select') {
       if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
         selectedElementIds.value = [];
@@ -7061,10 +7209,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   // Lógica compartida de creación de elemento
   const placeNewElement = (x: number, y: number) => {
+    const defaults = JSON.parse(JSON.stringify(ELEMENT_DEFAULTS[activeTool.value] || {}));
+    const elWidth = typeof defaults.width === 'number' ? defaults.width : 200;
+    // Si el height es 'auto' (como en los textos), estimamos unos 50px de altura para centrarlo visualmente
+    const elHeight = typeof defaults.height === 'number' ? defaults.height : 50;
+
     const newElement = {
       id: `el_${Date.now()}`,
-      x,
-      y,
       type: activeTool.value,
       opacity: 1,
       rotation: 0,
@@ -7072,7 +7223,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       isHidden: false,
       isLocked: false,
       groupId: null,
-      ...(ELEMENT_DEFAULTS[activeTool.value] || {}),
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+      ...defaults,
+      x: x - (elWidth / 2),
+      y: y - (elHeight / 2),
     }
 
     if (!documentState.value[pageNum.value]) documentState.value[pageNum.value] = []
@@ -7702,6 +7858,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   // 1. Lógica de estado puro (lo que antes hacía togglePlayMode)
   const setPlayModeState = async (isActive: boolean) => {
     playMode.value = isActive
+    currentAnimationStep.value = 0
     selectedElementIds.value = []
     renderTrigger.value++
 
@@ -7884,7 +8041,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"><\/script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web/src/regular/style.css" />
     <style>
-      body { margin: 0; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; -webkit-user-select: none; }
+      body { margin: 0; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; -webkit-user-select: none; --pres-bg: #fff; --pres-text: #1e293b; --pres-accent: #3b82f6; }
       #app { display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; position: relative; }
       .canvas-wrapper { position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); transform-origin: center center; transition: transform 0.2s; }
 .layer-pdf {
@@ -7969,18 +8126,39 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .mm-child-wrapper:first-child:last-child::after { display: none; }
       .mm-connector-right { position: absolute; right: -20px; top: 50%; width: 20px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
 
-      .slide-trans-fade { animation: transFade 0.6s ease-out forwards; }
-      .slide-trans-slide { animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-      .slide-trans-zoom { animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-      @keyframes transFade { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes transSlide { from { translate: 50px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
-      @keyframes transZoom { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
+      .slide-trans-dissolve-enter-active, .slide-trans-dissolve-leave-active { transition: opacity 0.6s ease; }
+      .slide-trans-dissolve-enter-from, .slide-trans-dissolve-leave-to { opacity: 0; }
+      
+      .slide-trans-slide-up-enter-active, .slide-trans-slide-up-leave-active { transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
+      .slide-trans-slide-up-enter-from { opacity: 0; transform: translateY(50px); }
+      .slide-trans-slide-up-leave-to { opacity: 0; transform: translateY(-50px); }
+      
+      .slide-trans-zoom-enter-active, .slide-trans-zoom-leave-active { transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
+      .slide-trans-zoom-enter-from { opacity: 0; transform: scale(0.95); }
+      .slide-trans-zoom-leave-to { opacity: 0; transform: scale(1.05); }
+
+      .slide-trans-push-left-enter-active, .slide-trans-push-left-leave-active { transition: transform 0.5s ease; }
+      .slide-trans-push-left-enter-from { transform: translateX(100%); }
+      .slide-trans-push-left-leave-to { transform: translateX(-100%); }
+      
+      .slide-trans-push-right-enter-active, .slide-trans-push-right-leave-active { transition: transform 0.5s ease; }
+      .slide-trans-push-right-enter-from { transform: translateX(-100%); }
+      .slide-trans-push-right-leave-to { transform: translateX(100%); }
+      
+      .slide-trans-wipe-enter-active, .slide-trans-wipe-leave-active { transition: clip-path 0.5s ease; }
+      .slide-trans-wipe-enter-from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+      .slide-trans-wipe-leave-to { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+
       .anim-fade-in { animation: animFadeIn 0.8s ease-out both; }
-      .anim-slide-in { animation: animSlideIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
+      .anim-slide-up { animation: animSlideUp 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
+      .anim-zoom-in { animation: animZoomIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
       .anim-bounce { animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
       @keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes animSlideIn { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+      @keyframes animSlideUp { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+      @keyframes animZoomIn { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
       @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
+
+      .is-waiting-animation { opacity: 0 !important; visibility: hidden; pointer-events: none; }
 
 /* PLANTILLAS FLOTANTES */
 .templates-floating-menu {
@@ -8022,14 +8200,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     <script type="text/x-template" id="app-template">
       <div class="canvas-wrapper play-mode-active" :style="{ transform: 'scale(' + zoom + ')' }">
-        <div class="canvas-shadow-box layer-engine" :class="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
+        <Transition :name="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" mode="out-in">
+        <div class="canvas-shadow-box layer-engine" :key="pageNum" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
 
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
                 v-show="!el.isHidden"
                 @click.stop="executeEvents(el, 'click')"
                 @mouseenter="executeEvents(el, 'hover')"
-                :class="el.animation && el.animation !== 'none' ? 'anim-' + el.animation : ''"
-                :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: el.animation && el.animation !== 'none' ? (index * 0.1) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">              <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
+                :class="[ (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && (el.animationOrder || 0) <= currentAnimationStep ? 'anim-' + (el.animationType || el.animation) : '', (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && (el.animationOrder || 0) > currentAnimationStep ? 'is-waiting-animation' : '' ]"
+                :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: (el.animationTrigger === 'withPrevious' || el.animationTrigger === 'afterPrevious') ? (index * 0.05) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">              <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
 
               <div v-else-if="el.type === 'mindmap'" class="el-mindmap-container" :style="{ fontFamily: el.fontFamily, '--mm-line-color': el.lineColor, '--mm-line-width': el.lineWidth + 'px' }">
                 <div class="mm-wrapper">
@@ -8247,12 +8426,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
             </div>
         </div>
+        </Transition>
       </div>
 
       <div class="play-nav-overlay" :class="{ 'is-idle': !showPlayNav }" @mouseenter="wakeUpPlayNav">
         <button @click="changePageTo(pageNum - 1)" :disabled="pageNum <= 1"><i class="ph ph-caret-left"></i></button>
         <span>{{ pageNum }} / {{ numPages }}</span>
-        <button @click="changePageTo(pageNum + 1)" :disabled="pageNum >= numPages"><i class="ph ph-caret-right"></i></button>
+        <button @click="advancePresentation"><i class="ph ph-caret-right"></i></button>
         <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.2); margin: 0 5px;"></div>
         <button @click="toggleFullscreen" title="Pantalla Completa">
           <i class="ph" :class="isFullscreen ? 'ph-corners-in' : 'ph-corners-out'"></i>
@@ -8280,6 +8460,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const renderTrigger = ref(0);
           const activeTransition = ref('none');
           const isFullscreen = ref(false);
+          const currentAnimationStep = ref(0);
+
+          const maxAnimationStep = computed(() => {
+            if (!currentPageElements.value) return 0;
+            return Math.max(0, ...currentPageElements.value.map(el => el.animationOrder || 0));
+          });
+          const advancePresentation = () => {
+            if (currentAnimationStep.value < maxAnimationStep.value) { currentAnimationStep.value++; } 
+            else if (pageNum.value < numPages.value) { changePageTo(pageNum.value + 1); }
+          };
+
           const showPlayNav = ref(true);
           let playNavTimeout = null;
           const wakeUpPlayNav = () => {
@@ -8341,6 +8532,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const changePageTo = async (num) => {
             if (num >= 1 && num <= numPages.value) {
               pageNum.value = num;
+              currentAnimationStep.value = 0;
               closeAllInteractives();
               renderTrigger.value++;
               activeTransition.value = 'none';
@@ -8426,7 +8618,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             window.addEventListener('resize', fitToScreen);
 
             document.addEventListener('keydown', (e) => {
-              if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); changePageTo(pageNum.value + 1); }
+              if(['ArrowRight', ' '].includes(e.key)) { e.preventDefault(); advancePresentation(); }
               if(e.key === 'ArrowLeft') { e.preventDefault(); changePageTo(pageNum.value - 1); }
             });
 
@@ -8439,7 +8631,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             document.addEventListener('click', (e) => {
               // Comprobamos que no se esté haciendo clic en un botón o en un elemento interactivo
               if (!e.target.closest('button') && !e.target.closest('.is-clickable')) {
-                if (pageNum.value < numPages.value) changePageTo(pageNum.value + 1);
+                advancePresentation();
               }
             });
 
@@ -8449,7 +8641,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation
           };
         }
       }).mount('#app');
