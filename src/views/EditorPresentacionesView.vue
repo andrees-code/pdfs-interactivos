@@ -57,7 +57,7 @@
 
         <div class="pro-workspace">
           <aside class="pro-sidebar left-sidebar" v-show="isLeftSidebarOpen" v-if="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>
-            <div style="padding: 10px 15px; border-bottom: 1px solid var(--border-strong);">
+            <div class="sidebar-cta">
               <button class="btn-primary w-100" @click="showTemplateModal = true">
                 <i class="ph ph-layout"></i> Explorar Plantillas
               </button>
@@ -1886,18 +1886,16 @@
               <h3>Comienza a crear</h3>
               <p>Diseña desde cero o importa un documento existente para añadirle interactividad.</p>
               <div
-                class="button-group mt-4"
-                style="display: flex; flex-direction: column; gap: 10px; align-items: center"
+                class="button-group mt-4 button-stack"
               >
                 <button class="btn-primary large-btn w-100" @click="showNewProjectModal = true">
                   <i class="ph ph-file-plus"></i> Proyecto en Blanco
                 </button>
-                <div class="divider-text" style="color: #8b949e; font-size: 0.9rem; margin: 5px 0">
+                <div class="divider-text">
                   o
                 </div>
                 <label
-                  class="btn-secondary large-btn w-100"
-                  style="margin: 0; text-align: center; display: flex"
+                  class="btn-secondary large-btn w-100 upload-label-btn"
                 >
                   <input
                     type="file"
@@ -1913,8 +1911,7 @@
 
           <div
             v-if="showNewProjectModal"
-            class="loading-overlay"
-            style="z-index: 10001; backdrop-filter: blur(5px)"
+            class="loading-overlay modal-overlay"
           >
             <div class="new-project-modal">
               <div class="modal-header">
@@ -1984,13 +1981,7 @@
                 </div>
                 <div
                   v-if="projectConfigs.template === 'custom'"
-                  class="info-box mt-2"
-                  style="
-                    font-size: 0.75rem;
-                    background: rgba(88, 166, 255, 0.1);
-                    border-left: 2px solid #58a6ff;
-                    padding: 8px;
-                  "
+                  class="info-box info-box-accent mt-2"
                 >
                   <i class="ph ph-info"></i> Diseña la Diapositiva 1. Al añadir nuevas diapositivas,
                   se duplicará su diseño y elementos actuando como maestro.
@@ -2072,32 +2063,32 @@
 
             <div class="panel-content" v-else-if="selectedElement">
               <!-- --- MOTOR DE EVENTOS (EDA) --- -->
-              <div v-if="selectedElement.type !== 'calendar'" v-show="activeInspectorTab === 'interactivity'" class="prop-section" style="border: 1px solid #4a90e2; border-radius: 8px; background: rgba(74, 144, 226, 0.05); padding: 12px; margin-bottom: 16px;">
-                <h4 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                  <span style="font-weight: 600; color: #4a90e2; display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> Interactividad</span>
-                  <button class="tool-btn" style="background: #4a90e2; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" @click="selectedElement.events = selectedElement.events || []; selectedElement.events.push({ id: 'ev_' + Date.now(), trigger: 'click', action: 'show', targetId: '' })">
+              <div v-if="selectedElement.type !== 'calendar'" v-show="activeInspectorTab === 'interactivity'" class="prop-section interactivity-panel">
+                <h4 class="interactivity-panel-header">
+                  <span class="interactivity-title"><i class="ph ph-lightning"></i> Interactividad</span>
+                  <button class="tool-btn event-add-btn" @click="selectedElement.events = selectedElement.events || []; selectedElement.events.push({ id: 'ev_' + Date.now(), trigger: 'click', action: 'show', targetId: '' })">
                     <i class="ph ph-plus"></i></button>
                 </h4>
 
-                <div v-if="!selectedElement.events || selectedElement.events.length === 0" style="text-align: center; color: #888; font-size: 0.85rem; padding: 10px;">
+                <div v-if="!selectedElement.events || selectedElement.events.length === 0" class="event-empty-state">
                   No hay eventos configurados.
                 </div>
 
-                <div v-for="(ev, index) in selectedElement.events || []" :key="ev.id" style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <div style="flex: 1;">
-                      <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Accionador (Trigger)</label>
-                      <select v-model="ev.trigger" class="pro-input" style="width: 100%;">
+                <div v-for="(ev, index) in selectedElement.events || []" :key="ev.id" class="event-card">
+                  <div class="event-row">
+                    <div class="event-row-main">
+                      <label class="event-field-label">Accionador (Trigger)</label>
+                      <select v-model="ev.trigger" class="pro-input">
                         <option value="click">Al hacer Clic</option>
                         <option value="hover">Al pasar Ratón</option>
                       </select>
                     </div>
-                    <button class="btn-icon-danger" style="margin-top: 18px;" @click="selectedElement.events.splice(index, 1)"><i class="ph ph-trash"></i></button>
+                    <button class="btn-icon-danger event-delete-btn" @click="selectedElement.events.splice(index, 1)"><i class="ph ph-trash"></i></button>
                   </div>
 
-                  <div style="margin-bottom: 8px;" v-if="['checkbox', 'accordion', 'list'].includes(selectedElement.type)">
-                    <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Acciona desde sub-elemento:</label>
-                    <select v-model="ev.sourceSubId" class="pro-input" style="width: 100%;">
+                  <div class="event-stack" v-if="['checkbox', 'accordion', 'list'].includes(selectedElement.type)">
+                    <label class="event-field-label">Acciona desde sub-elemento:</label>
+                    <select v-model="ev.sourceSubId" class="pro-input">
                       <option :value="undefined">Todo el componente</option>
                       <option v-for="(item, iIdx) in selectedElement.items" :key="iIdx" :value="iIdx">
                          Ítem {{ iIdx + 1 }}: "{{ item.text || item.title || item }}"
@@ -2105,9 +2096,9 @@
                     </select>
                   </div>
 
-                  <div style="margin-bottom: 8px;">
-                    <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Acción</label>
-                    <select v-model="ev.action" class="pro-input" style="width: 100%;">
+                  <div class="event-stack">
+                    <label class="event-field-label">Acción</label>
+                    <select v-model="ev.action" class="pro-input">
                       <option value="show">Mostrar elemento</option>
                       <option value="hide">Ocultar elemento</option>
                       <option value="toggle">Alternar visibilidad</option>
@@ -2115,17 +2106,17 @@
                     </select>
                   </div>
 
-                  <div>
-                    <label style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; display: block;">Objetivo (Target)</label>
-                    <input v-if="ev.action === 'goToPage'" type="number" v-model="ev.targetId" class="pro-input" style="width: 100%;" placeholder="Nº de Página" min="1" :max="numPages" />
-                    <div v-else style="display: flex; gap: 4px;">
-                      <select v-model="ev.targetId" class="pro-input" style="flex: 1;">
+                  <div class="event-stack">
+                    <label class="event-field-label">Objetivo (Target)</label>
+                    <input v-if="ev.action === 'goToPage'" type="number" v-model="ev.targetId" class="pro-input" placeholder="Nº de Página" min="1" :max="numPages" />
+                    <div v-else class="event-target-row">
+                      <select v-model="ev.targetId" class="pro-input event-target-select">
                         <option disabled value="">-- Seleccionar --</option>
                         <option v-for="targetEl in currentPageElements" :key="targetEl.id" :value="targetEl.id" v-show="targetEl.id !== selectedElement.id">
                           {{ getElementDisplayName(targetEl) }}
                         </option>
                       </select>
-                      <button class="tool-btn" :class="{ 'is-active': isSelectingTargetForEvent === ev.id }" @click="isSelectingTargetForEvent = isSelectingTargetForEvent === ev.id ? null : ev.id" :title="isSelectingTargetForEvent === ev.id ? 'Seleccionando (Haz clic en el lienzo)' : 'Seleccionar objetivo visualmente'" style="min-width: 32px; padding: 0 8px; flex-shrink: 0; background: var(--bg-panel); border: 1px solid var(--border-color);">
+                      <button class="tool-btn event-target-btn" :class="{ 'is-active': isSelectingTargetForEvent === ev.id }" @click="isSelectingTargetForEvent = isSelectingTargetForEvent === ev.id ? null : ev.id" :title="isSelectingTargetForEvent === ev.id ? 'Seleccionando (Haz clic en el lienzo)' : 'Seleccionar objetivo visualmente'">
                         <i class="ph ph-crosshair"></i>
                       </button>
                     </div>
@@ -2296,8 +2287,8 @@
                   </div>
                 </div>
 
-                <div class="prop-section" style="border-color: #58a6ff" v-if="activeMapNodeId">
-                  <div class="section-title" style="color: #58a6ff">
+                <div class="prop-section map-node-panel" v-if="activeMapNodeId">
+                  <div class="section-title map-node-title">
                     <i class="ph ph-node"></i> Editar Nodo Seleccionado
                   </div>
                   <div class="prop-group">
@@ -2372,9 +2363,9 @@
                     <i class="ph ph-trash"></i> Eliminar Nodo
                   </button>
                 </div>
-                <div class="prop-section empty-state" v-else style="padding: 20px 10px">
-                  <i class="ph ph-hand-pointing" style="font-size: 2rem"></i>
-                  <p style="margin-top: 10px; font-size: 0.8rem">
+                <div class="prop-section empty-state map-empty-state" v-else>
+                  <i class="ph ph-hand-pointing map-empty-icon"></i>
+                  <p class="map-empty-copy">
                     Haz clic en un nodo del mapa para editarlo.
                   </p>
                 </div>
@@ -2403,7 +2394,7 @@
 
                 <div class="prop-section">
                   <div class="section-title">Pines</div>
-                  <div v-for="marker in selectedElement.markers" :key="marker.id" class="prop-section" style="padding: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; border-radius: 10px;">
+                  <div v-for="marker in selectedElement.markers" :key="marker.id" class="prop-section marker-card">
                     <div class="prop-row">
                       <div class="prop-group half">
                         <label>Etiqueta</label>
@@ -2499,14 +2490,14 @@
                 <div class="prop-section" v-show="activeInspectorTab === 'data'">
                   <div class="section-title">Agenda y Eventos</div>
 
-                  <div v-if="!selectedElement.events || selectedElement.events.length === 0" style="text-align: center; color: #888; font-size: 0.85rem; padding: 10px;">
+                  <div v-if="!selectedElement.events || selectedElement.events.length === 0" class="event-empty-state">
                     No hay eventos de agenda.
                   </div>
 
                   <div
                     v-for="(ev, index) in selectedElement.events || []"
                     :key="ev.id || index"
-                    style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);"
+                    class="event-card"
                   >
                     <div class="prop-group">
                       <label>Tipo de Evento</label>
@@ -2536,10 +2527,9 @@
                       <label>Detalle</label>
                       <textarea
                         v-model="ev.content"
-                        class="pro-input"
+                        class="pro-input resizable-input"
                         rows="3"
                         placeholder="Agenda o notas para este día"
-                        style="resize: vertical;"
                       ></textarea>
                     </div>
 
@@ -2853,13 +2843,12 @@
                     :key="idx"
                     class="accordion-edit-item"
                   >
-                    <input type="checkbox" v-model="item.checked" style="accent-color: #58a6ff" />
+                    <input type="checkbox" v-model="item.checked" class="themed-checkbox" />
                     <input
                       type="text"
                       v-model="item.text"
-                      class="pro-input mb-0"
+                      class="pro-input mb-0 compact-input"
                       placeholder="Tarea..."
-                      style="padding: 4px 8px"
                     />
                     <button class="btn-text-danger" @click="selectedElement.items.splice(idx, 1)">
                       <i class="ph ph-x"></i>
@@ -4133,7 +4122,7 @@
                   <div class="prop-group">
                     <label>Posición del Deslizador (%)</label>
                     <input type="range" min="0" max="100" v-model.number="selectedElement.sliderPosition" class="pro-input" />
-                    <div style="font-size: 0.85rem; margin-top: 5px; color: #999;">{{ selectedElement.sliderPosition }}%</div>
+                    <div class="metric-value">{{ selectedElement.sliderPosition }}%</div>
                   </div>
                   <div class="prop-row">
                     <div class="prop-group half">
@@ -4168,7 +4157,7 @@
                   <div class="prop-group">
                     <label>Velocidad (1-100)</label>
                     <input type="range" min="1" max="100" v-model.number="selectedElement.speed" class="pro-input" />
-                    <div style="font-size: 0.85rem; margin-top: 5px; color: #999;">{{ selectedElement.speed }}/100</div>
+                    <div class="metric-value">{{ selectedElement.speed }}/100</div>
                   </div>
                   <div class="prop-group">
                     <label>Color Texto</label>
@@ -4217,7 +4206,7 @@
                   <div class="prop-group">
                     <label>Velocidad de Escritura (ms)</label>
                     <input type="range" min="10" max="500" step="10" v-model.number="selectedElement.typingSpeed" class="pro-input" />
-                    <div style="font-size: 0.85rem; margin-top: 5px; color: #999;">{{ selectedElement.typingSpeed }}ms por carácter</div>
+                    <div class="metric-value">{{ selectedElement.typingSpeed }}ms por carácter</div>
                   </div>
                   <div class="prop-group">
                     <label>Color Texto</label>
@@ -4258,13 +4247,10 @@
             </div>
 
             <div class="panel-content empty-state" v-else>
-              <div
-                class="empty-icon-wrapper"
-                style="margin-bottom: 20px; font-size: 2rem; color: #8b949e"
-              >
+              <div class="empty-icon-wrapper empty-panel-icon">
                 <i class="ph ph-monitor"></i>
               </div>
-              <p class="section-subtitle" style="border-bottom: none; text-align: center">
+              <p class="section-subtitle section-subtitle-center">
                 Diapositiva {{ pageNum }}
               </p>
 
@@ -4312,13 +4298,12 @@
               </div>
 
               <div
-                class="info-box mt-4 text-left"
-                style="background: rgba(46, 160, 67, 0.1); border-left-color: #2ea043"
+                class="info-box mt-4 text-left status-card"
                 v-if="docType === 'pptx'"
               >
-                <span style="display: flex; gap: 8px; align-items: flex-start">
-                  <i class="ph ph-check-circle" style="color: #2ea043; font-size: 1.2rem"></i>
-                  <small style="color: #c9d1d9"
+                <span class="status-card-row">
+                  <i class="ph ph-check-circle status-card-icon"></i>
+                  <small class="status-card-copy"
                     >PPTX convertido a alta calidad mediante API externa. Todo el contenido es
                     nativo.</small
                   >
@@ -4331,22 +4316,21 @@
 
       <div
         v-if="showTemplateModal"
-        class="loading-overlay"
-        style="z-index: 10005; backdrop-filter: blur(8px);"
+        class="loading-overlay modal-overlay template-gallery-overlay"
         @click.self="showTemplateModal = false"
       >
-        <div class="new-project-modal" style="width: 600px; max-width: 90vw;">
-          <div class="modal-header" style="margin-bottom: 20px;">
+        <div class="new-project-modal template-gallery-modal">
+          <div class="modal-header template-gallery-header">
             <h3><i class="ph ph-layout text-accent"></i> Galería de Plantillas</h3>
             <button class="btn-icon-danger" @click="showTemplateModal = false">
               <i class="ph ph-x"></i>
             </button>
           </div>
 
-          <div class="tsp-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+          <div class="tsp-grid template-gallery-grid">
             <div class="tsp-card" :class="{ 'is-active': projectConfigs.template === 'blank' }" @click="projectConfigs.template = 'blank'; isCustomTemplateMode = false; showTemplateModal = false; addNewSlide()">
               <div class="tsp-preview tsp-preview-blank">
-                <div class="tsp-preview-line" style="width:60%; height:8px; background:#ddd; border-radius:3px;"></div>
+                <div class="tsp-preview-line tsp-preview-line-blank"></div>
               </div>
               <span class="tsp-name mt-1">En blanco</span>
             </div>
@@ -4355,7 +4339,7 @@
               <div class="tsp-preview tsp-preview-modern">
                 <div class="tsp-preview-header-bar"></div>
                 <div class="tsp-preview-content">
-                  <div class="tsp-preview-line" style="width:70%; height:7px; background:rgba(255,255,255,0.9); border-radius:3px;"></div>
+                  <div class="tsp-preview-line tsp-preview-line-modern"></div>
                 </div>
               </div>
               <span class="tsp-name mt-1">Moderna</span>
@@ -4363,7 +4347,7 @@
 
             <div class="tsp-card" :class="{ 'is-active': projectConfigs.template === 'dark' }" @click="projectConfigs.template = 'dark'; isCustomTemplateMode = false; showTemplateModal = false; addNewSlide()">
               <div class="tsp-preview tsp-preview-dark">
-                <div class="tsp-preview-line" style="width:75%; height:8px; background:rgba(255,255,255,0.9); border-radius:3px;"></div>
+                <div class="tsp-preview-line tsp-preview-line-dark"></div>
               </div>
               <span class="tsp-name mt-1">Oscura</span>
             </div>
@@ -4373,10 +4357,9 @@
 
       <div
           v-if="showCropperModal"
-          class="loading-overlay"
-          style="z-index: 10002; backdrop-filter: blur(8px);"
+          class="loading-overlay modal-overlay cropper-modal-overlay"
         >
-          <div class="new-project-modal" style="width: 800px; max-width: 95vw; height: 80vh; display: flex; flex-direction: column;">
+          <div class="new-project-modal cropper-modal">
             <div class="modal-header">
               <h3>Recortar y Editar Imagen</h3>
               <button class="btn-icon-danger" @click="closeCropper">
@@ -4384,17 +4367,17 @@
               </button>
             </div>
 
-            <div style="flex: 1; min-height: 0; background: #010409; margin-top: 15px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <div class="cropper-stage">
               <img
                 ref="cropperImgRef"
                 :src="selectedElement?.src"
-                style="max-width: 100%; max-height: 100%; display: block;"
+                class="cropper-stage-image"
                 crossorigin="anonymous"
               />
             </div>
 
-            <div class="modal-actions mt-4 pt-4" style="justify-content: space-between;">
-              <div style="display: flex; gap: 8px;">
+            <div class="modal-actions modal-actions-split mt-4 pt-4">
+              <div class="modal-inline-actions">
                 <button class="btn-secondary" @click="rotateImage(-90)" title="Rotar Izquierda">
                   <i class="ph ph-arrow-counter-clockwise"></i>
                 </button>
@@ -4478,9 +4461,9 @@ const advancePresentation = () => {
 // --- NUEVO: MOTOR DE TEMAS (VARIABLES CSS) ---
 const themeVariables = computed(() => {
   const t = projectConfigs.value.template || 'blank';
-  if (t === 'modern') return { '--pres-bg': '#f8fafc', '--pres-text': '#334155', '--pres-accent': '#2563eb' };
-  if (t === 'dark') return { '--pres-bg': '#0d1117', '--pres-text': '#c9d1d9', '--pres-accent': '#58a6ff' };
-  return { '--pres-bg': '#ffffff', '--pres-text': '#1e293b', '--pres-accent': '#3b82f6' };
+  if (t === 'modern') return { '--pres-bg': '#f8fafc', '--pres-text': '#1e293b', '--pres-accent': 'var(--accent-primary)' };
+  if (t === 'dark') return { '--pres-bg': '#0d1117', '--pres-text': '#f5f7fb', '--pres-accent': 'var(--accent-primary)' };
+  return { '--pres-bg': '#ffffff', '--pres-text': '#1e293b', '--pres-accent': 'var(--accent-primary)' };
 });
 
 // --- NUEVO: ESTADO PARA LAS MINIATURAS GENERADAS ---
@@ -9860,7 +9843,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     position: fixed;
     top: 0;
     left: 0;
-    background-color: var(--bg-base);
+    background-color: var(--surface-base);
     color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
@@ -9871,18 +9854,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(13, 17, 23, 0.9);
+    background: var(--overlay-backdrop);
     z-index: 9999;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--text-primary);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .modal-overlay {
+    z-index: 10001;
   }
   .spinner {
     width: 50px;
     height: 50px;
-    border: 5px solid rgba(88, 166, 255, 0.3);
+    border: 5px solid var(--surface-soft);
     border-top-color: var(--accent-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
@@ -9899,11 +9887,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: space-between;
     align-items: center;
     height: 48px;
-    background-color: rgba(17, 17, 19, 0.7);
-    border-bottom: 1px solid var(--border-strong);
+    background-color: var(--surface-panel);
+    border-bottom: 1px solid var(--border-subtle);
     padding: 0 16px;
     flex-shrink: 0;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-sm);
     z-index: 10;
   }
   .header-left,
@@ -9951,18 +9939,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .menu-item.is-loading {
     background: var(--accent-primary);
-    color: var(--bg-base);
+    color: var(--text-primary);
     font-weight: bold;
     border-color: var(--accent-primary);
   }
   .btn-export {
-    background: var(--success);
-    border-color: var(--success);
-    color: white;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
   }
   .btn-export:hover:not(:disabled) {
-    background: var(--success);
-    border-color: var(--success);
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
   }
   .zoom-controls {
     display: flex;
@@ -9989,8 +9977,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: var(--success);
-    color: white;
+    background: var(--accent-primary);
+    color: var(--text-primary);
     border: none;
     padding: 6px 12px;
     border-radius: 6px;
@@ -10000,34 +9988,35 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     transition: all 0.2s;
   }
   .btn-play:hover {
-    background: #3fb950;
+    background: var(--accent-primary);
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(46, 160, 67, 0.4);
+    box-shadow: var(--ring-accent);
   }
   .btn-play.is-active {
-    background: #da3633;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-strong);
   }
   .btn-play.is-active:hover {
     background: var(--danger-hover);
-    box-shadow: 0 4px 10px rgba(218, 54, 51, 0.4);
+    box-shadow: var(--ring-accent);
   }
   .play-nav-overlay {
     position: fixed;
     bottom: 25px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(22, 27, 34, 0.9);
+    background: var(--surface-elevated);
     backdrop-filter: blur(10px);
     padding: 8px 16px;
     border-radius: 30px;
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border-subtle);
     display: flex;
     gap: 15px;
     z-index: 10000;
-    color: white;
+    color: var(--text-primary);
     align-items: center;
     font-weight: 600;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-md);
     transition: opacity 0.4s ease, transform 0.4s ease;
   }
   .play-nav-overlay button {
@@ -10036,8 +10025,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: center;
     width: 28px;
     height: 28px;
-    background: var(--border-strong);
-    color: white;
+    background: var(--surface-soft);
+    color: var(--text-primary);
     border: none;
     border-radius: 50%;
     cursor: pointer;
@@ -10073,7 +10062,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     left: 0;
     width: 100%;
     height: 100%;
-    border: 1.5px solid var(--accent-primary);
+    border: 1.5px solid var(--selection-blue);
     pointer-events: none; /* Deja pasar los clicks al drag central */
     z-index: 100;
     box-sizing: border-box;
@@ -10084,12 +10073,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     position: absolute;
     width: 10px;
     height: 10px;
-    background: #ffffff;
-    border: 1.5px solid var(--accent-primary);
+    background: var(--text-primary);
+    border: 1.5px solid var(--selection-blue);
     pointer-events: auto;
     box-sizing: border-box;
     z-index: 102;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .resize-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
   .resize-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
@@ -10151,7 +10139,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     flex: 1;
     overflow: hidden;
     min-width: 0;
-    background-color: #010409;
+    background-color: var(--surface-base);
     position: relative;
     transition: all 0.3s ease;
   }
@@ -10161,11 +10149,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: center;
     gap: 12px;
     padding: 10px 20px;
-    background: rgba(22, 27, 34, 0.85) !important;
+    background: var(--surface-elevated) !important;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--glass-border) !important;
-    border-radius: 0 0 16px 16px;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    border-radius: 0 0 20px 20px;
     width: 100%;
     max-width: 1100px;
     margin: 0 auto;
@@ -10178,14 +10166,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 8px 14px;
     transition: background 0.2s;
   }
   .toolbar-category:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-soft);
   }
   .category-label {
     font-size: 0.65rem;
@@ -10223,14 +10211,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     color: var(--text-primary);
   }
   .tool-btn.active {
-    background: rgba(88, 166, 255, 0.15);
+    background: var(--surface-soft-strong);
     color: var(--accent-primary);
   }
 
   /* ÁREA DEL LIENZO */
   .pro-canvas-area {
-  background-color: var(--bg-base);
-  background-image: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 60%);
+  background-color: var(--surface-base);
 
     flex: 1;
     position: relative;
@@ -10239,8 +10226,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: center;
     align-items: center;
     cursor: grab !important;
-    background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-image: radial-gradient(var(--canvas-dot) 0.8px, transparent 0.8px);
+    background-size: 24px 24px;
   }
 
   .pro-canvas-area.is-panning {
@@ -10257,28 +10244,25 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .pro-sidebar {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: rgba(17, 17, 19, 0.65) !important;
-  border-right: 1px solid var(--glass-border) !important;
-  box-shadow: 4px 0 24px rgba(0,0,0,0.3) !important;
+  background: var(--surface-panel) !important;
+  box-shadow: var(--shadow-panel-left) !important;
   z-index: 40;
     width: 240px; /* Reducido de 280px para dar más espacio a la diapositiva */
-    background-color: rgba(17, 17, 19, 0.7);
-    border-right: 1px solid var(--border-strong);
+    background-color: var(--surface-panel);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow-y: auto;
+    overflow: hidden;
   }
   .right-sidebar {
-    border-right: none;
-    border-left: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-panel-right) !important;
     width: 280px; /* Reducido de 320px para equilibrar paneles */
   }
   .panel-header {
     padding: 12px 15px; /* Padding reducido */
     font-weight: 600;
     font-size: 0.8rem;
-    border-bottom: 1px solid var(--border-strong);
+    border-bottom: 1px solid var(--border-subtle);
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--text-secondary);
@@ -10295,8 +10279,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .sidebar-footer {
     padding: 12px 15px;
-    border-top: 1px solid var(--border-strong);
-    background: rgba(17, 17, 19, 0.7);
+    border-top: 1px solid var(--border-subtle);
+    background: var(--surface-panel);
+  }
+  .sidebar-cta {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   /* THUMBNAILS Y DRAG & DROP DE CAPAS */
@@ -10313,16 +10301,16 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     align-items: flex-start;
     gap: 8px;
     cursor: pointer;
-    border-radius: 6px;
-    padding: 6px;
-    transition: background 0.2s;
+    border-radius: 12px;
+    padding: 8px;
+    transition: background 0.2s, box-shadow 0.2s;
   }
   .thumb-item:hover {
-    background: var(--bg-surface-active);
+    background: var(--surface-soft);
   }
   .thumb-item.is-active {
-    background: rgba(88, 166, 255, 0.1);
-    border: 1px solid var(--accent-primary);
+    background: var(--surface-soft-strong);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
   }
   .thumb-num {
     font-size: 0.8rem;
@@ -10348,8 +10336,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     width: 100%;
     aspect-ratio: 16 / 9;
-    border-radius: 4px;
-    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
     background-size: cover;
     background-position: center;
     position: relative;
@@ -10361,7 +10349,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-backdrop);
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -10369,7 +10357,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     gap: 6px;
     opacity: 0;
     transition: opacity 0.2s;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
   }
   .thumb-card:hover .thumb-actions {
     opacity: 1;
@@ -10379,8 +10367,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     height: 26px;
     border-radius: 50%;
     border: none;
-    background: var(--border-strong);
-    color: white;
+    background: var(--surface-elevated);
+    color: var(--text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -10431,7 +10419,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .tree-child.is-selected {
     background: var(--accent-primary);
-    color: #fff;
+    color: var(--text-primary);
     font-weight: 500;
   }
   .drag-handle {
@@ -10441,7 +10429,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .drag-handle:hover {
     opacity: 1;
-    color: #fff;
+    color: var(--text-primary);
   }
   .tree-child.drag-over {
     border-top: 2px solid var(--accent-primary);
@@ -10468,11 +10456,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     transition: 0.2s;
   }
   .layer-action-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background: var(--surface-soft);
+    color: var(--text-primary);
   }
   .layer-action-btn.is-active {
-    color: #f59e0b;
+    color: var(--accent-primary);
   }
 
   .panel-content {
@@ -10501,7 +10489,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     margin-bottom: 15px;
   }
   .badge-type {
-    background: rgba(88, 166, 255, 0.15);
+    background: var(--surface-soft);
     color: var(--accent-primary);
     padding: 4px 10px;
     border-radius: 20px;
@@ -10513,16 +10501,16 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     letter-spacing: 0.5px;
   }
   .prop-section {
-    background: var(--bg-base);
-    border: 1px solid var(--border-strong);
-    border-radius: 6px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
     padding: 12px; /* Reducido de 15px */
     margin-bottom: 12px; /* Reducido de 15px */
   }
   .section-title {
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 10px;
@@ -10542,6 +10530,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     color: var(--text-secondary);
     margin-bottom: 4px;
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
   .prop-row {
     display: flex;
@@ -10557,20 +10547,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .pro-input {
     width: 100%;
-    background: rgba(17, 17, 19, 0.7);
-    border: 1px solid var(--border-strong);
+    background: var(--surface-soft-contrast);
+    border: 1px solid transparent;
     color: var(--text-primary);
-    padding: 6px 8px; /* Reducido */
-    border-radius: 4px;
+    padding: 9px 10px;
+    border-radius: 10px;
     box-sizing: border-box;
     font-family: inherit;
     font-size: 0.8rem;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .pro-input:hover {
+    border-color: var(--border-subtle);
   }
   .pro-input:focus {
     outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+    border-color: var(--border-strong);
+    box-shadow: var(--ring-accent);
   }
   .pro-input:disabled {
     opacity: 0.5;
@@ -10580,15 +10573,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(17, 17, 19, 0.7);
-    border: 1px solid var(--border-strong);
-    border-radius: 4px;
+    background: var(--surface-soft-contrast);
+    border: 1px solid transparent;
+    border-radius: 10px;
     padding: 2px 8px;
   }
   /* Elemento fuera del lienzo — visible en editor, oculto en presentación */
   .interactive-element.is-outside-canvas {
     opacity: 0.6;
-    outline: 1.5px dashed #f59e0b !important;
+    outline: 1.5px dashed var(--accent-primary) !important;
     outline-offset: 2px;
   }
   .pro-color-picker {
@@ -10624,13 +10617,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     text-align: right;
   }
   .info-box {
-    background: rgba(88, 166, 255, 0.1);
+    background: var(--surface-soft);
     border-left: 3px solid var(--accent-primary);
     padding: 10px;
     border-radius: 4px;
     color: var(--text-primary);
     line-height: 1.4;
     font-size: 0.8rem;
+  }
+  .info-box-accent {
+    font-size: 0.75rem;
+    padding: 8px 10px;
   }
   /* MIS PLANTILLAS */
   .tsp-my-templates-wrapper {
@@ -10712,8 +10709,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .align-buttons {
     display: flex;
     gap: 4px;
-    background: rgba(17, 17, 19, 0.7);
-    border: 1px solid var(--border-strong);
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
     padding: 3px;
     border-radius: 4px;
   }
@@ -10729,8 +10726,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
-    background: rgba(17, 17, 19, 0.7);
-    border: 1px solid var(--border-strong);
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
     padding: 6px;
     border-radius: 4px;
   }
@@ -10754,37 +10751,38 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     transition: all 0.2s;
   }
   .btn-primary {
-    background: var(--success);
-    color: #fff;
-    border-color: rgba(240, 246, 252, 0.1);
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border-color: transparent;
   }
   .btn-primary:hover {
-    background: var(--success);
+    background: var(--accent-primary);
+    box-shadow: var(--ring-accent);
   }
   .btn-secondary {
-    background: var(--bg-surface-active);
+    background: var(--surface-soft-contrast);
     color: var(--text-primary);
-    border-color: var(--border-strong);
+    border-color: var(--border-subtle);
   }
   .btn-secondary:hover {
-    background: var(--border-strong);
+    background: var(--surface-soft);
   }
   .btn-ghost {
     background: transparent;
     color: var(--text-primary);
-    border-color: dashed var(--border-strong);
+    border-color: var(--border-subtle);
   }
   .btn-ghost:hover {
-    background: var(--bg-surface-active);
-    color: #fff;
+    background: var(--surface-soft);
+    color: var(--text-primary);
   }
   .btn-danger {
-    background: rgba(218, 54, 51, 0.1);
-    color: var(--danger);
-    border-color: rgba(218, 54, 51, 0.4);
+    background: var(--surface-soft);
+    color: var(--accent-primary);
+    border-color: var(--border-strong);
   }
   .btn-danger:hover {
-    background: rgba(218, 54, 51, 0.2);
+    background: var(--surface-soft-strong);
   }
   .btn-icon-danger {
     background: transparent;
@@ -10793,8 +10791,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     border-radius: 4px;
   }
   .btn-icon-danger:hover {
-    background: rgba(218, 54, 51, 0.1);
-    color: var(--danger);
+    background: var(--surface-soft);
+    color: var(--accent-primary);
   }
   .btn-text-danger {
     background: transparent;
@@ -10844,13 +10842,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     position: relative;
     transform-origin: center center;
     transition: transform 0.1s ease-out;
-    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
+    box-shadow: var(--shadow-lg);
     user-select: none;
     -webkit-user-select: none;
   }
   .canvas-wrapper.play-mode-active {
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.9);
+    box-shadow: var(--shadow-lg);
   }
   .layer-engine {
   box-shadow: var(--shadow-lg) !important;
@@ -10882,7 +10880,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     color: var(--text-secondary);
     pointer-events: none;
     z-index: 0;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-backdrop);
   }
   .interactive-element {
       transition: opacity 0.2s;
@@ -10904,7 +10902,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .interactive-element.is-hidden-editor {
     opacity: 0.3 !important;
-    border: 1px dashed #f59e0b;
+    border: 1px dashed var(--accent-primary);
   }
   .resize-handle {
     position: absolute;
@@ -10912,12 +10910,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     right: -5px;
     width: 10px;
     height: 10px;
-    background: #fff;
-    border: 2px solid var(--accent-primary);
+    background: var(--text-primary);
+    border: 1.5px solid var(--selection-blue);
     border-radius: 50%;
     cursor: nwse-resize;
     z-index: 100;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
 
 
@@ -10930,7 +10927,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .el-image-container, .el-video-container, .el-iframe-container { width: 100%; height: 100%; position: relative; }
   .el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
   .placeholder-box {
-    width: 100%; height: 100%; background: rgba(33, 38, 45, 0.8); border: 1px dashed var(--border-strong);
+    width: 100%; height: 100%; background: var(--surface-elevated); border: 1px dashed var(--border-subtle);
     display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
     font-size: 0.8rem; color: var(--text-secondary); text-align: center; padding: 10px; box-sizing: border-box;
   }
@@ -10938,7 +10935,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .el-3d { width: 100%; height: 100%; position: relative; }
   .el-draw-board { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; }
   .draw-drag-handle {
-    position: absolute; top: -25px; left: 0; padding: 3px 10px; background: var(--accent-primary); color: #000;
+    position: absolute; top: -25px; left: 0; padding: 3px 10px; background: var(--accent-primary); color: var(--text-primary);
     display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: bold;
     cursor: move; border-radius: 3px; z-index: 10;
   }
@@ -10965,19 +10962,19 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
   .hotspot-pulse { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; animation: pulse 2s infinite; }
   @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.9; } 70% { transform: scale(1.3); opacity: 0; } 100% { transform: scale(0.9); opacity: 0; } }
-  .interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: #fff; color: rgba(17, 17, 19, 0.7); padding: 20px; border-radius: 8px; width: 300px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); z-index: 9999; cursor: default; user-select: text; -webkit-user-select: text; }
-  .modal-title { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px solid #f0f6fc; padding-bottom: 6px; font-weight: 800; }
+  .interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: var(--surface-elevated); color: var(--text-primary); padding: 20px; border-radius: 12px; width: 300px; box-shadow: var(--shadow-lg); z-index: 9999; cursor: default; user-select: text; -webkit-user-select: text; border: 1px solid var(--border-subtle); }
+  .modal-title { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; font-weight: 800; }
 
   .el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 15px; box-sizing: border-box; transition: 0.2s; }
   .el-link:hover { filter: brightness(1.1); }
   .el-link:active { transform: scale(0.97); }
 
-  .el-accordion { width: 100%; height: 100%; overflow-y: auto; border-radius: 6px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); }
-  .accordion-item { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+  .el-accordion { width: 100%; height: 100%; overflow-y: auto; border-radius: 12px; box-shadow: var(--shadow-sm); }
+  .accordion-item { border-bottom: 1px solid var(--border-subtle); }
   .accordion-item:last-child { border-bottom: none; }
-  .accordion-header { padding: 10px 14px; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; background: rgba(0, 0, 0, 0.3); transition: 0.2s; }
-  .accordion-header:hover { background: rgba(0, 0, 0, 0.4); }
-  .accordion-content { padding: 12px 14px; font-size: 0.85rem; line-height: 1.5; background: rgba(0, 0, 0, 0.1); user-select: text; }
+  .accordion-header { padding: 10px 14px; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; background: var(--surface-soft); transition: 0.2s; }
+  .accordion-header:hover { background: var(--surface-soft-strong); }
+  .accordion-content { padding: 12px 14px; font-size: 0.85rem; line-height: 1.5; background: var(--surface-soft-contrast); user-select: text; }
   .accordion-content.is-preview { opacity: 0.5; }
 
   .accordion-edit-item { background: rgba(255, 255, 255, 0.02); padding: 8px; border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border-strong); }
@@ -10997,22 +10994,24 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .audio-floating:hover { transform: translateY(-4px); }
   .audio-floating:active { transform: translateY(0); }
   .audio-minimal.is-playing, .audio-floating.is-playing { animation: pulse-audio 1.5s infinite alternate; }
-  @keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.4); } to { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); } }
+  @keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(var(--accent-rgb), 0.35); } to { box-shadow: 0 0 0 15px rgba(var(--accent-rgb), 0); } }
 
   /* ESTADO VACÍO */
-  .empty-workspace { display: flex; align-items: center; justify-content: center; background-color: #010409; }
-  .empty-box { background: var(--bg-base); border: 1px solid var(--border-strong); padding: 50px; border-radius: 12px; text-align: center; max-width: 450px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
+  .empty-workspace { display: flex; align-items: center; justify-content: center; background-color: var(--surface-base); }
+  .empty-box { background: var(--surface-elevated); border: 1px solid var(--border-subtle); padding: 50px; border-radius: 16px; text-align: center; max-width: 450px; box-shadow: var(--shadow-lg); }
   .empty-box h3 { margin: 0 0 12px 0; font-size: 1.3rem; font-weight: 800; }
   .empty-box p { color: var(--text-secondary); font-size: 0.9rem; margin: 0; line-height: 1.5; }
 
   /* MODAL DE NUEVO PROYECTO */
-  .new-project-modal { background: var(--bg-base); border: 1px solid var(--border-strong); border-radius: 10px; padding: 25px; width: 400px; max-width: 90vw; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-  .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-strong); padding-bottom: 12px; }
+  .new-project-modal { background: var(--surface-elevated); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 25px; width: 400px; max-width: 90vw; box-shadow: var(--shadow-lg); }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; }
   .modal-header h3 { margin: 0; color: var(--text-primary); font-size: 1.1rem; }
+  .modal-actions-split { justify-content: space-between; }
+  .modal-inline-actions { display: flex; gap: 8px; }
   .template-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-  .template-card { background: rgba(17, 17, 19, 0.7); border: 1px solid var(--border-strong); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s; }
-  .template-card:hover { border-color: var(--accent-primary); background: rgba(88, 166, 255, 0.05); }
-  .template-card.is-active { border-color: var(--accent-primary); background: rgba(88, 166, 255, 0.1); box-shadow: 0 0 0 1px var(--accent-primary); }
+  .template-card { background: var(--surface-panel); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s; }
+  .template-card:hover { border-color: var(--border-strong); background: var(--surface-soft); }
+  .template-card.is-active { border-color: var(--border-strong); background: var(--surface-soft-strong); box-shadow: inset 0 0 0 1px var(--accent-primary); }
   .template-card i { font-size: 1.8rem; color: var(--text-secondary); }
   .template-card.is-active i { color: var(--accent-primary); }
   .template-card span { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
@@ -11022,8 +11021,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .el-mindmap-container { width: 100%; height: 100%; position: relative; overflow: visible; display: flex; align-items: center; justify-content: flex-start; }
   .mm-wrapper { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 100%; box-sizing: border-box; padding: 10px; }
   .mm-level-0 { display: flex; align-items: center; position: relative; }
-  .mm-node-block { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; cursor: pointer; transition: 0.2s; position: relative; z-index: 2; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-  .mm-node-block:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); }
+  .mm-node-block { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; cursor: pointer; transition: 0.2s; position: relative; z-index: 2; box-shadow: var(--shadow-sm); }
+  .mm-node-block:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
   .mm-node-img { width: 30px; height: 30px; object-fit: cover; border-radius: 4px; margin-bottom: 4px; }
   .mm-node-text { font-weight: bold; font-size: 0.9rem; text-align: center; }
   .mm-node-note { font-size: 0.65rem; opacity: 0.8; margin-top: 2px; text-align: center; max-width: 120px; line-height: 1.2; }
@@ -11040,10 +11039,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   /* GUÍAS DE ALINEACIÓN (SNAPPING) */
   .snap-guide {
     position: absolute;
-    background-color: #f59e0b; /* Naranja estilo Canva / Figma */
+    background-color: var(--accent-primary);
     z-index: 9999;
     pointer-events: none;
-    box-shadow: 0 0 2px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-sm);
   }
   .snap-guide.vertical {
     width: 1px;
@@ -11070,8 +11069,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: space-between;
     padding: 12px 20px;
     border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    color: white;
+    box-shadow: var(--shadow-md);
+    color: var(--text-primary);
     font-weight: 500;
     font-size: 0.9rem;
     min-width: 300px;
@@ -11092,7 +11091,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .toast-close {
     background: transparent;
     border: none;
-    color: white;
+    color: var(--text-primary);
     cursor: pointer;
     opacity: 0.7;
     transition: 0.2s;
@@ -11108,10 +11107,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
 
   /* Colores según el tipo de mensaje */
-  .toast-error { background: rgba(218, 54, 51, 0.9); border-left: 4px solid var(--danger); }
-  .toast-success { background: rgba(46, 160, 67, 0.9); border-left: 4px solid #3fb950; }
-  .toast-warning { background: rgba(210, 153, 34, 0.9); border-left: 4px solid #f0b328; }
-  .toast-info { background: rgba(31, 111, 235, 0.9); border-left: 4px solid var(--accent-primary); }
+  .toast-error { background: var(--surface-elevated); border-left: 4px solid var(--accent-primary); }
+  .toast-success { background: var(--surface-elevated); border-left: 4px solid var(--accent-primary); }
+  .toast-warning { background: var(--surface-elevated); border-left: 4px solid var(--accent-primary); }
+  .toast-info { background: var(--surface-elevated); border-left: 4px solid var(--accent-primary); }
 
   /* Animación de entrada y salida */
   .toast-fade-enter-active,
@@ -11153,8 +11152,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     gap: 10px;
     width: 100%;
     padding: 8px 12px;
-    background: rgba(17, 17, 19, 0.7);
-    border: 1px solid var(--border-strong);
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
     border-radius: 6px;
     color: var(--text-primary);
     cursor: pointer;
@@ -11200,7 +11199,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.tsp-toggle:hover { background: rgba(17, 17, 19, 0.7); color: var(--text-primary); }
+.tsp-toggle:hover { background: var(--surface-panel); color: var(--text-primary); }
 
   .tsp-toggle-left {
     display: flex;
@@ -11210,7 +11209,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .tsp-toggle-left i { font-size: 1rem; color: var(--accent-primary); }
 
   .tsp-active-badge {
-    background: rgba(88, 166, 255, 0.15);
+    background: var(--surface-soft);
     color: var(--accent-primary);
     font-size: 0.6rem;
     padding: 2px 7px;
@@ -11226,12 +11225,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     left: 105%;
     width: 270px;
     padding: 15px;
-    background: rgba(22, 27, 34, 0.95);
+    background: var(--surface-elevated);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-lg);
     z-index: 10050;
   }
 
@@ -11251,8 +11250,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     border: 1.5px solid transparent;
     transition: all 0.15s;
   }
-  .tsp-card:hover { border-color: rgba(88, 166, 255, 0.4); }
-  .tsp-card.is-active { border-color: var(--accent-primary); background: rgba(88, 166, 255, 0.06); }
+  .tsp-card:hover { border-color: var(--border-strong); }
+  .tsp-card.is-active { border-color: var(--accent-primary); background: var(--surface-soft); }
 
   /* PREVIEWS */
   .tsp-preview {
@@ -11265,23 +11264,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: center;
     position: relative;
     overflow: hidden;
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border-subtle);
     gap: 0;
     transition: border-color 0.15s;
   }
   .tsp-card:hover .tsp-preview { border-color: var(--accent-primary); }
   .tsp-card.is-active .tsp-preview { border-color: var(--accent-primary); }
 
-  .tsp-preview-blank { background: #ffffff; }
-  .tsp-preview-modern { background: #f8fafc; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 0; }
-  .tsp-preview-dark { background: var(--bg-base); }
-  .tsp-preview-custom { background: #1a1225; }
+  .tsp-preview-blank { background: var(--surface-elevated); }
+  .tsp-preview-modern { background: var(--surface-panel); flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 0; }
+  .tsp-preview-dark { background: var(--surface-base); }
+  .tsp-preview-custom { background: var(--surface-panel); }
 
   /* Moderna: barra superior */
   .tsp-preview-header-bar {
     width: 100%;
     height: 38%;
-    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.45), var(--accent-primary));
     display: flex;
     align-items: flex-end;
     padding: 0 8px 5px;
@@ -11296,7 +11295,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .tsp-preview-accent {
     width: 22px;
     height: 3px;
-    background: #10b981;
+    background: var(--accent-primary);
     border-radius: 2px;
     margin-top: 6px;
   }
@@ -11311,7 +11310,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     opacity: 0.7;
   }
 
-  .tsp-preview-line { flex-shrink: 0; }
+  .tsp-preview-line { flex-shrink: 0; border-radius: 3px; }
+  .tsp-preview-line-blank { width: 60%; height: 8px; background: var(--text-secondary); opacity: 0.35; }
+  .tsp-preview-line-modern { width: 70%; height: 7px; background: var(--text-primary); opacity: 0.9; }
+  .tsp-preview-line-dark { width: 75%; height: 8px; background: var(--text-primary); opacity: 0.9; }
 
   /* BOTÓN AÑADIR al hacer hover */
   .tsp-add-btn {
@@ -11324,7 +11326,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     border-radius: 50%;
     background: var(--accent-primary);
     border: none;
-    color: #fff;
+    color: var(--text-primary);
     font-size: 1rem;
     display: flex;
     align-items: center;
@@ -11332,7 +11334,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     cursor: pointer;
     opacity: 0;
     transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.5);
+    box-shadow: var(--shadow-sm);
     z-index: 2;
   }
   .tsp-preview:hover .tsp-add-btn {
@@ -11340,7 +11342,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     transform: translate(-50%, -50%) scale(1);
   }
   .tsp-add-btn:hover {
-    background: #79b8ff;
+    background: var(--accent-primary);
     transform: translate(-50%, -50%) scale(1.15) !important;
   }
 
@@ -11354,8 +11356,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .tsp-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(3px);
+    background: var(--overlay-backdrop);
+    backdrop-filter: blur(4px);
     z-index: 10499;
     display: flex;
     align-items: center;
@@ -11431,7 +11433,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 .thumb-pos-input {
   width: 28px;
   height: 22px;
-  background: rgba(17, 17, 19, 0.7);
+  background: var(--surface-elevated);
   border: 1px solid var(--accent-primary);
   border-radius: 4px;
   color: var(--text-primary);
@@ -11439,8 +11441,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   font-weight: bold;
   text-align: center;
   padding: 0 2px;
-  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+  box-shadow: var(--ring-accent);
   outline: none;
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 .thumb-pos-input::-webkit-outer-spin-button,
@@ -11466,7 +11469,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .marquee-selection {
     position: absolute;
     border: 2px solid var(--accent-primary);
-    background: rgba(88, 166, 255, 0.1);
+    background: var(--surface-soft);
     pointer-events: none;
     z-index: 1000;
   }
@@ -11523,8 +11526,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     transform: translateY(-50%);
     width: 24px;
     height: 48px;
-    background: var(--bg-surface-active);
-    border: 1px solid var(--border-strong);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-subtle);
     color: var(--text-primary);
     display: flex;
     align-items: center;
@@ -11532,12 +11535,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     cursor: pointer;
     z-index: 50;
     transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: var(--shadow-sm);
   }
 
   .sidebar-toggle-btn:hover {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-primary);
   }
 
   .toggle-left {
@@ -11582,13 +11585,206 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .inspector-tab.active {
     color: var(--accent-primary);
     border-bottom-color: var(--accent-primary);
-    background: rgba(88, 166, 255, 0.05);
+    background: var(--surface-soft);
   }
 
   .pro-sidebar .panel-content {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
+  }
+  .divider-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 5px 0;
+  }
+  .interactivity-panel {
+    border-color: var(--border-strong);
+    background: var(--surface-soft);
+  }
+  .interactivity-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .interactivity-title {
+    font-weight: 600;
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .event-add-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--accent-primary);
+    color: var(--text-primary);
+  }
+  .event-empty-state {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 10px;
+  }
+  .event-card {
+    background: var(--surface-elevated);
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-subtle);
+  }
+  .event-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .event-row-main {
+    flex: 1;
+  }
+  .event-stack {
+    margin-bottom: 8px;
+  }
+  .event-field-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .event-delete-btn {
+    margin-top: 18px;
+  }
+  .event-target-row {
+    display: flex;
+    gap: 6px;
+  }
+  .event-target-select {
+    flex: 1;
+  }
+  .event-target-btn {
+    min-width: 32px;
+    padding: 0 8px;
+    flex-shrink: 0;
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
+  }
+  .template-gallery-overlay {
+    z-index: 10005;
+  }
+  .template-gallery-modal {
+    width: 600px;
+    max-width: 90vw;
+  }
+  .template-gallery-header {
+    margin-bottom: 20px;
+  }
+  .template-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+  .cropper-modal-overlay {
+    z-index: 10002;
+  }
+  .cropper-modal {
+    width: 800px;
+    max-width: 95vw;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .cropper-stage {
+    flex: 1;
+    min-height: 0;
+    background: var(--surface-base);
+    margin-top: 15px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cropper-stage-image {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+  }
+  .button-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  .upload-label-btn {
+    margin: 0;
+    text-align: center;
+    display: flex;
+  }
+  .map-node-panel {
+    border-color: var(--border-strong);
+  }
+  .map-node-title {
+    color: var(--accent-primary);
+  }
+  .map-empty-state {
+    padding: 20px 10px;
+  }
+  .map-empty-icon {
+    font-size: 2rem;
+  }
+  .map-empty-copy {
+    margin-top: 10px;
+    font-size: 0.8rem;
+  }
+  .marker-card {
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 10px;
+    border-radius: 10px;
+  }
+  .resizable-input {
+    resize: vertical;
+  }
+  .themed-checkbox {
+    accent-color: var(--accent-primary);
+  }
+  .compact-input {
+    padding: 4px 8px;
+  }
+  .metric-value {
+    font-size: 0.85rem;
+    margin-top: 5px;
+    color: var(--text-secondary);
+  }
+  .empty-panel-icon {
+    margin-bottom: 20px;
+    font-size: 2rem;
+    color: var(--text-secondary);
+  }
+  .section-subtitle-center {
+    border-bottom: none;
+    text-align: center;
+  }
+  .status-card {
+    background: var(--surface-soft);
+    border-left-color: var(--accent-primary);
+  }
+  .status-card-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .status-card-icon {
+    color: var(--accent-primary);
+    font-size: 1.2rem;
+  }
+  .status-card-copy {
+    color: var(--text-primary);
   }
 
 

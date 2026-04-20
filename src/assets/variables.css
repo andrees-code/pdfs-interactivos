@@ -1,0 +1,44 @@
+:root {
+  --surface-base: #0f1117;
+  --surface-panel: rgba(23, 26, 34, 0.92);
+  --surface-elevated: rgba(31, 36, 48, 0.96);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(13, 153, 255, 0.55);
+
+  --text-primary: #f5f7fb;
+  --text-secondary: #98a2b3;
+  --text-disabled: #667085;
+
+  --accent-primary: #0d99ff;
+  --accent-rgb: 13, 153, 255;
+
+  --bg-base: var(--surface-base);
+  --bg-surface: var(--surface-panel);
+  --bg-surface-hover: rgba(var(--accent-rgb), 0.06);
+  --bg-surface-active: rgba(var(--accent-rgb), 0.1);
+  --bg-panel: var(--surface-panel);
+  --bg-hover: rgba(var(--accent-rgb), 0.08);
+  --bg-elevated: var(--surface-elevated);
+
+  --glass-bg: rgba(23, 26, 34, 0.78);
+  --glass-border: var(--border-subtle);
+  --overlay-backdrop: rgba(6, 10, 18, 0.6);
+  --surface-soft: rgba(var(--accent-rgb), 0.08);
+  --surface-soft-strong: rgba(var(--accent-rgb), 0.14);
+  --surface-soft-contrast: rgba(255, 255, 255, 0.04);
+  --canvas-dot: rgba(var(--accent-rgb), 0.08);
+
+  --selection-blue: #0d99ff;
+  --ring-accent: 0 0 0 2px rgba(var(--accent-rgb), 0.38);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.14);
+  --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.3);
+  --shadow-panel-left: 4px 0 24px rgba(0, 0, 0, 0.05);
+  --shadow-panel-right: -4px 0 24px rgba(0, 0, 0, 0.05);
+
+  --success: var(--accent-primary);
+  --danger: var(--accent-primary);
+  --danger-hover: var(--accent-primary);
+  --warning: var(--accent-primary);
+}

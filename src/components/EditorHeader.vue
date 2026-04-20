@@ -7,7 +7,7 @@
       </div>
 
       <div class="file-menu">
-        <label class="menu-item" :class="{ 'is-loading': isConverting }">
+        <label class="menu-item menu-item-ghost" :class="{ 'is-loading': isConverting }">
           <input
             type="file"
             @change="$emit('file-upload', $event)"
@@ -20,7 +20,7 @@
         </label>
 
         <button
-          class="menu-item btn-save"
+          class="menu-item menu-item-ghost"
           :disabled="!hasDoc || isConverting || isSaving"
           @click="$emit('save')"
         >
@@ -28,13 +28,13 @@
           {{ isSaving ? 'Guardando...' : 'Guardar' }}
         </button>
 
-        <div class="cloud-status" v-if="hasDoc" :title="isAutosaving || isSaving ? 'Guardando cambios...' : 'Todos los cambios se han guardado en la nube'">
+        <div class="cloud-status" v-if="hasDoc" :class="{ 'is-syncing': isAutosaving || isSaving }" aria-live="polite">
           <i class="ph" :class="isAutosaving || isSaving ? 'ph-arrows-clockwise icon-spin text-sync' : 'ph-cloud-check text-success'"></i>
-          <span class="status-text">{{ isAutosaving || isSaving ? 'Guardando...' : 'Guardado en la nube' }}</span>
+          <span class="cloud-tooltip">{{ isAutosaving || isSaving ? 'Guardando cambios...' : 'Todos los cambios guardados' }}</span>
         </div>
 
         <button
-          class="menu-item btn-export"
+          class="menu-item menu-item-ghost"
           :disabled="!hasDoc || isConverting"
           @click="$emit('export')"
         >
@@ -165,18 +165,17 @@ defineEmits<{
 .pro-header {
   position: relative;
   z-index: 99999 !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(17, 17, 19, 0.8) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: var(--bg-panel) !important;
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: 55px;
-  background-color: rgba(17, 17, 19, 0.7);
-  border-bottom: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0 20px;
   flex-shrink: 0;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 .header-left,
 .header-center,
@@ -199,14 +198,14 @@ defineEmits<{
 .file-menu {
   display: flex;
   gap: 10px;
-  align-items: center; /* Asegura que todos los elementos se alineen verticalmente */
+  align-items: center;
 }
 .menu-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   background: transparent;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   color: var(--text-primary);
   padding: 6px 14px;
   border-radius: 6px;
@@ -215,51 +214,68 @@ defineEmits<{
   cursor: pointer;
   transition: all 0.2s;
 }
-.menu-item:hover:not(:disabled) {
-  background: var(--border-strong);
+.menu-item-ghost:hover:not(:disabled) {
+  background: var(--bg-surface-active);
+  border-color: var(--border-subtle);
 }
 .menu-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .menu-item.is-loading {
-  background: var(--accent-primary);
-  color: var(--bg-base);
+  background: var(--bg-surface-active);
+  color: var(--text-primary);
   font-weight: bold;
-  border-color: var(--accent-primary);
+  border-color: var(--border-subtle);
 }
 
-/* NUEVO: Estilos para el estado de la nube */
 .cloud-status {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  font-size: 0.8rem;
-  font-weight: 500;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
   color: var(--text-secondary);
-  cursor: default;
+  cursor: help;
   user-select: none;
-  transition: color 0.3s ease;
+  transition: all 0.2s ease;
 }
 .cloud-status i {
-  font-size: 1.1rem;
+  font-size: 1rem;
+}
+.cloud-status:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-active);
+}
+.cloud-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  white-space: nowrap;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 5;
+}
+.cloud-status:hover .cloud-tooltip {
+  opacity: 1;
+  transform: translateY(0);
 }
 .text-success {
-  color: var(--success); /* Verde para el check de éxito */
+  color: var(--accent-primary);
 }
 .text-sync {
-  color: var(--text-secondary); /* Gris para el proceso de guardado */
-}
-
-.btn-save {
-  background: var(--accent-primary-hover);
-  border-color: rgba(240, 246, 252, 0.1);
-  color: white;
-}
-.btn-save:hover:not(:disabled) {
-  background: #388bfd;
-  border-color: #388bfd;
+  color: var(--accent-primary);
 }
 .icon-spin {
   animation: spin 1s linear infinite;
@@ -272,78 +288,71 @@ defineEmits<{
     transform: rotate(360deg);
   }
 }
-
-.btn-export {
-  background: var(--success);
-  border-color: var(--success);
-  color: white;
-}
-.btn-export:hover:not(:disabled) {
-  background: var(--success);
-  border-color: var(--success);
-}
 .zoom-controls {
   display: flex;
   align-items: center;
   gap: 5px;
-  background: var(--bg-base);
+  background: rgba(255, 255, 255, 0.05);
   padding: 4px;
-  border-radius: 8px;
-  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  border: none;
 }
 .zoom-level {
   font-size: 0.85rem;
   font-weight: 600;
   min-width: 50px;
   text-align: center;
+  color: var(--text-primary);
 }
 .divider-vertical {
   width: 1px;
-  height: 20px;
-  background: var(--border-strong);
-  margin: 0 5px;
+  height: 16px;
+  background: var(--border-subtle);
+  margin: 0 2px;
 }
 .btn-play {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--success);
-  color: white;
-  border: none;
+  background: var(--accent-primary);
+  color: #ffffff;
+  border: 1px solid transparent;
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 .btn-play:hover {
-  background: #3fb950;
+  filter: brightness(1.05);
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(46, 160, 67, 0.4);
+  box-shadow: var(--shadow-md);
 }
 .btn-play.is-active {
-  background: #da3633;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 .btn-play.is-active:hover {
-  background: var(--danger-hover);
-  box-shadow: 0 4px 10px rgba(218, 54, 51, 0.4);
+  background: var(--surface-soft-contrast);
+  box-shadow: var(--shadow-md);
 }
 .tool-btn {
   font-size: 1.2rem;
   width: 36px;
   height: 36px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 999px;
   transition: all 0.2s;
 }
 .tool-btn:hover {
-  background: var(--bg-surface-active);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
 }
 
@@ -365,7 +374,7 @@ defineEmits<{
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+  background: linear-gradient(135deg, var(--accent-primary), rgba(var(--accent-rgb), 0.62));
   color: white;
   display: flex;
   align-items: center;
@@ -379,16 +388,17 @@ defineEmits<{
   position: absolute;
   top: 120%;
   right: 0;
-  background-color: #111113 !important;
-  background: #111113 !important;
-  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  width: 200px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  width: 220px;
+  box-shadow: var(--shadow-lg);
   z-index: 100000 !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transform-origin: top right;
+  animation: scaleIn 0.2s ease;
 }
 .user-info {
   padding: 12px 16px;
@@ -407,8 +417,8 @@ defineEmits<{
   word-break: break-all;
 }
 .dropdown-divider {
-  height: 1px;
-  background-color: var(--border-strong);
+  height: 0;
+  border-top: 1px solid var(--border-subtle);
   width: 100%;
 }
 .dropdown-item {
@@ -428,9 +438,21 @@ defineEmits<{
   background-color: var(--bg-surface-active);
 }
 .btn-logout {
-  color: var(--danger-hover);
+  color: var(--text-primary);
 }
 .btn-logout:hover {
-  background-color: rgba(248, 81, 73, 0.1);
+  background-color: var(--bg-surface-active);
+  color: var(--accent-primary);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 </style>
