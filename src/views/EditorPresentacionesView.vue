@@ -372,6 +372,30 @@
                   </button>
                   <button
                     class="tool-btn"
+                    :class="{ active: activeTool === 'map' }"
+                    @click="activeTool = 'map'"
+                    title="Mapa"
+                  >
+                    <i class="ph ph-map-trifold"></i>
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: activeTool === 'calendar' }"
+                    @click="activeTool = 'calendar'"
+                    title="Calendario"
+                  >
+                    <i class="ph ph-calendar-blank"></i>
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: activeTool === 'finance' }"
+                    @click="activeTool = 'finance'"
+                    title="Gráfico Financiero"
+                  >
+                    <i class="ph ph-trend-up"></i>
+                  </button>
+                  <button
+                    class="tool-btn"
                     :class="{ active: activeTool === 'table' }"
                     @click="activeTool = 'table'"
                     title="Tabla de Datos"
@@ -517,6 +541,36 @@
                     title="Acordeón"
                   >
                     <i class="ph ph-list-dashes"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="toolbar-category">
+                <span class="category-label">Efectos Visuales</span>
+                <div class="category-tools">
+                  <button
+                    class="tool-btn"
+                    :class="{ active: activeTool === 'imagecomparator' }"
+                    @click="activeTool = 'imagecomparator'"
+                    title="Comparador de Imágenes"
+                  >
+                    <i class="ph ph-swap"></i>
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: activeTool === 'marquee' }"
+                    @click="activeTool = 'marquee'"
+                    title="Marquesina"
+                  >
+                    <i class="ph ph-text-aa"></i>
+                  </button>
+                  <button
+                    class="tool-btn"
+                    :class="{ active: activeTool === 'typewriter' }"
+                    @click="activeTool = 'typewriter'"
+                    title="Máquina de Escribir"
+                  >
+                    <i class="ph ph-keyboard"></i>
                   </button>
                 </div>
               </div>
@@ -1312,6 +1366,40 @@
                     </div>
 
                     <div
+                      v-else-if="el.type === 'imagecomparator'"
+                      style="width: 100%; height: 100%; position: relative; overflow: hidden;"
+                      :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }"
+                    >
+                      <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                      <div v-else style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;">
+                        <i class="ph ph-image" style="font-size: 2rem;"></i>
+                      </div>
+                      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;">
+                        <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition || 50)) + '% 0 0)' }" />
+                      </div>
+                      <input type="range" min="0" max="100" v-model.number="el.sliderPosition" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; cursor: ew-resize; opacity: 0; z-index: 10;" />
+                      <div v-if="!playMode" class="drag-protector"></div>
+                    </div>
+
+                    <div
+                      v-else-if="el.type === 'marquee'"
+                      style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center;"
+                      :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }"
+                    >
+                      <div style="display: inline-block; white-space: nowrap; animation: marquee-animation linear infinite; padding: 0 20px;" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, animationDuration: (Math.max(5, 20 - (el.speed / 5))) + 's' }">
+                        {{ el.content }} • {{ el.content }} • {{ el.content }}
+                      </div>
+                    </div>
+
+                    <div
+                      v-else-if="el.type === 'typewriter'"
+                      style="width: 100%; height: 100%; display: flex; align-items: center; padding: 0 10px; box-sizing: border-box;"
+                      :style="{ backgroundColor: el.bgColor, color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }"
+                    >
+                      {{ playMode ? el.displayedText : el.content }}
+                    </div>
+
+                    <div
                       v-else-if="el.type === 'timer'"
                       style="
                         width: 100%;
@@ -1446,19 +1534,124 @@
                         height: '100%',
                       }"
                     >
-                      <iframe
-                v-if="el.src && el.src.trim() !== ''"
-                        src="about:blank"
-                        :src="el.src"
-                        width="100%"
-                        height="100%"
-                        frameborder="0"
-                        :style="{ pointerEvents: playMode ? 'auto' : 'none' }"
-                      ></iframe>
+                      <template v-if="el.src && el.src.trim() !== ''">
+                        <div v-if="isIframeBlocked(el.src)" class="placeholder-box" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:16px;">
+                          <i class="ph ph-shield-warning" style="font-size: 2rem"></i>
+                          <div>Esta web no permite ser incrustada por seguridad</div>
+                          <button type="button" class="btn-primary" @click.stop="window.open(formatIframeUrl(el.src), '_blank')">
+                            Abrir enlace original
+                          </button>
+                        </div>
+                        <iframe
+                          v-else
+                          :src="formatIframeUrl(el.src)"
+                          width="100%"
+                          height="100%"
+                          frameborder="0"
+                          allowfullscreen
+                          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                          :style="{ pointerEvents: playMode ? 'auto' : 'none' }"
+                        ></iframe>
+                      </template>
                       <div v-else class="placeholder-box">
                         <i class="ph ph-globe" style="font-size: 2rem"></i>
                       </div>
                       <div v-if="!playMode" class="drag-protector"></div>
+                    </div>
+
+                    <div
+                      v-else-if="el.type === 'finance'"
+                      class="el-iframe-container"
+                      :style="{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: (el.borderRadius || 0) + 'px',
+                        border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+                        overflow: 'hidden',
+                        boxShadow: el.boxShadow || 'none',
+                      }"
+                    >
+                      <iframe
+                        :src="`https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(el.symbol)}&interval=D&symboledit=1&saveimage=0&toolbarbg=f1f3f6&studies=%5B%5D&theme=${el.theme}&style=${el.chartType}&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=0`"
+                        width="100%"
+                        height="100%"
+                        frameborder="0"
+                        allowfullscreen
+                        :style="{ pointerEvents: playMode ? 'auto' : 'none' }"
+                      ></iframe>
+                      <div class="drag-protector"></div>
+                    </div>
+
+                    <div
+                      v-else-if="el.type === 'calendar'"
+                      :style="{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: el.bgColor,
+                        color: el.color,
+                        fontFamily: el.fontFamily,
+                        borderRadius: (el.borderRadius || 0) + 'px',
+                        border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+                        boxShadow: el.boxShadow || 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                      }"
+                    >
+                      <div
+                        :style="{
+                          backgroundColor: el.accentColor,
+                          color: '#ffffff',
+                          padding: '14px 16px',
+                          textAlign: 'center',
+                          fontWeight: '700',
+                        }"
+                      >
+                        Mes: {{ el.month }} / Año: {{ el.year }}
+                      </div>
+                      <div
+                        :style="{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(7, 1fr)',
+                          textAlign: 'center',
+                          fontSize: '0.9rem',
+                          padding: '12px',
+                          gap: '4px',
+                        }"
+                      >
+                        <div
+                          v-for="day in ['L', 'M', 'X', 'J', 'V', 'S', 'D']"
+                          :key="day"
+                          :style="{ fontWeight: '700' }"
+                        >
+                          {{ day }}
+                        </div>
+                      </div>
+                      <div
+                        :style="{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(7, 1fr)',
+                          gap: '4px',
+                          padding: '12px',
+                          flex: '1 1 auto',
+                        }"
+                      >
+                        <div
+                          v-for="d in 31"
+                          :key="d"
+                          :style="{
+                            aspectRatio: '1 / 1',
+                            minHeight: '48px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(255,255,255,0.08)',
+                          }"
+                        >
+                          {{ d }}
+                        </div>
+                      </div>
                     </div>
 
                     <div
@@ -2123,6 +2316,207 @@
                   <p style="margin-top: 10px; font-size: 0.8rem">
                     Haz clic en un nodo del mapa para editarlo.
                   </p>
+                </div>
+              </template>
+
+              <template v-if="selectedElement.type === 'map'">
+                <div class="prop-section">
+                  <div class="section-title">Configuración del Mapa</div>
+                  <div class="prop-group">
+                    <label>Dirección / Ubicación</label>
+                    <input type="text" v-model="selectedElement.location" class="pro-input" placeholder="Madrid, España" />
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Latitud central</label>
+                      <input type="number" v-model.number="selectedElement.centerLat" step="0.000001" class="pro-input" />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Longitud central</label>
+                      <input type="number" v-model.number="selectedElement.centerLng" step="0.000001" class="pro-input" />
+                    </div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Zoom</label>
+                      <input type="number" min="1" max="20" v-model.number="selectedElement.zoomLevel" class="pro-input" />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Tipo de mapa</label>
+                      <select v-model="selectedElement.mapType" class="pro-input">
+                        <option value="m">Mapa</option>
+                        <option value="k">Satélite</option>
+                        <option value="h">Híbrido</option>
+                        <option value="p">Relieve</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="prop-section">
+                  <div class="section-title">Pines</div>
+                  <div v-for="(marker, idx) in selectedElement.markers" :key="marker.id" class="prop-section" style="padding: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; border-radius: 10px;">
+                    <div class="prop-row">
+                      <div class="prop-group half">
+                        <label>Etiqueta</label>
+                        <input type="text" v-model="marker.label" class="pro-input" />
+                      </div>
+                      <div class="prop-group half">
+                        <label>Color</label>
+                        <input type="color" v-model="marker.color" class="pro-color-picker" />
+                      </div>
+                    </div>
+                    <div class="prop-row">
+                      <div class="prop-group half">
+                        <label>Latitud</label>
+                        <input type="number" step="0.000001" v-model.number="marker.lat" class="pro-input" />
+                      </div>
+                      <div class="prop-group half">
+                        <label>Longitud</label>
+                        <input type="number" step="0.000001" v-model.number="marker.lng" class="pro-input" />
+                      </div>
+                    </div>
+                    <button class="btn-danger w-100" @click="removeMapMarker(selectedElement, marker.id)">
+                      <i class="ph ph-trash"></i> Eliminar pin
+                    </button>
+                  </div>
+                  <button class="btn-secondary w-100" @click="addMapMarker(selectedElement)">
+                    <i class="ph ph-plus"></i> Añadir pin
+                  </button>
+                </div>
+
+                <div class="prop-section">
+                  <div class="section-title">Ruta</div>
+                  <p style="font-size: 0.85rem; margin-bottom: 10px; opacity: 0.8;">Añade puntos que formen una ruta. El primer y último punto son origen y destino.</p>
+                  <div v-for="(point, idx) in selectedElement.routePoints" :key="point.id" class="prop-section" style="padding: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; border-radius: 10px;">
+                    <div class="prop-row" style="gap: 10px;">
+                      <div class="prop-group half">
+                        <label>Punto {{ idx + 1 }} lat</label>
+                        <input type="number" step="0.000001" v-model.number="point.lat" class="pro-input" />
+                      </div>
+                      <div class="prop-group half">
+                        <label>Punto {{ idx + 1 }} lng</label>
+                        <input type="number" step="0.000001" v-model.number="point.lng" class="pro-input" />
+                      </div>
+                    </div>
+                    <button class="btn-danger w-100" @click="removeMapRoutePoint(selectedElement, point.id)">
+                      <i class="ph ph-trash"></i> Eliminar punto
+                    </button>
+                  </div>
+                  <button class="btn-secondary w-100" @click="addMapRoutePoint(selectedElement)">
+                    <i class="ph ph-plus"></i> Añadir punto de ruta
+                  </button>
+                  <button class="btn-danger w-100 mt-1" v-if="selectedElement.routePoints.length" @click="selectedElement.routePoints = []">
+                    <i class="ph ph-trash"></i> Borrar ruta completa
+                  </button>
+                </div>
+              </template>
+
+              <template v-if="selectedElement.type === 'calendar'">
+                <div class="prop-section">
+                  <div class="section-title">Configuración del Calendario</div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Mes</label>
+                      <input type="number" min="1" max="12" v-model.number="selectedElement.month" class="pro-input" />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Año</label>
+                      <input type="number" v-model.number="selectedElement.year" class="pro-input" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Tipografía</label>
+                    <select v-model="selectedElement.fontFamily" class="pro-input">
+                      <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                      <option value="Georgia, serif">Georgia</option>
+                      <option value="'Comic Sans MS', cursive">Handwriting</option>
+                      <option value="'Segoe UI', sans-serif">Segoe UI</option>
+                    </select>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Texto</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.color" @input="updateColorDebounced(selectedElement, 'color', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Fondo</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.bgColor" @input="updateColorDebounced(selectedElement, 'bgColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Cabecera</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.accentColor" @input="updateColorDebounced(selectedElement, 'accentColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Borde</label>
+                      <input type="number" min="0" v-model.number="selectedElement.borderWidth" class="pro-input" />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Radio</label>
+                      <input type="number" min="0" v-model.number="selectedElement.borderRadius" class="pro-input" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Borde</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.borderColor" @input="updateColorDebounced(selectedElement, 'borderColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Sombra</label>
+                    <input type="text" v-model="selectedElement.boxShadow" class="pro-input" placeholder="0 4px 6px rgba(0,0,0,0.05)" />
+                  </div>
+                </div>
+              </template>
+
+              <template v-if="selectedElement.type === 'finance'">
+                <div class="prop-section">
+                  <div class="section-title">Configuración de Finanzas</div>
+                  <div class="prop-group">
+                    <label>Símbolo</label>
+                    <input type="text" v-model="selectedElement.symbol" class="pro-input" placeholder="NASDAQ:AAPL, BINANCE:BTCUSD" />
+                  </div>
+                  <div class="prop-group">
+                    <label>Tema</label>
+                    <select v-model="selectedElement.theme" class="pro-input">
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </div>
+                  <div class="prop-group">
+                    <label>Tipo de Gráfico</label>
+                    <select v-model="selectedElement.chartType" class="pro-input">
+                      <option value="1">Velas Japonesas</option>
+                      <option value="2">Línea</option>
+                      <option value="3">Área</option>
+                    </select>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Borde</label>
+                      <input type="number" min="0" v-model.number="selectedElement.borderWidth" class="pro-input" />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Radio</label>
+                      <input type="number" min="0" v-model.number="selectedElement.borderRadius" class="pro-input" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Borde</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.borderColor" @input="updateColorDebounced(selectedElement, 'borderColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Sombra</label>
+                    <input type="text" v-model="selectedElement.boxShadow" class="pro-input" placeholder="0 4px 10px rgba(0,0,0,0.1)" />
+                  </div>
                 </div>
               </template>
 
@@ -3637,6 +4031,151 @@
                   </button>
                 </div>
               </template>
+
+              <template v-if="selectedElement.type === 'imagecomparator'">
+                <div class="prop-section">
+                  <div class="section-title">Comparador de Imágenes</div>
+                  <div class="prop-group">
+                    <label>Imagen Antes</label>
+                    <label class="btn-ghost w-100 text-center">
+                      <input type="file" @change="(e) => { const f = e.target.files?.[0]; if(f) { const r = new FileReader(); r.onload = () => selectedElement.imageBefore = r.result; r.readAsDataURL(f); } }" accept="image/*" hidden />
+                      <i class="ph ph-image"></i>
+                      {{ selectedElement.imageBefore ? 'Cambiar Imagen Antes' : 'Subir Imagen Antes' }}
+                    </label>
+                  </div>
+                  <div class="prop-group">
+                    <label>Imagen Después</label>
+                    <label class="btn-ghost w-100 text-center">
+                      <input type="file" @change="(e) => { const f = e.target.files?.[0]; if(f) { const r = new FileReader(); r.onload = () => selectedElement.imageAfter = r.result; r.readAsDataURL(f); } }" accept="image/*" hidden />
+                      <i class="ph ph-image"></i>
+                      {{ selectedElement.imageAfter ? 'Cambiar Imagen Después' : 'Subir Imagen Después' }}
+                    </label>
+                  </div>
+                  <div class="prop-group">
+                    <label>Posición del Deslizador (%)</label>
+                    <input type="range" min="0" max="100" v-model.number="selectedElement.sliderPosition" class="pro-input" />
+                    <div style="font-size: 0.85rem; margin-top: 5px; color: #999;">{{ selectedElement.sliderPosition }}%</div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Borde</label>
+                      <input type="number" min="0" v-model.number="selectedElement.borderWidth" class="pro-input" />
+                    </div>
+                    <div class="prop-group half">
+                      <label>Radio</label>
+                      <input type="number" min="0" v-model.number="selectedElement.borderRadius" class="pro-input" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Borde</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.borderColor" @input="updateColorDebounced(selectedElement, 'borderColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Sombra</label>
+                    <input type="text" v-model="selectedElement.boxShadow" class="pro-input" placeholder="0 4px 6px rgba(0,0,0,0.1)" />
+                  </div>
+                </div>
+              </template>
+
+              <template v-if="selectedElement.type === 'marquee'">
+                <div class="prop-section">
+                  <div class="section-title">Marquesina</div>
+                  <div class="prop-group">
+                    <label>Texto</label>
+                    <textarea v-model="selectedElement.content" class="pro-input" rows="3" placeholder="Texto a desplazar..."></textarea>
+                  </div>
+                  <div class="prop-group">
+                    <label>Velocidad (1-100)</label>
+                    <input type="range" min="1" max="100" v-model.number="selectedElement.speed" class="pro-input" />
+                    <div style="font-size: 0.85rem; margin-top: 5px; color: #999;">{{ selectedElement.speed }}/100</div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Texto</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.color" @input="updateColorDebounced(selectedElement, 'color', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Tamaño Fuente</label>
+                    <input type="number" min="8" v-model.number="selectedElement.fontSize" class="pro-input" />
+                  </div>
+                  <div class="prop-group">
+                    <label>Peso Fuente</label>
+                    <select v-model="selectedElement.fontWeight" class="pro-input">
+                      <option value="400">Normal</option>
+                      <option value="600">Semibold</option>
+                      <option value="700">Bold</option>
+                      <option value="800">Extra Bold</option>
+                    </select>
+                  </div>
+                  <div class="prop-group">
+                    <label>Tipografía</label>
+                    <select v-model="selectedElement.fontFamily" class="pro-input">
+                      <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                      <option value="Georgia, serif">Georgia</option>
+                      <option value="'Courier New', monospace">Courier</option>
+                      <option value="'Comic Sans MS', cursive">Comic Sans</option>
+                    </select>
+                  </div>
+                  <div class="prop-group">
+                    <label>Fondo</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.bgColor === 'transparent' ? '#ffffff' : selectedElement.bgColor" @input="updateColorDebounced(selectedElement, 'bgColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template v-if="selectedElement.type === 'typewriter'">
+                <div class="prop-section">
+                  <div class="section-title">Máquina de Escribir</div>
+                  <div class="prop-group">
+                    <label>Texto</label>
+                    <textarea v-model="selectedElement.content" class="pro-input" rows="3" placeholder="Texto a escribir..."></textarea>
+                  </div>
+                  <div class="prop-group">
+                    <label>Velocidad de Escritura (ms)</label>
+                    <input type="range" min="10" max="500" step="10" v-model.number="selectedElement.typingSpeed" class="pro-input" />
+                    <div style="font-size: 0.85rem; margin-top: 5px; color: #999;">{{ selectedElement.typingSpeed }}ms por carácter</div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Color Texto</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.color" @input="updateColorDebounced(selectedElement, 'color', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Tamaño Fuente</label>
+                    <input type="number" min="8" v-model.number="selectedElement.fontSize" class="pro-input" />
+                  </div>
+                  <div class="prop-group">
+                    <label>Peso Fuente</label>
+                    <select v-model="selectedElement.fontWeight" class="pro-input">
+                      <option value="400">Normal</option>
+                      <option value="600">Semibold</option>
+                      <option value="700">Bold</option>
+                      <option value="800">Extra Bold</option>
+                    </select>
+                  </div>
+                  <div class="prop-group">
+                    <label>Tipografía</label>
+                    <select v-model="selectedElement.fontFamily" class="pro-input">
+                      <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                      <option value="Georgia, serif">Georgia</option>
+                      <option value="'Courier New', monospace">Courier</option>
+                      <option value="'Comic Sans MS', cursive">Comic Sans</option>
+                    </select>
+                  </div>
+                  <div class="prop-group">
+                    <label>Fondo</label>
+                    <div class="color-picker-wrapper">
+                      <input type="color" :value="selectedElement.bgColor === 'transparent' ? '#ffffff' : selectedElement.bgColor" @input="updateColorDebounced(selectedElement, 'bgColor', $event)" class="pro-color-picker" />
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
 
             <div class="panel-content empty-state" v-else>
@@ -4764,12 +5303,16 @@ const wakeUpPlayNav = () => {
     | 'text'
     | 'sticky'
     | 'mindmap'
+    | 'map'
+    | 'calendar'
+    | 'finance'
     | 'list'
     | 'checkbox'
     | 'table'
     | '3d'
     | 'interactive'
     | 'image'
+    | 'imagecomparator'
     | 'video'
     | 'shape'
     | 'arrow'
@@ -4785,6 +5328,8 @@ const wakeUpPlayNav = () => {
     | 'timer'
     | 'codeblock'
     | 'magnifier'
+    | 'marquee'
+    | 'typewriter'
     | 'poll'
     | 'rating'
   const activeTool = ref<ToolType>('select')
@@ -5043,6 +5588,36 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     activeMapNodeId.value = null
   }
 
+  const addMapMarker = (el: any) => {
+    if (!el.markers) el.markers = []
+    el.markers.push({
+      id: 'marker_' + Date.now(),
+      label: 'Nuevo pin',
+      lat: el.centerLat || 0,
+      lng: el.centerLng || 0,
+      color: '#ff3333',
+    })
+  }
+
+  const removeMapMarker = (el: any, markerId: string) => {
+    if (!el.markers) return
+    el.markers = el.markers.filter((marker: any) => marker.id !== markerId)
+  }
+
+  const addMapRoutePoint = (el: any) => {
+    if (!el.routePoints) el.routePoints = []
+    el.routePoints.push({
+      id: 'route_' + Date.now(),
+      lat: el.centerLat || 0,
+      lng: el.centerLng || 0,
+    })
+  }
+
+  const removeMapRoutePoint = (el: any, pointId: string) => {
+    if (!el.routePoints) return
+    el.routePoints = el.routePoints.filter((point: any) => point.id !== pointId)
+  }
+
   // --- DRAG AND DROP EN LA LISTA DE CAPAS ---
   const dragTargetIndex = ref<number | null>(null)
   let draggedIndex: number | null = null
@@ -5094,6 +5669,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     draw: 'ph-pencil-simple',
     chart: 'ph-chart-bar',
     iframe: 'ph-globe',
+    map: 'ph-map-trifold',
+    calendar: 'ph-calendar-blank',
+    finance: 'ph-trend-up',
     audio: 'ph-speaker-high',
     qrcode: 'ph-qr-code',
     progress: 'ph-sliders-horizontal',
@@ -5102,6 +5680,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     magnifier: 'ph-magnifying-glass',
     poll: 'ph-chart-pie-slice',
     rating: 'ph-star-half',
+    imagecomparator: 'ph-swap',
+    marquee: 'ph-text-aa',
+    typewriter: 'ph-keyboard',
   }
   const getIconClassForType = (type: string) => ICON_MAP[type] || 'ph-file'
 
@@ -5411,6 +5992,60 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       animationTrigger: 'onClick',
       animationOrder: 0,
     },
+    map: {
+      name: 'Mapa',
+      width: 400,
+      height: 300,
+      location: 'Madrid, España',
+      centerLat: 40.4168,
+      centerLng: -3.7038,
+      mapType: 'm',
+      zoomLevel: 14,
+      markers: [
+        { id: 'marker_1', label: 'Punto principal', lat: 40.4168, lng: -3.7038, color: '#ff3333' },
+      ],
+      routePoints: [],
+      borderRadius: 8,
+      borderWidth: 0,
+      borderColor: '#000000',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+    },
+    calendar: {
+      name: 'Calendario',
+      width: 350,
+      height: 'auto',
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+      color: 'var(--pres-text)',
+      bgColor: 'var(--pres-bg)',
+      accentColor: 'var(--pres-accent)',
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+    },
+    finance: {
+      name: 'Finanzas',
+      width: 500,
+      height: 350,
+      symbol: 'NASDAQ:AAPL',
+      theme: 'light',
+      chartType: '1',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+    },
     audio: {
       name: 'Audio',
       width: 160,
@@ -5533,6 +6168,61 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       animationTrigger: 'onClick',
       animationOrder: 0,
       isInteractive: true,
+    },
+    imagecomparator: {
+      name: 'Comparador de Imágenes',
+      width: 400,
+      height: 300,
+      imageBefore: '',
+      imageAfter: '',
+      sliderPosition: 50,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderColor: '#000000',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+    },
+    marquee: {
+      name: 'Marquesina',
+      width: 400,
+      height: 60,
+      content: 'Texto en movimiento • Marquesina • Efecto de desplazamiento',
+      color: 'var(--pres-text)',
+      fontSize: 24,
+      fontWeight: '600',
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      bgColor: 'transparent',
+      speed: 50,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderColor: '#000000',
+      boxShadow: 'none',
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
+    },
+    typewriter: {
+      name: 'Máquina de Escribir',
+      width: 400,
+      height: 'auto',
+      content: 'Este es un efecto de máquina de escribir.',
+      color: 'var(--pres-text)',
+      fontSize: 24,
+      fontWeight: '400',
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      bgColor: 'transparent',
+      typingSpeed: 100,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderColor: '#000000',
+      boxShadow: 'none',
+      displayedText: '',
+      isTyping: false,
+      animationType: 'none',
+      animationTrigger: 'onClick',
+      animationOrder: 0,
     },
   }
 
@@ -7868,6 +8558,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       pageItems.forEach((el) => {
         if (el.type === 'interactive') el.isOpen = false
         if (el.type === 'accordion') el.items.forEach((item: any) => (item.isOpen = false))
+        if (el.type === 'typewriter') {
+          el.displayedText = ''
+          el.isTyping = isActive
+        }
         if (el.type === 'timer') {
           el.timeLeft = el.duration * 60
           el.isRunning = isActive
@@ -7892,9 +8586,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         Object.values(documentState.value).forEach((pageItems) => {
           pageItems.forEach((el) => {
             if (el.type === 'timer' && el.isRunning && el.timeLeft > 0) el.timeLeft--
+            if (el.type === 'typewriter' && el.isTyping && el.displayedText.length < el.content.length) {
+              const speed = el.typingSpeed || 100
+              if (!el.lastTypewriterTime) el.lastTypewriterTime = Date.now()
+              const elapsed = Date.now() - el.lastTypewriterTime
+              if (elapsed >= speed) {
+                el.displayedText += el.content[el.displayedText.length]
+                el.lastTypewriterTime = Date.now()
+              }
+            }
           })
         })
-      }, 1000)
+      }, 50)
     } else {
       activeTransition.value = 'none'
     }
@@ -7943,6 +8646,52 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       setPlayModeState(isFullscreen)
     }
   }
+
+  const formatIframeUrl = (url: string) => {
+    if (!url) return url;
+    const trimmed = url.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    return `https://${trimmed}`;
+  };
+
+  const getMapEmbedUrl = (el: any) => {
+    if (!el) return '';
+    const zoom = Number(el.zoomLevel || 14);
+    const mapType = el.mapType || 'm';
+    const hasRoute = Array.isArray(el.routePoints) && el.routePoints.length >= 2;
+    const markerList = Array.isArray(el.markers) ? el.markers.filter((m: any) => m && m.lat !== undefined && m.lng !== undefined) : [];
+    const centerLat = Number(el.centerLat ?? 0);
+    const centerLng = Number(el.centerLng ?? 0);
+    const locationString = (el.location || '').trim();
+
+    if (hasRoute) {
+      const points = el.routePoints.map((p: any) => `${p.lat},${p.lng}`).join('/');
+      return `https://www.google.com/maps/dir/${encodeURIComponent(points)}/?travelmode=driving&output=embed`;
+    }
+
+    if (markerList.length > 0) {
+      const marker = markerList[0];
+      return `https://www.google.com/maps?q=${marker.lat},${marker.lng}&z=${zoom}&t=${mapType}&output=embed`;
+    }
+
+    if (locationString) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(locationString)}&z=${zoom}&t=${mapType}&output=embed`;
+    }
+
+    return `https://www.google.com/maps?q=${centerLat},${centerLng}&z=${zoom}&t=${mapType}&output=embed`;
+  };
+
+  const isIframeBlocked = (url: string) => {
+    if (!url) return false;
+    try {
+      const hostname = new URL(formatIframeUrl(url)).hostname.replace(/^www\./, '').toLowerCase();
+      const blockedDomains = ['google.com', 'github.com', 'twitter.com', 'facebook.com', 'linkedin.com', 'gemini.google.com', 'youtube.com'];
+      return blockedDomains.some((domain) => hostname === domain || hostname.endsWith('.' + domain));
+    } catch (error) {
+      return false;
+    }
+  };
 
   const absolutizeUrl = (url: string) => {
     if (!url) return url;
@@ -8157,6 +8906,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       @keyframes animSlideUp { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
       @keyframes animZoomIn { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
       @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
+      @keyframes marquee-animation { 0% { transform: translateX(100%); } 100% { transform: translateX(-300%); } }
 
       .is-waiting-animation { opacity: 0 !important; visibility: hidden; pointer-events: none; }
 
@@ -8377,7 +9127,57 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'iframe'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-                <iframe v-if="el.src && el.src.trim() !== ''" src="about:blank" :src="el.src" width="100%" height="100%" frameborder="0"></iframe>
+                <template v-if="el.src && el.src.trim() !== ''">
+                  <div v-if="isIframeBlocked(el.src)" class="placeholder-box" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:16px;">
+                    <i class="ph ph-shield-warning" style="font-size: 2rem"></i>
+                    <div>Esta web no permite ser incrustada por seguridad</div>
+                    <button type="button" class="btn-primary" @click.stop="window.open(formatIframeUrl(el.src), '_blank')">
+                      Abrir enlace original
+                    </button>
+                  </div>
+                  <iframe
+                    v-else
+                    :src="formatIframeUrl(el.src)"
+                    width="100%"
+                    height="100%"
+                    frameborder="0"
+                    allowfullscreen
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                  ></iframe>
+                </template>
+              </div>
+
+              <div v-else-if="el.type === 'map'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
+                <iframe
+                  :src="getMapEmbedUrl(el)"
+                  width="100%"
+                  height="100%"
+                  frameborder="0"
+                  allowfullscreen
+                  :style="{ pointerEvents: playMode ? 'auto' : 'none' }"
+                ></iframe>
+              </div>
+
+              <div v-else-if="el.type === 'finance'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden', boxShadow: el.boxShadow || 'none' }">
+                <iframe
+                  :src="'https://s.tradingview.com/widgetembed/?symbol=' + encodeURIComponent(el.symbol) + '&interval=D&symboledit=1&saveimage=0&toolbarbg=f1f3f6&studies=%5B%5D&theme=' + el.theme + '&style=' + el.chartType + '&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=0'"
+                  width="100%"
+                  height="100%"
+                  frameborder="0"
+                  allowfullscreen
+                  :style="{ pointerEvents: playMode ? 'auto' : 'none' }"
+                ></iframe>
+                <div class="drag-protector"></div>
+              </div>
+
+              <div v-else-if="el.type === 'calendar'" :style="{ width: '100%', height: '100%', backgroundColor: el.bgColor, color: el.color, fontFamily: el.fontFamily, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
+                <div :style="{ backgroundColor: el.accentColor, color: '#ffffff', padding: '14px 16px', textAlign: 'center', fontWeight: '700' }">Mes: {{ el.month }} / Año: {{ el.year }}</div>
+                <div :style="{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontSize: '0.9rem', padding: '12px', gap: '4px' }">
+                  <div v-for="day in ['L', 'M', 'X', 'J', 'V', 'S', 'D']" :key="day" :style="{ fontWeight: '700' }">{{ day }}</div>
+                </div>
+                <div :style="{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', padding: '12px', flex: '1 1 auto' }">
+                  <div v-for="d in 31" :key="d" :style="{ aspectRatio: '1 / 1', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.08)' }">{{ d }}</div>
+                </div>
               </div>
 
               <div v-else-if="el.type === '3d'" class="el-3d" style="width: 100%; height: 100%;">
@@ -8423,6 +9223,25 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                     {{ item.content }}
                   </div>
                 </div>
+              </div>
+
+              <div v-else-if="el.type === 'imagecomparator'" style="width: 100%; height: 100%; position: relative; overflow: hidden;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
+                <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                <div v-else style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;"><i class="ph ph-image" style="font-size: 2rem;"></i></div>
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;">
+                  <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition || 50)) + '% 0 0)' }" />
+                </div>
+                <input type="range" min="0" max="100" :value="el.sliderPosition" @input="el.sliderPosition = $event.target.value" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; cursor: ew-resize; opacity: 0; z-index: 10;" />
+              </div>
+
+              <div v-else-if="el.type === 'marquee'" style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center;" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
+                <div style="display: inline-block; white-space: nowrap; animation: marquee-animation linear infinite; padding: 0 20px;" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, animationDuration: (Math.max(5, 20 - (el.speed / 5))) + 's' }">
+                  {{ el.content }} • {{ el.content }} • {{ el.content }}
+                </div>
+              </div>
+
+              <div v-else-if="el.type === 'typewriter'" style="width: 100%; height: 100%; display: flex; align-items: center; padding: 0 10px; box-sizing: border-box;" :style="{ backgroundColor: el.bgColor, color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }">
+                {{ el.displayedText }}
               </div>
             </div>
         </div>
@@ -8491,6 +9310,25 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const getYouTubeEmbedUrl = (url) => {
             const match = url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
             return match && match[1] ? 'https://www.youtube-nocookie.com/embed/' + match[1] + '?rel=0&origin=https://google.com' : '';
+          };
+
+          const formatIframeUrl = (url) => {
+            if (!url) return url;
+            const trimmed = url.trim();
+            if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+            if (trimmed.startsWith('//')) return 'https:' + trimmed;
+            return 'https://' + trimmed;
+          };
+
+          const isIframeBlocked = (url) => {
+            if (!url) return false;
+            try {
+              const hostname = new URL(formatIframeUrl(url)).hostname.replace(/^www\./, '').toLowerCase();
+              const blockedDomains = ['google.com', 'github.com', 'twitter.com', 'facebook.com', 'linkedin.com', 'gemini.google.com', 'youtube.com'];
+              return blockedDomains.some((domain) => hostname === domain || hostname.endsWith('.' + domain));
+            } catch (error) {
+              return false;
+            }
           };
 
           const formatTime = (seconds) => {
@@ -8641,7 +9479,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation
           };
         }
       }).mount('#app');
