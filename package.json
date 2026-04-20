@@ -22,6 +22,7 @@
     "cropperjs": "^1.6.2",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
+    "leaflet": "^1.9.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174",
     "pinia": "^3.0.4",

@@ -56,107 +56,17 @@
         </div>
 
         <div class="pro-workspace">
-          <aside class="pro-sidebar left-sidebar" v-if="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>            <div class="panel-header">
+          <aside class="pro-sidebar left-sidebar" v-show="isLeftSidebarOpen" v-if="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>
+            <div style="padding: 10px 15px; border-bottom: 1px solid var(--border-strong);">
+              <button class="btn-primary w-100" @click="showTemplateModal = true">
+                <i class="ph ph-layout"></i> Explorar Plantillas
+              </button>
+            </div>
+
+            <div class="panel-header">
               <span>Diapositivas</span>
               <span class="badge">{{ numPages }}</span>
             </div>
-  <!-- PANEL DE PLANTILLAS DESPLEGABLE EN SIDEBAR -->
-  <div class="template-sidebar-panel">
-    <button class="tsp-toggle" @click="templatePanelOpen = !templatePanelOpen">
-      <span class="tsp-toggle-left">
-        <i class="ph ph-layout"></i>
-        Plantilla
-        <span class="tsp-active-badge">{{ templateLabels[projectConfigs.template] || 'En blanco' }}</span>
-      </span>
-      <i class="ph" :class="templatePanelOpen ? 'ph-caret-up' : 'ph-caret-down'"></i>
-    </button>
-
-    <div class="tsp-body" v-show="templatePanelOpen">
-      <div class="tsp-grid">
-
-        <!-- EN BLANCO -->
-        <div
-          class="tsp-card"
-          :class="{ 'is-active': projectConfigs.template === 'blank' }"
-          @click="projectConfigs.template = 'blank'; isCustomTemplateMode = false"
-        >
-          <div class="tsp-preview tsp-preview-blank">
-            <div class="tsp-preview-line" style="width:60%; height:8px; background:#ddd; border-radius:3px;"></div>
-            <div class="tsp-preview-line" style="width:80%; height:5px; background:#eee; border-radius:3px; margin-top:6px;"></div>
-            <div class="tsp-preview-line" style="width:50%; height:5px; background:#eee; border-radius:3px; margin-top:4px;"></div>
-            <button class="tsp-add-btn" @click.stop="projectConfigs.template = 'blank'; isCustomTemplateMode = false; addNewSlide()">
-              <i class="ph ph-plus"></i>
-            </button>
-          </div>
-          <span class="tsp-name">En blanco</span>
-        </div>
-
-        <!-- MODERNA -->
-        <div
-          class="tsp-card"
-          :class="{ 'is-active': projectConfigs.template === 'modern' }"
-          @click="projectConfigs.template = 'modern'; isCustomTemplateMode = false"
-        >
-          <div class="tsp-preview tsp-preview-modern">
-            <div class="tsp-preview-header-bar"></div>
-            <div class="tsp-preview-content">
-              <div class="tsp-preview-line" style="width:70%; height:7px; background:rgba(255,255,255,0.9); border-radius:3px;"></div>
-              <div class="tsp-preview-line" style="width:45%; height:4px; background:#e2e8f0; border-radius:3px; margin-top:8px;"></div>
-              <div class="tsp-preview-accent"></div>
-            </div>
-            <button class="tsp-add-btn" @click.stop="projectConfigs.template = 'modern'; isCustomTemplateMode = false; addNewSlide()">
-              <i class="ph ph-plus"></i>
-            </button>
-          </div>
-          <span class="tsp-name">Moderna</span>
-        </div>
-
-        <!-- OSCURA -->
-        <div
-          class="tsp-card"
-          :class="{ 'is-active': projectConfigs.template === 'dark' }"
-          @click="projectConfigs.template = 'dark'; isCustomTemplateMode = false"
-        >
-          <div class="tsp-preview tsp-preview-dark">
-            <div class="tsp-preview-line" style="width:75%; height:8px; background:rgba(255,255,255,0.9); border-radius:3px;"></div>
-            <div class="tsp-preview-line" style="width:55%; height:4px; background:#8b949e; border-radius:3px; margin-top:8px;"></div>
-            <div class="tsp-preview-dot"></div>
-            <button class="tsp-add-btn" @click.stop="projectConfigs.template = 'dark'; isCustomTemplateMode = false; addNewSlide()">
-              <i class="ph ph-plus"></i>
-            </button>
-          </div>
-          <span class="tsp-name">Oscura</span>
-        </div>
-
-      </div>
-
-      <!-- MIS PLANTILLAS -->
-      <div class="tsp-my-templates-wrapper" ref="myTemplatesBtnRef" style="position: relative;">
-        <button class="tsp-my-templates-btn" @click="myTemplatesOpen = !myTemplatesOpen">
-          <i class="ph ph-folders"></i>
-          <span>Mis plantillas</span>
-          <i class="ph ph-caret-down" style="margin-left: auto; font-size: 0.7rem; opacity: 0.5;"></i>
-        </button>
-
-        <!-- MENÚ FLOTANTE ANCLADO -->
-        <transition name="toast-fade">
-          <div v-show="myTemplatesOpen" class="templates-floating-menu" @click.stop>
-            <div class="tmpl-menu-header">
-              <i class="ph ph-folders"></i> Mis plantillas
-            </div>
-            <div class="tmpl-menu-body">
-              <div class="tmpl-coming-soon">
-                <i class="ph ph-rocket-launch"></i>
-                <p>Próximamente</p>
-                <small>Podrás guardar y reutilizar tus diseños.</small>
-              </div>
-            </div>
-          </div>
-        </transition>
-      </div>
-
-    </div>
-  </div>
             <div class="slides-preview-list">
               <div
                  v-for="page in numPages"
@@ -277,7 +187,7 @@
           </aside>
 
           <!-- Resizer Izquierdo -->
-          <div class="sidebar-resizer" v-if="hasDoc && !playMode" @mousedown.prevent.stop="startResizeSidebar($event, 'left')"></div>
+          <div class="sidebar-resizer" v-if="hasDoc && !playMode && isLeftSidebarOpen" @mousedown.prevent.stop="startResizeSidebar($event, 'left')"></div>
 
           <div class="center-workspace" v-if="hasDoc">
             <div class="pro-top-toolbar" v-if="!playMode" @click.stop>
@@ -575,6 +485,14 @@
                 </div>
               </div>
             </div>
+
+            <button v-if="hasDoc && !playMode" class="sidebar-toggle-btn toggle-left" @click="isLeftSidebarOpen = !isLeftSidebarOpen" :title="isLeftSidebarOpen ? 'Ocultar Diapositivas' : 'Mostrar Diapositivas'">
+              <i class="ph" :class="isLeftSidebarOpen ? 'ph-caret-left' : 'ph-caret-right'"></i>
+            </button>
+
+            <button v-if="hasDoc && !playMode" class="sidebar-toggle-btn toggle-right" @click="isRightSidebarOpen = !isRightSidebarOpen" :title="isRightSidebarOpen ? 'Ocultar Inspector' : 'Mostrar Inspector'">
+              <i class="ph" :class="isRightSidebarOpen ? 'ph-caret-right' : 'ph-caret-left'"></i>
+            </button>
 
             <main
               class="pro-canvas-area"
@@ -1370,24 +1288,37 @@
                       style="width: 100%; height: 100%; position: relative; overflow: hidden;"
                       :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }"
                     >
-                      <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                      <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
                       <div v-else style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;">
                         <i class="ph ph-image" style="font-size: 2rem;"></i>
                       </div>
                       <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;">
-                        <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition || 50)) + '% 0 0)' }" />
+                        <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition ?? 50)) + '% 0 0)' }" />
                       </div>
-                      <input type="range" min="0" max="100" v-model.number="el.sliderPosition" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; cursor: ew-resize; opacity: 0; z-index: 10;" />
+                      <div
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: ew-resize; z-index: 10;"
+                        @mousedown.stop.prevent="startComparatorDrag($event, el)"
+                      ></div>
+                      <div
+                        style="position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.95); box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 0 8px rgba(0,0,0,0.25); pointer-events: none; z-index: 11;"
+                        :style="{ left: (el.sliderPosition ?? 50) + '%' }"
+                      ></div>
                       <div v-if="!playMode" class="drag-protector"></div>
                     </div>
 
                     <div
                       v-else-if="el.type === 'marquee'"
-                      style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center;"
+                      style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; position: relative;"
                       :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }"
                     >
-                      <div style="display: inline-block; white-space: nowrap; animation: marquee-animation linear infinite; padding: 0 20px;" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, animationDuration: (Math.max(5, 20 - (el.speed / 5))) + 's' }">
-                        {{ el.content }} • {{ el.content }} • {{ el.content }}
+                      <div
+                        class="marquee-track"
+                        :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, animationDuration: (Math.max(5, 30 - (el.speed / 3))) + 's' }"
+                      >
+                        <span class="marquee-content">{{ el.content }}</span>
+                        <span class="marquee-content">{{ el.content }}</span>
+                        <span class="marquee-content">{{ el.content }}</span>
+                        <span class="marquee-content">{{ el.content }}</span>
                       </div>
                     </div>
 
@@ -1560,6 +1491,22 @@
                     </div>
 
                     <div
+                      v-else-if="el.type === 'map'"
+                      class="el-iframe-container"
+                      :style="{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: (el.borderRadius || 0) + 'px',
+                        border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+                        overflow: 'hidden',
+                        boxShadow: el.boxShadow || 'none',
+                      }"
+                    >
+                      <LeafletMapElement :element="el" :interactive="playMode" />
+                      <div v-if="!playMode" class="drag-protector"></div>
+                    </div>
+
+                    <div
                       v-else-if="el.type === 'finance'"
                       class="el-iframe-container"
                       :style="{
@@ -1586,13 +1533,14 @@
                       v-else-if="el.type === 'calendar'"
                       :style="{
                         width: '100%',
-                        height: '100%',
+                        height: el.height === 'auto' ? 'auto' : '100%',
                         backgroundColor: el.bgColor,
                         color: el.color,
                         fontFamily: el.fontFamily,
                         borderRadius: (el.borderRadius || 0) + 'px',
                         border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
                         boxShadow: el.boxShadow || 'none',
+                        position: 'relative',
                         display: 'flex',
                         flexDirection: 'column',
                         overflow: 'hidden',
@@ -1633,23 +1581,119 @@
                           gridTemplateColumns: 'repeat(7, 1fr)',
                           gap: '4px',
                           padding: '12px',
+                          alignContent: 'start',
                           flex: '1 1 auto',
                         }"
                       >
                         <div
-                          v-for="d in 31"
-                          :key="d"
+                          v-for="(d, index) in getCalendarDays(el.month, el.year)"
+                          :key="`cal-${index}-${d.day || 0}`"
+                          @click="playMode && !d.empty && getDayEvents(el, d.day).length ? (el.activeAgendaDay = d.day) : null"
                           :style="{
                             aspectRatio: '1 / 1',
                             minHeight: '48px',
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            justifyContent: d.empty ? 'center' : 'space-between',
                             borderRadius: '8px',
-                            backgroundColor: 'rgba(255,255,255,0.08)',
+                            padding: d.empty ? '0' : '6px 4px',
+                            backgroundColor: d.empty ? 'transparent' : 'rgba(255,255,255,0.08)',
+                            cursor: playMode && !d.empty && getDayEvents(el, d.day).length ? 'pointer' : 'default',
                           }"
                         >
-                          {{ d }}
+                          <template v-if="!d.empty">
+                            <span>{{ d.day }}</span>
+                            <div :style="{ display: 'flex', gap: '3px', flexWrap: 'wrap', justifyContent: 'center', minHeight: '8px' }">
+                              <span
+                                v-for="(ev, evIndex) in getDayEvents(el, d.day)"
+                                :key="ev.id || evIndex"
+                                :style="{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: ev.color || '#3b82f6',
+                                }"
+                              ></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+
+                      <div
+                        v-if="el.activeAgendaDay"
+                        :style="{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '14px',
+                          boxSizing: 'border-box',
+                          zIndex: 2,
+                        }"
+                      >
+                        <div
+                          :style="{
+                            width: '100%',
+                            height: '100%',
+                            maxHeight: '100%',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '10px',
+                            color: '#1e293b',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                          }"
+                        >
+                          <div
+                            :style="{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 12px',
+                              backgroundColor: el.accentColor,
+                              color: '#ffffff',
+                              fontWeight: '700',
+                            }"
+                          >
+                            <span>Agenda del día {{ el.activeAgendaDay }}</span>
+                            <button
+                              type="button"
+                              @click.stop="el.activeAgendaDay = null"
+                              :style="{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', fontSize: '1rem' }"
+                            >
+                              <i class="ph ph-x"></i>
+                            </button>
+                          </div>
+
+                          <div :style="{ flex: '1 1 auto', overflowY: 'auto', padding: '12px' }">
+                            <div
+                              v-for="(ev, evIndex) in getDayEvents(el, el.activeAgendaDay)"
+                              :key="ev.id || evIndex"
+                              :style="{
+                                borderLeft: '4px solid ' + (ev.color || '#3b82f6'),
+                                backgroundColor: '#f8fafc',
+                                borderRadius: '6px',
+                                padding: '10px',
+                                marginBottom: '8px',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                              }"
+                            >
+                              {{ ev.content || 'Sin detalle' }}
+                            </div>
+                            <div
+                              v-if="getDayEvents(el, el.activeAgendaDay).length === 0"
+                              :style="{ color: '#64748b', fontStyle: 'italic' }"
+                            >
+                              No hay notas para este día.
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1961,10 +2005,26 @@
           </div>
 
           <!-- Resizer Derecho -->
-          <div class="sidebar-resizer" v-if="hasDoc && !playMode" @mousedown.prevent.stop="startResizeSidebar($event, 'right')"></div>
+          <div class="sidebar-resizer" v-if="hasDoc && !playMode && isRightSidebarOpen" @mousedown.prevent.stop="startResizeSidebar($event, 'right')"></div>
 
-          <aside class="pro-sidebar right-sidebar" v-if="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
+          <aside class="pro-sidebar right-sidebar" v-show="isRightSidebarOpen" v-if="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
             <div class="panel-header">Propiedades</div>
+
+            <div class="inspector-tabs" v-if="selectedElement">
+              <button class="inspector-tab" :class="{ active: activeInspectorTab === 'design' }" @click="activeInspectorTab = 'design'" title="Diseño y Estilos">
+                <i class="ph ph-paint-brush"></i>
+              </button>
+              <button v-if="['chart', 'poll', 'table', 'list', 'checkbox', 'calendar', 'mindmap', 'finance'].includes(selectedElement.type)" class="inspector-tab" :class="{ active: activeInspectorTab === 'data' }" @click="activeInspectorTab = 'data'" title="Datos y Contenido">
+                <i class="ph ph-database"></i>
+              </button>
+              <button class="inspector-tab" :class="{ active: activeInspectorTab === 'interactivity' }" @click="activeInspectorTab = 'interactivity'" title="Interactividad y Eventos">
+                <i class="ph ph-lightning"></i>
+              </button>
+              <button class="inspector-tab" :class="{ active: activeInspectorTab === 'animations' }" @click="activeInspectorTab = 'animations'" title="Animaciones">
+                <i class="ph ph-film-strip"></i>
+              </button>
+            </div>
+
             <div class="panel-content" v-if="selectedElementIds.length > 1">
               <div class="element-header">
                 <div class="badge-type">
@@ -2012,7 +2072,7 @@
 
             <div class="panel-content" v-else-if="selectedElement">
               <!-- --- MOTOR DE EVENTOS (EDA) --- -->
-              <div class="prop-section" style="border: 1px solid #4a90e2; border-radius: 8px; background: rgba(74, 144, 226, 0.05); padding: 12px; margin-bottom: 16px;">
+              <div v-if="selectedElement.type !== 'calendar'" v-show="activeInspectorTab === 'interactivity'" class="prop-section" style="border: 1px solid #4a90e2; border-radius: 8px; background: rgba(74, 144, 226, 0.05); padding: 12px; margin-bottom: 16px;">
                 <h4 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                   <span style="font-weight: 600; color: #4a90e2; display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> Interactividad</span>
                   <button class="tool-btn" style="background: #4a90e2; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" @click="selectedElement.events = selectedElement.events || []; selectedElement.events.push({ id: 'ev_' + Date.now(), trigger: 'click', action: 'show', targetId: '' })">
@@ -2072,7 +2132,7 @@
                   </div>
                 </div>
               </div>
-              <div class="element-header">
+              <div class="element-header" v-show="activeInspectorTab === 'design'">
                 <div class="badge-type">
                   <i :class="`ph ${getIconClassForType(selectedElement.type)}`"></i>
                   {{ selectedElement.type.toUpperCase() }}
@@ -2082,14 +2142,14 @@
                 </button>
               </div>
 
-              <div class="prop-section" v-if="selectedElement.groupId">
+              <div class="prop-section" v-if="selectedElement.groupId" v-show="activeInspectorTab === 'design'">
                 <div class="section-title">En Grupo</div>
                 <button class="btn-secondary w-100" @click="ungroupElements">
                   <i class="ph ph-exclude"></i> Desagrupar Elemento
                 </button>
               </div>
 
-              <div class="prop-section" v-if="selectedElement.type !== 'draw'">
+              <div class="prop-section" v-if="selectedElement.type !== 'draw'" v-show="activeInspectorTab === 'animations'">
                 <div class="section-title">Animación (Entrada)</div>
                 <div class="prop-group mb-0">
                   <label>Efecto</label>
@@ -2118,6 +2178,7 @@
               <div
                 class="prop-section"
                 v-if="!['audio', 'interactive'].includes(selectedElement.type)"
+                v-show="activeInspectorTab === 'design'"
               >
                 <div class="section-title">Geometría</div>
                 <div class="prop-row">
@@ -2170,7 +2231,7 @@
                 </div>
               </div>
 
-              <div class="prop-section">
+              <div class="prop-section" v-show="activeInspectorTab === 'design'">
                 <div class="section-title">Apariencia</div>
                 <div class="prop-row">
                   <div
@@ -2205,7 +2266,7 @@
                 </div>
               </div>
 
-              <template v-if="selectedElement.type === 'mindmap'">
+              <template v-if="selectedElement.type === 'mindmap' && activeInspectorTab === 'data'">
                 <div class="prop-section">
                   <div class="section-title">Diseño del Mapa Mental</div>
                   <div class="prop-row">
@@ -2319,13 +2380,9 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'map'">
+              <template v-if="selectedElement.type === 'map' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Configuración del Mapa</div>
-                  <div class="prop-group">
-                    <label>Dirección / Ubicación</label>
-                    <input type="text" v-model="selectedElement.location" class="pro-input" placeholder="Madrid, España" />
-                  </div>
                   <div class="prop-row">
                     <div class="prop-group half">
                       <label>Latitud central</label>
@@ -2339,23 +2396,14 @@
                   <div class="prop-row">
                     <div class="prop-group half">
                       <label>Zoom</label>
-                      <input type="number" min="1" max="20" v-model.number="selectedElement.zoomLevel" class="pro-input" />
-                    </div>
-                    <div class="prop-group half">
-                      <label>Tipo de mapa</label>
-                      <select v-model="selectedElement.mapType" class="pro-input">
-                        <option value="m">Mapa</option>
-                        <option value="k">Satélite</option>
-                        <option value="h">Híbrido</option>
-                        <option value="p">Relieve</option>
-                      </select>
+                      <input type="number" min="1" max="19" v-model.number="selectedElement.zoomLevel" class="pro-input" />
                     </div>
                   </div>
                 </div>
 
                 <div class="prop-section">
                   <div class="section-title">Pines</div>
-                  <div v-for="(marker, idx) in selectedElement.markers" :key="marker.id" class="prop-section" style="padding: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; border-radius: 10px;">
+                  <div v-for="marker in selectedElement.markers" :key="marker.id" class="prop-section" style="padding: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; border-radius: 10px;">
                     <div class="prop-row">
                       <div class="prop-group half">
                         <label>Etiqueta</label>
@@ -2384,36 +2432,10 @@
                     <i class="ph ph-plus"></i> Añadir pin
                   </button>
                 </div>
-
-                <div class="prop-section">
-                  <div class="section-title">Ruta</div>
-                  <p style="font-size: 0.85rem; margin-bottom: 10px; opacity: 0.8;">Añade puntos que formen una ruta. El primer y último punto son origen y destino.</p>
-                  <div v-for="(point, idx) in selectedElement.routePoints" :key="point.id" class="prop-section" style="padding: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; border-radius: 10px;">
-                    <div class="prop-row" style="gap: 10px;">
-                      <div class="prop-group half">
-                        <label>Punto {{ idx + 1 }} lat</label>
-                        <input type="number" step="0.000001" v-model.number="point.lat" class="pro-input" />
-                      </div>
-                      <div class="prop-group half">
-                        <label>Punto {{ idx + 1 }} lng</label>
-                        <input type="number" step="0.000001" v-model.number="point.lng" class="pro-input" />
-                      </div>
-                    </div>
-                    <button class="btn-danger w-100" @click="removeMapRoutePoint(selectedElement, point.id)">
-                      <i class="ph ph-trash"></i> Eliminar punto
-                    </button>
-                  </div>
-                  <button class="btn-secondary w-100" @click="addMapRoutePoint(selectedElement)">
-                    <i class="ph ph-plus"></i> Añadir punto de ruta
-                  </button>
-                  <button class="btn-danger w-100 mt-1" v-if="selectedElement.routePoints.length" @click="selectedElement.routePoints = []">
-                    <i class="ph ph-trash"></i> Borrar ruta completa
-                  </button>
-                </div>
               </template>
 
               <template v-if="selectedElement.type === 'calendar'">
-                <div class="prop-section">
+                <div class="prop-section" v-show="activeInspectorTab === 'design'">
                   <div class="section-title">Configuración del Calendario</div>
                   <div class="prop-row">
                     <div class="prop-group half">
@@ -2473,9 +2495,66 @@
                     <input type="text" v-model="selectedElement.boxShadow" class="pro-input" placeholder="0 4px 6px rgba(0,0,0,0.05)" />
                   </div>
                 </div>
+
+                <div class="prop-section" v-show="activeInspectorTab === 'data'">
+                  <div class="section-title">Agenda y Eventos</div>
+
+                  <div v-if="!selectedElement.events || selectedElement.events.length === 0" style="text-align: center; color: #888; font-size: 0.85rem; padding: 10px;">
+                    No hay eventos de agenda.
+                  </div>
+
+                  <div
+                    v-for="(ev, index) in selectedElement.events || []"
+                    :key="ev.id || index"
+                    style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);"
+                  >
+                    <div class="prop-group">
+                      <label>Tipo de Evento</label>
+                      <select v-model="ev.type" class="pro-input">
+                        <option value="single">Día Suelto</option>
+                        <option value="range">Rango de Días</option>
+                      </select>
+                    </div>
+
+                    <div class="prop-row">
+                      <div class="prop-group" :class="ev.type === 'range' ? 'half' : ''">
+                        <label>Día Inicio</label>
+                        <input type="number" min="1" max="31" v-model.number="ev.startDay" class="pro-input" />
+                      </div>
+                      <div class="prop-group half" v-if="ev.type === 'range'">
+                        <label>Día Fin</label>
+                        <input type="number" min="1" max="31" v-model.number="ev.endDay" class="pro-input" />
+                      </div>
+                    </div>
+
+                    <div class="prop-group">
+                      <label>Color</label>
+                      <input type="color" v-model="ev.color" class="pro-color-picker" />
+                    </div>
+
+                    <div class="prop-group">
+                      <label>Detalle</label>
+                      <textarea
+                        v-model="ev.content"
+                        class="pro-input"
+                        rows="3"
+                        placeholder="Agenda o notas para este día"
+                        style="resize: vertical;"
+                      ></textarea>
+                    </div>
+
+                    <button class="btn-danger w-100" @click="removeCalendarEvent(selectedElement, index)">
+                      <i class="ph ph-trash"></i> Eliminar Evento
+                    </button>
+                  </div>
+
+                  <button class="btn-secondary w-100" @click="addCalendarEvent(selectedElement)">
+                    <i class="ph ph-plus"></i> Añadir Evento
+                  </button>
+                </div>
               </template>
 
-              <template v-if="selectedElement.type === 'finance'">
+              <template v-if="selectedElement.type === 'finance' && activeInspectorTab === 'data'">
                 <div class="prop-section">
                   <div class="section-title">Configuración de Finanzas</div>
                   <div class="prop-group">
@@ -2521,7 +2600,7 @@
               </template>
 
               <template v-if="selectedElement.type === 'table'">
-                <div class="prop-section">
+                <div class="prop-section" v-show="activeInspectorTab === 'design'">
                   <div class="section-title">Estructura y Estilo Tabla</div>
 
                   <div class="prop-row">
@@ -2624,7 +2703,7 @@
                   </div>
                 </div>
 
-                <div class="prop-section">
+                <div class="prop-section" v-show="activeInspectorTab === 'data'">
                   <div class="section-title">Datos (Tabla)</div>
                   <div style="overflow-x: auto">
                     <table style="width: 100%; border-collapse: collapse">
@@ -2685,7 +2764,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'list'">
+              <template v-if="selectedElement.type === 'list' && activeInspectorTab === 'data'">
                 <div class="prop-section">
                   <div class="section-title">Lista de Texto</div>
 
@@ -2766,7 +2845,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'checkbox'">
+              <template v-if="selectedElement.type === 'checkbox' && activeInspectorTab === 'data'">
                 <div class="prop-section">
                   <div class="section-title">Lista de Tareas</div>
                   <div
@@ -2834,7 +2913,7 @@
                 </div>
               </template>
 
-              <template v-if="['text', 'sticky'].includes(selectedElement.type)">
+              <template v-if="['text', 'sticky'].includes(selectedElement.type) && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Tipografía</div>
                   <div class="prop-group">
@@ -3004,7 +3083,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'codeblock'">
+              <template v-if="selectedElement.type === 'codeblock' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Bloque de Código</div>
                   <div class="prop-group">
@@ -3050,7 +3129,7 @@
                 </div>
               </template>
 
-              <template v-if="['shape', 'icon', 'arrow'].includes(selectedElement.type)">
+              <template v-if="['shape', 'icon', 'arrow'].includes(selectedElement.type) && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Estilo Visual</div>
 
@@ -3222,7 +3301,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'rating'">
+              <template v-if="selectedElement.type === 'rating' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Puntuación / Rating</div>
                   <div class="prop-row">
@@ -3271,7 +3350,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'timer'">
+              <template v-if="selectedElement.type === 'timer' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Temporizador</div>
                   <div class="prop-group">
@@ -3325,7 +3404,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'progress'">
+              <template v-if="selectedElement.type === 'progress' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Barra de Progreso</div>
                   <div class="prop-group">
@@ -3369,7 +3448,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'qrcode'">
+              <template v-if="selectedElement.type === 'qrcode' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Código QR Dinámico</div>
                   <div class="prop-group">
@@ -3413,7 +3492,7 @@
               </template>
 
               <template
-                v-if="['image', 'video', 'iframe', '3d', 'magnifier'].includes(selectedElement.type)"
+                v-if="['image', 'video', 'iframe', '3d', 'magnifier'].includes(selectedElement.type) && activeInspectorTab === 'design'"
               >
                 <div class="prop-section">
                   <div class="section-title">Fuente Multimedia</div>
@@ -3609,7 +3688,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'draw'">
+              <template v-if="selectedElement.type === 'draw' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Rotulador</div>
                   <div class="prop-row">
@@ -3642,7 +3721,7 @@
               </template>
 
               <template v-if="['chart', 'poll'].includes(selectedElement.type)">
-                <div class="prop-section">
+                <div class="prop-section" v-show="activeInspectorTab === 'design'">
                   <div class="section-title">Estilo Visual</div>
                   <div class="prop-group">
                     <label>Título Superior</label
@@ -3705,7 +3784,7 @@
                     >
                   </div>
                 </div>
-                <div class="prop-section">
+                <div class="prop-section" v-show="activeInspectorTab === 'data'">
                   <div class="section-title">Datos (Data)</div>
                   <div class="chart-data-list">
                     <div
@@ -3767,7 +3846,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'audio'">
+              <template v-if="selectedElement.type === 'audio' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Botón de Audio</div>
 
@@ -3838,7 +3917,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'interactive'">
+              <template v-if="selectedElement.type === 'interactive' && activeInspectorTab === 'interactivity'">
                 <div class="prop-section">
                   <div class="section-title">Hotspot Interactivo</div>
                   <div class="prop-group">
@@ -3887,7 +3966,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'link'">
+              <template v-if="selectedElement.type === 'link' && activeInspectorTab === 'interactivity'">
                 <div class="prop-section">
                   <div class="section-title">Botón de Navegación</div>
                   <div class="prop-group">
@@ -3974,7 +4053,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'accordion'">
+              <template v-if="selectedElement.type === 'accordion' && activeInspectorTab === 'interactivity'">
                 <div class="prop-section">
                   <div class="section-title">Acordeón Desplegable</div>
                   <div class="prop-row">
@@ -4032,13 +4111,13 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'imagecomparator'">
+              <template v-if="selectedElement.type === 'imagecomparator' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Comparador de Imágenes</div>
                   <div class="prop-group">
                     <label>Imagen Antes</label>
                     <label class="btn-ghost w-100 text-center">
-                      <input type="file" @change="(e) => { const f = e.target.files?.[0]; if(f) { const r = new FileReader(); r.onload = () => selectedElement.imageBefore = r.result; r.readAsDataURL(f); } }" accept="image/*" hidden />
+                      <input type="file" @change="handleComparatorUpload($event, selectedElement, 'imageBefore')" accept="image/*" hidden />
                       <i class="ph ph-image"></i>
                       {{ selectedElement.imageBefore ? 'Cambiar Imagen Antes' : 'Subir Imagen Antes' }}
                     </label>
@@ -4046,7 +4125,7 @@
                   <div class="prop-group">
                     <label>Imagen Después</label>
                     <label class="btn-ghost w-100 text-center">
-                      <input type="file" @change="(e) => { const f = e.target.files?.[0]; if(f) { const r = new FileReader(); r.onload = () => selectedElement.imageAfter = r.result; r.readAsDataURL(f); } }" accept="image/*" hidden />
+                      <input type="file" @change="handleComparatorUpload($event, selectedElement, 'imageAfter')" accept="image/*" hidden />
                       <i class="ph ph-image"></i>
                       {{ selectedElement.imageAfter ? 'Cambiar Imagen Después' : 'Subir Imagen Después' }}
                     </label>
@@ -4079,7 +4158,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'marquee'">
+              <template v-if="selectedElement.type === 'marquee' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Marquesina</div>
                   <div class="prop-group">
@@ -4128,7 +4207,7 @@
                 </div>
               </template>
 
-              <template v-if="selectedElement.type === 'typewriter'">
+              <template v-if="selectedElement.type === 'typewriter' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Máquina de Escribir</div>
                   <div class="prop-group">
@@ -4251,6 +4330,48 @@
       </div>
 
       <div
+        v-if="showTemplateModal"
+        class="loading-overlay"
+        style="z-index: 10005; backdrop-filter: blur(8px);"
+        @click.self="showTemplateModal = false"
+      >
+        <div class="new-project-modal" style="width: 600px; max-width: 90vw;">
+          <div class="modal-header" style="margin-bottom: 20px;">
+            <h3><i class="ph ph-layout text-accent"></i> Galería de Plantillas</h3>
+            <button class="btn-icon-danger" @click="showTemplateModal = false">
+              <i class="ph ph-x"></i>
+            </button>
+          </div>
+
+          <div class="tsp-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            <div class="tsp-card" :class="{ 'is-active': projectConfigs.template === 'blank' }" @click="projectConfigs.template = 'blank'; isCustomTemplateMode = false; showTemplateModal = false; addNewSlide()">
+              <div class="tsp-preview tsp-preview-blank">
+                <div class="tsp-preview-line" style="width:60%; height:8px; background:#ddd; border-radius:3px;"></div>
+              </div>
+              <span class="tsp-name mt-1">En blanco</span>
+            </div>
+
+            <div class="tsp-card" :class="{ 'is-active': projectConfigs.template === 'modern' }" @click="projectConfigs.template = 'modern'; isCustomTemplateMode = false; showTemplateModal = false; addNewSlide()">
+              <div class="tsp-preview tsp-preview-modern">
+                <div class="tsp-preview-header-bar"></div>
+                <div class="tsp-preview-content">
+                  <div class="tsp-preview-line" style="width:70%; height:7px; background:rgba(255,255,255,0.9); border-radius:3px;"></div>
+                </div>
+              </div>
+              <span class="tsp-name mt-1">Moderna</span>
+            </div>
+
+            <div class="tsp-card" :class="{ 'is-active': projectConfigs.template === 'dark' }" @click="projectConfigs.template = 'dark'; isCustomTemplateMode = false; showTemplateModal = false; addNewSlide()">
+              <div class="tsp-preview tsp-preview-dark">
+                <div class="tsp-preview-line" style="width:75%; height:8px; background:rgba(255,255,255,0.9); border-radius:3px;"></div>
+              </div>
+              <span class="tsp-name mt-1">Oscura</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
           v-if="showCropperModal"
           class="loading-overlay"
           style="z-index: 10002; backdrop-filter: blur(8px);"
@@ -4316,6 +4437,7 @@
   import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, shallowRef, defineAsyncComponent } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import EditorHeader from '@/components/EditorHeader.vue'
+  import LeafletMapElement from '@/components/LeafletMapElement.vue'
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
@@ -4384,10 +4506,6 @@ const getElementDisplayName = (el: any) => {
   }
   return `${name} (${el.id.substring(3, 7)})`;
 };
-
-
-  const myTemplatesOpen = ref(false)
-  const myTemplatesBtnRef = ref<HTMLElement | null>(null)
   const authStore = useAuthStore();
 
   // --- REORDENACIÓN DE DIAPOSITIVAS POR DRAG & DROP Y POS. NUMÉRICA ---
@@ -5090,14 +5208,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const route = useRoute()
   const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
   const editingElementId = ref<string | null>(null)
-  const templatePanelOpen = ref(true)
-  const templateLabels: Record<string, string> = {
-    blank: 'En blanco',
-    modern: 'Moderna',
-    dark: 'Oscura',
-    custom: 'Personalizada',
-  }
-
   const router = useRouter() // 👈 Inicializamos el router
 
   // --- SISTEMA DE NOTIFICACIONES (TOAST) ---
@@ -5338,6 +5448,10 @@ const wakeUpPlayNav = () => {
 
   const leftSidebarWidth = ref(240)
   const rightSidebarWidth = ref(280)
+  const isLeftSidebarOpen = ref(true)
+  const isRightSidebarOpen = ref(true)
+  const showTemplateModal = ref(false)
+  const activeInspectorTab = ref<'design' | 'interactivity' | 'data' | 'animations'>('design')
 
   // --- LÓGICA PARA REDIMENSIONAR LOS PANELES LATERALES ---
 const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
@@ -6015,13 +6129,15 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     },
     calendar: {
       name: 'Calendario',
-      width: 350,
+      width: 450,
       height: 'auto',
       month: new Date().getMonth() + 1,
       year: new Date().getFullYear(),
       color: 'var(--pres-text)',
       bgColor: 'var(--pres-bg)',
       accentColor: 'var(--pres-accent)',
+      events: [],
+      activeAgendaDay: null,
       fontFamily: 'Helvetica, Arial, sans-serif',
       borderRadius: 12,
       borderWidth: 1,
@@ -6233,13 +6349,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
   // --- LIFECYCLE E INTERACCIÓN ---
 
-const handleClickOutsideTmpl = (e) => {
-  if (myTemplatesOpen.value && myTemplatesBtnRef.value && !myTemplatesBtnRef.value.contains(e.target)) {
-    myTemplatesOpen.value = false;
-  }
-};
       onMounted(() => {
-    document.addEventListener('click', handleClickOutsideTmpl);
     if (!customElements.get('model-viewer')) {
       const script = document.createElement('script')
       script.type = 'module'
@@ -6261,13 +6371,6 @@ const handleClickOutsideTmpl = (e) => {
     // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
     document.addEventListener('mousemove', wakeUpPlayNav);
     document.addEventListener('keydown', wakeUpPlayNav);
-
-    // Cerrar "Mis plantillas" al hacer click fuera
-    document.addEventListener('click', (e) => {
-      if (myTemplatesOpen.value) {
-        myTemplatesOpen.value = false
-      }
-    })
 
     // Cargar proyecto si hay ID en la ruta
     const routeId = route.params.id as string
@@ -6629,6 +6732,61 @@ watch(
   const removeTableColumn = (el: any, idx: number) => {
     el.headers.splice(idx, 1)
     el.rows.forEach((r: any) => r.splice(idx, 1))
+  }
+
+  const getCalendarDays = (month: number, year: number) => {
+    const safeMonth = Math.min(12, Math.max(1, Number(month) || 1))
+    const safeYear = Math.max(1, Number(year) || new Date().getFullYear())
+    const firstWeekday = (new Date(safeYear, safeMonth - 1, 1).getDay() + 6) % 7
+    const daysInMonth = new Date(safeYear, safeMonth, 0).getDate()
+    const days: Array<{ day: number | null; empty: boolean }> = []
+
+    for (let i = 0; i < firstWeekday; i++) {
+      days.push({ day: null, empty: true })
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push({ day: d, empty: false })
+    }
+
+    return days
+  }
+
+  const getDayEvents = (el: any, day: number) => {
+    const events = Array.isArray(el?.events) ? el.events : []
+    const dayNum = Number(day)
+
+    return events.filter((ev: any) => {
+      if (!ev || ev.trigger || ev.action) return false
+
+      const type = ev.type || 'single'
+      const startDay = Number(ev.startDay)
+      const endDay = Number(ev.endDay)
+
+      if (type === 'range') {
+        const start = Number.isFinite(startDay) ? startDay : dayNum
+        const end = Number.isFinite(endDay) ? endDay : start
+        return dayNum >= Math.min(start, end) && dayNum <= Math.max(start, end)
+      }
+
+      return dayNum === (Number.isFinite(startDay) ? startDay : 1)
+    })
+  }
+
+  const addCalendarEvent = (el: any) => {
+    el.events = Array.isArray(el.events) ? el.events : []
+    el.events.push({
+      id: `cal_ev_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      type: 'single',
+      startDay: 1,
+      endDay: 1,
+      color: '#3b82f6',
+      content: '',
+    })
+  }
+
+  const removeCalendarEvent = (el: any, index: number) => {
+    if (!Array.isArray(el?.events)) return
+    el.events.splice(index, 1)
   }
 
   // --- ARCHIVOS, PDF Y THUMBNAILS ---
@@ -8148,6 +8306,80 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     }
   };
 
+  const handleComparatorUpload = async (
+    event: Event,
+    el: any,
+    field: 'imageBefore' | 'imageAfter'
+  ) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file || !el) return;
+
+    try {
+      const optimizedSrc = await optimizeImage(file, 1920, 1920, 0.75);
+      el[field] = optimizedSrc;
+      saveHistory();
+      target.value = '';
+    } catch (error) {
+      console.error('Error optimizando imagen del comparador:', error);
+      showToast('Error al procesar la imagen', 'error');
+    }
+  };
+
+  const comparatorDragState = ref<{
+    el: any;
+    container: HTMLElement;
+    initialSlider: number;
+  } | null>(null);
+
+  const getComparatorSliderPosition = (clientX: number, container: HTMLElement) => {
+    const rect = container.getBoundingClientRect();
+    if (!rect.width) return 50;
+    const raw = ((clientX - rect.left) / rect.width) * 100;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  };
+
+  const onComparatorDragMove = (event: MouseEvent) => {
+    const state = comparatorDragState.value;
+    if (!state) return;
+    state.el.sliderPosition = getComparatorSliderPosition(event.clientX, state.container);
+  };
+
+  const clearComparatorDragListeners = () => {
+    document.removeEventListener('mousemove', onComparatorDragMove);
+    document.removeEventListener('mouseup', onComparatorDragEnd);
+  };
+
+  const onComparatorDragEnd = () => {
+    const state = comparatorDragState.value;
+    if (!state) return;
+    const didChange = Number(state.el.sliderPosition ?? 50) !== state.initialSlider;
+    comparatorDragState.value = null;
+    clearComparatorDragListeners();
+    if (didChange) saveHistory();
+  };
+
+  const startComparatorDrag = (event: MouseEvent, el: any) => {
+    const container = event.currentTarget as HTMLElement | null;
+    if (!el || !container) return;
+
+    clearComparatorDragListeners();
+    comparatorDragState.value = {
+      el,
+      container,
+      initialSlider: Number(el.sliderPosition ?? 50),
+    };
+
+    el.sliderPosition = getComparatorSliderPosition(event.clientX, container);
+    document.addEventListener('mousemove', onComparatorDragMove);
+    document.addEventListener('mouseup', onComparatorDragEnd);
+  };
+
+  onUnmounted(() => {
+    comparatorDragState.value = null;
+    clearComparatorDragListeners();
+  });
+
   const setSlideBackgroundImage = async (e: Event) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
@@ -8655,31 +8887,53 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     return `https://${trimmed}`;
   };
 
-  const getMapEmbedUrl = (el: any) => {
+  const getMapStaticImageUrl = (el: any) => {
     if (!el) return '';
-    const zoom = Number(el.zoomLevel || 14);
-    const mapType = el.mapType || 'm';
-    const hasRoute = Array.isArray(el.routePoints) && el.routePoints.length >= 2;
-    const markerList = Array.isArray(el.markers) ? el.markers.filter((m: any) => m && m.lat !== undefined && m.lng !== undefined) : [];
-    const centerLat = Number(el.centerLat ?? 0);
-    const centerLng = Number(el.centerLng ?? 0);
-    const locationString = (el.location || '').trim();
+    const zoomRaw = Number(el.zoomLevel ?? 14);
+    const zoom = Number.isNaN(zoomRaw) ? 14 : Math.max(1, Math.min(19, zoomRaw));
+    const centerLat = Number(el.centerLat ?? 40.4168);
+    const centerLng = Number(el.centerLng ?? -3.7038);
+    const mapWidth = Math.max(120, Math.min(1024, Math.round(Number(el.width) || 400)));
+    const mapHeight = Math.max(120, Math.min(1024, Math.round(Number(el.height) || 300)));
+    const markerList = Array.isArray(el.markers)
+      ? el.markers.filter((m: any) => m && m.lat !== undefined && m.lng !== undefined)
+      : [];
+    const routePoints = Array.isArray(el.routePoints)
+      ? el.routePoints.filter((p: any) => p && p.lat !== undefined && p.lng !== undefined)
+      : [];
 
-    if (hasRoute) {
-      const points = el.routePoints.map((p: any) => `${p.lat},${p.lng}`).join('/');
-      return `https://www.google.com/maps/dir/${encodeURIComponent(points)}/?travelmode=driving&output=embed`;
-    }
+    const params = new URLSearchParams({
+      center: `${centerLat},${centerLng}`,
+      zoom: String(zoom),
+      size: `${mapWidth}x${mapHeight}`,
+      maptype: 'mapnik',
+    });
 
     if (markerList.length > 0) {
-      const marker = markerList[0];
-      return `https://www.google.com/maps?q=${marker.lat},${marker.lng}&z=${zoom}&t=${mapType}&output=embed`;
+      const markersParam = markerList
+        .map((marker: any) => `${Number(marker.lat)},${Number(marker.lng)},red-pushpin`)
+        .join('|');
+      params.set('markers', markersParam);
     }
 
-    if (locationString) {
-      return `https://www.google.com/maps?q=${encodeURIComponent(locationString)}&z=${zoom}&t=${mapType}&output=embed`;
+    if (routePoints.length >= 2) {
+      const pathParam = routePoints
+        .map((point: any) => `${Number(point.lat)},${Number(point.lng)}`)
+        .join('|');
+      params.set('path', pathParam);
     }
 
-    return `https://www.google.com/maps?q=${centerLat},${centerLng}&z=${zoom}&t=${mapType}&output=embed`;
+    return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`;
+  };
+
+  const getMapFallbackDataUrl = (el: any) => {
+    const lat = Number(el?.centerLat ?? 40.4168).toFixed(5);
+    const lng = Number(el?.centerLng ?? -3.7038).toFixed(5);
+    const zoom = Number(el?.zoomLevel ?? 14);
+    const width = Math.max(120, Math.min(1024, Math.round(Number(el?.width) || 400)));
+    const height = Math.max(120, Math.min(1024, Math.round(Number(el?.height) || 300)));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#cbd5e1"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><g fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.45"><path d="M0 0 L${width} ${height}"/><path d="M${width} 0 L0 ${height}"/></g><circle cx="${Math.round(width / 2)}" cy="${Math.round(height / 2)}" r="10" fill="#ef4444"/><text x="50%" y="56%" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#0f172a">Mapa estático no disponible</text><text x="50%" y="66%" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#334155">Centro ${lat}, ${lng} · Zoom ${zoom}</text></svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   };
 
   const isIframeBlocked = (url: string) => {
@@ -8753,6 +9007,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           el.y + elHeight > 0
         ) {
           const newEl = { ...el };
+          if (newEl.type === 'map') {
+            const staticMapUrl = getMapStaticImageUrl(newEl);
+            const embeddedMapImage = await urlToBase64(staticMapUrl);
+            newEl.type = 'image';
+            newEl.fit = newEl.fit || 'cover';
+            newEl.src = typeof embeddedMapImage === 'string' && embeddedMapImage.startsWith('data:')
+              ? embeddedMapImage
+              : getMapFallbackDataUrl(newEl);
+            processedElements.push(newEl);
+            continue;
+          }
           if (newEl.src) {
             const absolute = absolutizeUrl(newEl.src);
             if (['image', 'audio', 'magnifier', '3d'].includes(newEl.type)) {
@@ -8906,7 +9171,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       @keyframes animSlideUp { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
       @keyframes animZoomIn { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
       @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
-      @keyframes marquee-animation { 0% { transform: translateX(100%); } 100% { transform: translateX(-300%); } }
+      .marquee-track { display: flex; white-space: nowrap; position: absolute; animation-name: scroll-marquee; animation-timing-function: linear; animation-iteration-count: infinite; }
+      .marquee-content { padding: 0 50px; display: inline-block; }
+      @keyframes scroll-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
       .is-waiting-animation { opacity: 0 !important; visibility: hidden; pointer-events: none; }
 
@@ -9148,14 +9415,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'map'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden' }">
-                <iframe
-                  :src="getMapEmbedUrl(el)"
-                  width="100%"
-                  height="100%"
-                  frameborder="0"
-                  allowfullscreen
-                  :style="{ pointerEvents: playMode ? 'auto' : 'none' }"
-                ></iframe>
+                <template v-if="el.src && el.src.trim() !== ''">
+                  <img :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit || 'cover' }" draggable="false" />
+                </template>
+                <div v-else class="placeholder-box">
+                  <i class="ph ph-map-trifold" style="font-size: 2rem"></i>
+                </div>
               </div>
 
               <div v-else-if="el.type === 'finance'" class="el-iframe-container" :style="{ width: '100%', height: '100%', borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), overflow: 'hidden', boxShadow: el.boxShadow || 'none' }">
@@ -9170,13 +9435,55 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <div class="drag-protector"></div>
               </div>
 
-              <div v-else-if="el.type === 'calendar'" :style="{ width: '100%', height: '100%', backgroundColor: el.bgColor, color: el.color, fontFamily: el.fontFamily, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
+              <div v-else-if="el.type === 'calendar'" :style="{ width: '100%', height: el.height === 'auto' ? 'auto' : '100%', backgroundColor: el.bgColor, color: el.color, fontFamily: el.fontFamily, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none', position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
                 <div :style="{ backgroundColor: el.accentColor, color: '#ffffff', padding: '14px 16px', textAlign: 'center', fontWeight: '700' }">Mes: {{ el.month }} / Año: {{ el.year }}</div>
                 <div :style="{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontSize: '0.9rem', padding: '12px', gap: '4px' }">
                   <div v-for="day in ['L', 'M', 'X', 'J', 'V', 'S', 'D']" :key="day" :style="{ fontWeight: '700' }">{{ day }}</div>
                 </div>
-                <div :style="{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', padding: '12px', flex: '1 1 auto' }">
-                  <div v-for="d in 31" :key="d" :style="{ aspectRatio: '1 / 1', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.08)' }">{{ d }}</div>
+                <div :style="{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', padding: '12px', alignContent: 'start', flex: '1 1 auto' }">
+                  <div
+                    v-for="(d, index) in getCalendarDays(el.month, el.year)"
+                    :key="'cal-' + index + '-' + (d.day || 0)"
+                    @click="!d.empty && getDayEvents(el, d.day).length ? (el.activeAgendaDay = d.day) : null"
+                    :style="{ aspectRatio: '1 / 1', minHeight: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: d.empty ? 'center' : 'space-between', borderRadius: '8px', padding: d.empty ? '0' : '6px 4px', backgroundColor: d.empty ? 'transparent' : 'rgba(255,255,255,0.08)', cursor: !d.empty && getDayEvents(el, d.day).length ? 'pointer' : 'default' }"
+                  >
+                    <template v-if="!d.empty">
+                      <span>{{ d.day }}</span>
+                      <div :style="{ display: 'flex', gap: '3px', flexWrap: 'wrap', justifyContent: 'center', minHeight: '8px' }">
+                        <span
+                          v-for="(ev, evIndex) in getDayEvents(el, d.day)"
+                          :key="ev.id || evIndex"
+                          :style="{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: ev.color || '#3b82f6' }"
+                        ></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <div
+                  v-if="el.activeAgendaDay"
+                  :style="{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', boxSizing: 'border-box', zIndex: 2 }"
+                >
+                  <div :style="{ width: '100%', height: '100%', maxHeight: '100%', backgroundColor: '#ffffff', borderRadius: '10px', color: '#1e293b', display: 'flex', flexDirection: 'column', overflow: 'hidden' }">
+                    <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', backgroundColor: el.accentColor, color: '#ffffff', fontWeight: '700' }">
+                      <span>Agenda del día {{ el.activeAgendaDay }}</span>
+                      <button type="button" @click.stop="el.activeAgendaDay = null" :style="{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', fontSize: '1rem' }">
+                        <i class="ph ph-x"></i>
+                      </button>
+                    </div>
+                    <div :style="{ flex: '1 1 auto', overflowY: 'auto', padding: '12px' }">
+                      <div
+                        v-for="(ev, evIndex) in getDayEvents(el, el.activeAgendaDay)"
+                        :key="ev.id || evIndex"
+                        :style="{ borderLeft: '4px solid ' + (ev.color || '#3b82f6'), backgroundColor: '#f8fafc', borderRadius: '6px', padding: '10px', marginBottom: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }"
+                      >
+                        {{ ev.content || 'Sin detalle' }}
+                      </div>
+                      <div v-if="getDayEvents(el, el.activeAgendaDay).length === 0" :style="{ color: '#64748b', fontStyle: 'italic' }">
+                        No hay notas para este día.
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -9226,17 +9533,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               </div>
 
               <div v-else-if="el.type === 'imagecomparator'" style="width: 100%; height: 100%; position: relative; overflow: hidden;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
-                <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
                 <div v-else style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;"><i class="ph ph-image" style="font-size: 2rem;"></i></div>
                 <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;">
-                  <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition || 50)) + '% 0 0)' }" />
+                  <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition ?? 50)) + '% 0 0)' }" />
                 </div>
                 <input type="range" min="0" max="100" :value="el.sliderPosition" @input="el.sliderPosition = $event.target.value" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; cursor: ew-resize; opacity: 0; z-index: 10;" />
               </div>
 
-              <div v-else-if="el.type === 'marquee'" style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center;" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
-                <div style="display: inline-block; white-space: nowrap; animation: marquee-animation linear infinite; padding: 0 20px;" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, animationDuration: (Math.max(5, 20 - (el.speed / 5))) + 's' }">
-                  {{ el.content }} • {{ el.content }} • {{ el.content }}
+              <div v-else-if="el.type === 'marquee'" style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; position: relative;" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
+                <div
+                  class="marquee-track"
+                  :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, animationDuration: (Math.max(5, 30 - (el.speed / 3))) + 's' }"
+                >
+                  <span class="marquee-content">{{ el.content }}</span>
+                  <span class="marquee-content">{{ el.content }}</span>
+                  <span class="marquee-content">{{ el.content }}</span>
+                  <span class="marquee-content">{{ el.content }}</span>
                 </div>
               </div>
 
@@ -9337,6 +9650,44 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             return m + ':' + s;
           };
 
+          const getCalendarDays = (month, year) => {
+            const safeMonth = Math.min(12, Math.max(1, Number(month) || 1));
+            const safeYear = Math.max(1, Number(year) || new Date().getFullYear());
+            const firstWeekday = (new Date(safeYear, safeMonth - 1, 1).getDay() + 6) % 7;
+            const daysInMonth = new Date(safeYear, safeMonth, 0).getDate();
+            const days = [];
+
+            for (let i = 0; i < firstWeekday; i++) {
+              days.push({ day: null, empty: true });
+            }
+            for (let d = 1; d <= daysInMonth; d++) {
+              days.push({ day: d, empty: false });
+            }
+
+            return days;
+          };
+
+          const getDayEvents = (el, day) => {
+            const events = Array.isArray(el?.events) ? el.events : [];
+            const dayNum = Number(day);
+
+            return events.filter((ev) => {
+              if (!ev || ev.trigger || ev.action) return false;
+
+              const type = ev.type || 'single';
+              const startDay = Number(ev.startDay);
+              const endDay = Number(ev.endDay);
+
+              if (type === 'range') {
+                const start = Number.isFinite(startDay) ? startDay : dayNum;
+                const end = Number.isFinite(endDay) ? endDay : start;
+                return dayNum >= Math.min(start, end) && dayNum <= Math.max(start, end);
+              }
+
+              return dayNum === (Number.isFinite(startDay) ? startDay : 1);
+            });
+          };
+
           const getChartValues = (data) => { if(!data || !data.length) return [10, 50, 30]; return data.map(d => parseFloat(d.value) || 0); };
           const getChartMax = (data) => Math.max(...getChartValues(data), 1);
           const getPieGradient = (data) => {
@@ -9363,6 +9714,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 if(el.type === 'interactive') el.isOpen = false;
                 if(el.type === 'accordion') el.items.forEach(item => item.isOpen = false);
                 if(el.type === 'audio') { el.isPlaying = false; const a = document.querySelector('audio[src="'+el.src+'"]'); if(a) a.pause(); }
+                if(el.type === 'calendar') el.activeAgendaDay = null;
               });
             });
           };
@@ -9479,7 +9831,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getCalendarDays, getDayEvents, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation
           };
         }
       }).mount('#app');
@@ -9800,51 +10152,48 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow: hidden;
     min-width: 0;
     background-color: #010409;
+    position: relative;
+    transition: all 0.3s ease;
   }
   .pro-top-toolbar {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(17, 17, 19, 0.7) !important;
-  border-bottom: 1px solid var(--glass-border) !important;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
-  z-index: 30;
-  margin: 0px 10px;
-  width: calc(100% - 20px);
-
     display: flex;
-    gap: 10px;
-    padding: 6px 15px;
-    background-color: rgba(17, 17, 19, 0.7);
-    border-bottom: 1px solid var(--border-strong);
-    overflow-x: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: rgba(22, 27, 34, 0.85) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--glass-border) !important;
+    border-radius: 0 0 16px 16px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    z-index: 30;
     flex-shrink: 0;
     align-items: center;
-  }
-  .pro-top-toolbar::-webkit-scrollbar {
-    height: 4px;
-  }
-  .pro-top-toolbar::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: 2px;
   }
   .toolbar-category {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    border-right: 1px solid var(--border-strong);
-    padding-right: 12px;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 8px 14px;
+    transition: background 0.2s;
   }
-  .toolbar-category:last-child {
-    border-right: none;
-    padding-right: 0;
+  .toolbar-category:hover {
+    background: rgba(255, 255, 255, 0.06);
   }
   .category-label {
-    font-size: 0.6rem;
-    font-weight: 600;
+    font-size: 0.65rem;
+    font-weight: 700;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+    opacity: 0.8;
   }
   .category-tools {
     display: flex;
@@ -11147,6 +11496,99 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .pro-canvas-area.is-picking-target .interactive-element {
     cursor: crosshair !important;
+  }
+
+  /* --- EFECTO MARQUESINA --- */
+  .marquee-track {
+    display: flex;
+    white-space: nowrap;
+    position: absolute;
+    animation-name: scroll-marquee;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  .marquee-content {
+    padding: 0 50px;
+    display: inline-block;
+  }
+  @keyframes scroll-marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* BOTONES PARA PLEGAR MENÚS LATERALES */
+  .sidebar-toggle-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 48px;
+    background: var(--bg-surface-active);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 50;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .sidebar-toggle-btn:hover {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .toggle-left {
+    left: 0;
+    border-radius: 0 8px 8px 0;
+    border-left: none;
+  }
+
+  .toggle-right {
+    right: 0;
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+  }
+
+  /* TABS DEL INSPECTOR (TIPO FIGMA) */
+  .inspector-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-strong);
+    background: var(--bg-base);
+  }
+
+  .inspector-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    padding: 10px 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .inspector-tab:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+
+  .inspector-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    background: rgba(88, 166, 255, 0.05);
+  }
+
+  .pro-sidebar .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
   }
 
 
