@@ -15,7 +15,7 @@ const router = createRouter({
       meta: { requiresAuth: true } // 🔒 Requiere estar logueado
     },
     {
-      // ✨ AQUÍ ESTÁ EL CAMBIO CLAVE: agregamos /:id? 
+      // ✨ AQUÍ ESTÁ EL CAMBIO CLAVE: agregamos /:id?
       // El "?" significa que el ID es opcional (puede haberlo o no)
       path: '/editorpresentaciones/:id?',
       name: 'editor',
@@ -26,7 +26,13 @@ const router = createRouter({
       path: '/biblioteca',
       name: 'biblioteca',
       component: BibliotecaView,
-      meta: { requiresAuth: true }     
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/biblioteca-plantillas',
+      name: 'TemplateLibrary',
+      component: () => import('@/views/TemplateLibrary.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/login',
@@ -40,7 +46,7 @@ const router = createRouter({
 // Guardia de navegación global
 router.beforeEach((to, from, next) => {
   // Inicializamos el store DENTRO del guardia para evitar errores de carga de Pinia
-  const authStore = useAuthStore() 
+  const authStore = useAuthStore()
 
   // 1. Si intenta ir al Login pero YA está logueado -> Lo mandamos al Home (/)
   if (to.meta.requiresGuest && authStore.isAuthenticated) {

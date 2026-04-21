@@ -40,6 +40,14 @@
         >
           <i class="ph ph-export"></i> Exportar Web
         </button>
+
+        <button
+          class="menu-item menu-item-ghost"
+          :disabled="!hasDoc || isConverting"
+          @click="$emit('publish-as-template')"
+        >
+          <i class="ph ph-upload-simple"></i> Guardar como Plantilla
+        </button>
       </div>
     </div>
 
@@ -79,11 +87,14 @@
           </div>
           <div class="dropdown-divider"></div>
 
-          <button class="dropdown-item" @click="navigate('/')">
-            <i class="ph ph-house"></i> Inicio
-          </button>
           <button class="dropdown-item" @click="navigate('/biblioteca')">
             <i class="ph ph-books"></i> Biblioteca
+          </button>
+          <button class="dropdown-item" @click="navigate('/editorpresentaciones')">
+            <i class="ph ph-presentation-chart"></i> Editor
+          </button>
+          <button class="dropdown-item" @click="navigate('/biblioteca-plantillas')">
+            <i class="ph ph-storefront"></i> Plantillas
           </button>
 
           <div class="dropdown-divider"></div>
@@ -158,6 +169,7 @@ defineEmits<{
   (e: 'fit-screen'): void;
   (e: 'toggle-play'): void;
   (e: 'save'): void;
+  (e: 'publish-as-template'): void;
 }>();
 </script>
 

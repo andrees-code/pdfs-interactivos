@@ -16,12 +16,14 @@
           :zoom="zoom"
           :play-mode="playMode"
           :is-saving="isSaving"
-          :is-autosaving="isAutosaving"  @file-upload="handleFileUpload"
+          :is-autosaving="isAutosaving"
+          @file-upload="handleFileUpload"
           @export="exportPresentation"
           @change-zoom="changeZoom"
           @fit-screen="fitToScreen"
           @toggle-play="togglePlayMode"
           @save="savePresentation"
+          @publish-as-template="publishAsTemplate"
         />
   <div v-if="isLoadingProject" class="loading-overlay">
           <div class="spinner"></div>
@@ -83,11 +85,16 @@
               >
                  <div class="thumb-num" @click.stop>
     <span
-      v-if="thumbEditingPage !== page"
+      v-if="!isTemplateCreatorMode && thumbEditingPage !== page"
       class="thumb-pos-btn"
       @click.stop="startEditThumbPos(page)"
       :title="'Mover a posición... (clic)'"
     >{{ page }}</span>
+    <span
+      v-else-if="isTemplateCreatorMode"
+      class="thumb-pos-btn"
+      style="width: auto; padding: 0 5px; font-size: 0.7rem;"
+    >{{ page === 1 ? 'Portada' : page === 2 ? 'Base' : 'Cierre' }}</span>
     <input
       v-else
       class="thumb-pos-input"
@@ -116,7 +123,7 @@
               : 'none',
       }"
     >
-      <div class="thumb-actions">
+      <div class="thumb-actions" v-if="!isTemplateCreatorMode">
         <button class="thumb-action-btn" @click.stop="duplicateSlide(page)" title="Duplicar">
           <i class="ph ph-copy"></i>
         </button>
@@ -179,7 +186,7 @@
                 </div>
               </div>
             </div>
-            <div class="sidebar-footer">
+            <div class="sidebar-footer" v-if="!isTemplateCreatorMode">
               <button class="btn-ghost w-100" @click="addNewSlide">
                 <i class="ph ph-plus"></i> Nueva Diapositiva
               </button>
@@ -1883,28 +1890,41 @@
           <div v-else-if="!hasDoc && !isConverting" class="empty-workspace w-100">
             <div class="empty-box">
               <div class="empty-icon-wrapper"><i class="ph ph-magic-wand"></i></div>
-              <h3>Comienza a crear</h3>
-              <p>Diseña desde cero o importa un documento existente para añadirle interactividad.</p>
+              <h3>{{ isTemplateCreatorMode ? 'Creador de Plantillas' : 'Comienza a crear' }}</h3>
+              <p>
+                {{
+                  isTemplateCreatorMode
+                    ? 'Configura la resolución de tu plantilla para empezar a diseñar Portada, Base y Cierre.'
+                    : 'Diseña desde cero o importa un documento existente para añadirle interactividad.'
+                }}
+              </p>
               <div
                 class="button-group mt-4 button-stack"
               >
-                <button class="btn-primary large-btn w-100" @click="showNewProjectModal = true">
-                  <i class="ph ph-file-plus"></i> Proyecto en Blanco
-                </button>
-                <div class="divider-text">
-                  o
-                </div>
-                <label
-                  class="btn-secondary large-btn w-100 upload-label-btn"
-                >
-                  <input
-                    type="file"
-                    @change="handleFileUpload"
-                    accept=".pdf, .pptx, .ppsx, .potx, .html"
-                    hidden
-                  />
-                  <i class="ph ph-upload-simple"></i> Subir PDF / PPTX / HTML
-                </label>
+                <template v-if="isTemplateCreatorMode">
+                  <button class="btn-primary large-btn w-100" @click="showNewProjectModal = true">
+                    <i class="ph ph-ruler"></i> Configurar Resolución de Plantilla
+                  </button>
+                </template>
+                <template v-else>
+                  <button class="btn-primary large-btn w-100" @click="showNewProjectModal = true">
+                    <i class="ph ph-file-plus"></i> Proyecto en Blanco
+                  </button>
+                  <div class="divider-text">
+                    o
+                  </div>
+                  <label
+                    class="btn-secondary large-btn w-100 upload-label-btn"
+                  >
+                    <input
+                      type="file"
+                      @change="handleFileUpload"
+                      accept=".pdf, .pptx, .ppsx, .potx, .html"
+                      hidden
+                    />
+                    <i class="ph ph-upload-simple"></i> Subir PDF / PPTX / HTML
+                  </label>
+                </template>
               </div>
             </div>
           </div>
@@ -1915,7 +1935,7 @@
           >
             <div class="new-project-modal">
               <div class="modal-header">
-                <h3>Crear Nuevo Proyecto</h3>
+                <h3>{{ isTemplateCreatorMode ? 'Crear Plantilla' : 'Crear Nuevo Proyecto' }}</h3>
                 <button class="btn-icon-danger" @click="showNewProjectModal = false">
                   <i class="ph ph-x"></i>
                 </button>
@@ -1943,7 +1963,7 @@
                 </div>
               </div>
 
-              <div class="prop-group mt-4">
+              <div class="prop-group mt-4" v-if="!isTemplateCreatorMode">
                 <label>Seleccionar Plantilla</label>
                 <div class="template-grid">
                   <div
@@ -1990,7 +2010,9 @@
 
               <div class="modal-actions mt-4 pt-4">
                 <button class="btn-ghost" @click="showNewProjectModal = false">Cancelar</button>
-                <button class="btn-primary" @click="confirmCreateProject">Crear Proyecto</button>
+                <button class="btn-primary" @click="confirmCreateProject">
+                  {{ isTemplateCreatorMode ? 'Crear Plantilla' : 'Crear Proyecto' }}
+                </button>
               </div>
             </div>
           </div>
@@ -4351,6 +4373,21 @@
               </div>
               <span class="tsp-name mt-1">Oscura</span>
             </div>
+
+            <div
+              v-for="tpl in userGalleryTemplates"
+              :key="tpl._id"
+              class="tsp-card"
+              @click="applyExternalTemplate(tpl); showTemplateModal = false;"
+            >
+              <div
+                class="tsp-preview"
+                :style="tpl.coverImage ? { backgroundImage: `url(${tpl.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
+              >
+                <span v-if="!tpl.coverImage" style="font-size:1.5rem;">🖼️</span>
+              </div>
+              <span class="tsp-name mt-1">{{ tpl.title }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -4423,10 +4460,16 @@
   import LeafletMapElement from '@/components/LeafletMapElement.vue'
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
+  import { templateService } from '@/services/template.service';
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
   import pako from 'pako';
   import Cropper from 'cropperjs';
   import html2canvas from 'html2canvas';
+
+const isSafariBrowser = (() => {
+  const ua = navigator.userAgent;
+  return /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
+})();
 
 // --- REFAC: Lazy load de PdfViewer y pdfjs-dist ---
 const PdfViewer = defineAsyncComponent(() => import('@/components/PdfViewer.vue'));
@@ -4468,6 +4511,8 @@ const themeVariables = computed(() => {
 
 // --- NUEVO: ESTADO PARA LAS MINIATURAS GENERADAS ---
 const generatedThumbnails = ref<Record<number, string>>({});
+const isSaveInFlight = ref(false);
+const hasTemplateClosingSlide = ref(false);
 
 // --- NUEVO: EDA FIGMA MODE ---
 const isSelectingTargetForEvent = ref<string | null>(null);
@@ -4516,6 +4561,24 @@ const captureThumbnail = async () => {
     // Al forzar esta escala en html2canvas, anulamos por completo el window.devicePixelRatio (Zoom de Windows).
     const exactScale = THUMBNAIL_WIDTH / baseWidth.value;
 
+    // Safari rompe en html2canvas al clonar el documento (document.write) por scripts inyectados de extensiones.
+    // Aquí usamos una ruta alternativa que no usa ese flujo interno.
+    if (isSafariBrowser) {
+      const { toJpeg } = await import('html-to-image');
+      generatedThumbnails.value[pageNum.value] = await toJpeg(slideNode, {
+        cacheBust: true,
+        skipFonts: true,
+        quality: 0.8,
+        pixelRatio: 1,
+        width: baseWidth.value,
+        height: baseHeight.value,
+        canvasWidth: Math.round(baseWidth.value * exactScale * 2.0),
+        canvasHeight: Math.round(baseHeight.value * exactScale * 2.0),
+        backgroundColor: currentBgColor.value || '#ffffff'
+      });
+      return;
+    }
+
     const canvas = await html2canvas(slideNode, {
       scale: exactScale * 2.0, // Aumentamos la calidad de las miniaturas
       width: baseWidth.value,
@@ -4524,6 +4587,7 @@ const captureThumbnail = async () => {
       logging: false,
       backgroundColor: currentBgColor.value || '#ffffff',
       allowTaint: true,
+      ignoreElements: (el) => el.tagName === 'SCRIPT',
 
       // ✨ EL TRUCO MAESTRO: Interceptar el clon antes de la foto
       onclone: (clonedDoc) => {
@@ -4545,6 +4609,7 @@ const captureThumbnail = async () => {
 };
 
 const onThumbDragStart = (e: DragEvent, page: number) => {
+  if (isTemplateCreatorMode.value) return
   thumbDragSource.value = page
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
@@ -5192,6 +5257,8 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
   const editingElementId = ref<string | null>(null)
   const router = useRouter() // 👈 Inicializamos el router
+  const isTemplateCreatorMode = computed(() => route.query.mode === 'template')
+  const isPrivateTemplateTarget = computed(() => route.query.visibility === 'private')
 
   // --- SISTEMA DE NOTIFICACIONES (TOAST) ---
   const toast = ref({
@@ -5233,6 +5300,8 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   // --- FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
   const savePresentation = async (isAutosave = false) => {
     if (!hasDoc.value) return;
+    if (isSaveInFlight.value) return;
+    isSaveInFlight.value = true;
 
     // Solo mostramos el icono de carga en el header si es un guardado manual
     if (!isAutosave) {
@@ -5315,13 +5384,32 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         throw lastError || new Error('Error desconocido al guardar');
       };
 
-      const data = await saveWithRetries();
+      let data: any = null
+
+      if (isTemplateCreatorMode.value) {
+        const templatePayload = {
+          ...safePayload,
+          authorName: authStore.user?.username || 'Anónimo',
+          isPrivate: isPrivateTemplateTarget.value,
+          docType: 'template',
+        }
+
+        if (presentationId.value) {
+          data = await templateService.updateTemplate(presentationId.value, templatePayload)
+        } else {
+          data = await templateService.createTemplate(templatePayload)
+        }
+      } else {
+        data = await saveWithRetries();
+      }
 
       // Si es una creación nueva, guardamos el ID y actualizamos la URL
-      if (!presentationId.value && data._id) {
+      if (!presentationId.value && data?._id) {
         presentationId.value = data._id;
         // ✨ MAGIA: Cambiamos la URL silenciosamente para que el F5 funcione
-        router.replace(`/editorpresentaciones/${data._id}`);
+        if (!isTemplateCreatorMode.value) {
+          router.replace(`/editorpresentaciones/${data._id}`);
+        }
       }
 
       console.log('✅ Presentación guardada exitosamente');
@@ -5355,6 +5443,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
       } else {
         isAutosaving.value = false;
       }
+      isSaveInFlight.value = false;
     }
   };
 
@@ -5362,7 +5451,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   let _PDF_BASE64_STORE: string = ''
   let timerInterval: ReturnType<typeof setInterval> | null = null
 
-  const docType = ref<'pdf' | 'blank'>('blank')
+  const docType = ref<'pdf' | 'blank' | 'template'>('blank')
   const hasDoc = ref(false)
   const playMode = ref(false)
 
@@ -5435,6 +5524,7 @@ const wakeUpPlayNav = () => {
   const isRightSidebarOpen = ref(true)
   const showTemplateModal = ref(false)
   const activeInspectorTab = ref<'design' | 'interactivity' | 'data' | 'animations'>('design')
+  const userGalleryTemplates = ref<any[]>([])
 
   // --- LÓGICA PARA REDIMENSIONAR LOS PANELES LATERALES ---
 const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
@@ -6339,13 +6429,6 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js'
       document.head.appendChild(script)
     }
-    if (!document.getElementById('phosphor-icons')) {
-      const link = document.createElement('link')
-      link.id = 'phosphor-icons'
-      link.rel = 'stylesheet'
-      link.href = 'https://unpkg.com/@phosphor-icons/web/src/regular/style.css'
-      document.head.appendChild(link)
-    }
     document.addEventListener('keydown', handleGlobalKeydown)
     document.addEventListener('keyup', handleGlobalKeyup)
     document.addEventListener('fullscreenchange', onFullscreenChange)
@@ -6355,10 +6438,24 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     document.addEventListener('mousemove', wakeUpPlayNav);
     document.addEventListener('keydown', wakeUpPlayNav);
 
+    // Cargar plantillas del usuario
+    loadGalleryTemplates()
+
     // Cargar proyecto si hay ID en la ruta
     const routeId = route.params.id as string
-    if (routeId) {
+    if (routeId && routeId !== 'new') {
       loadProjectFromDB(routeId)
+    }
+
+    const templateId = route.query.templateId as string
+    if (templateId) {
+      loadTemplateFromQuery(templateId)
+    }
+
+    // En modo plantilla abrimos directamente el modal de resolución.
+    if (isTemplateCreatorMode.value && !hasDoc.value) {
+      projectConfigs.value.template = 'custom'
+      showNewProjectModal.value = true
     }
   })
 
@@ -7478,7 +7575,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           const docTypeMatch = htmlText.match(/const docType = ref\('(.*?)'\);/)
           baseWidth.value = widthMatch ? parseInt(widthMatch[1]) : 1280
           baseHeight.value = heightMatch ? parseInt(heightMatch[1]) : 720
-          docType.value = (docTypeMatch ? docTypeMatch[1] : 'blank') as 'pdf' | 'blank'
+          docType.value = (docTypeMatch ? docTypeMatch[1] : 'blank') as 'pdf' | 'blank' | 'template'
         }
 
         const pdfDataNode = doc.getElementById('app-pdf-data')
@@ -7535,9 +7632,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     presentationId.value = null; // 👈 AÑADE ESTO
     _RAW_PDF_DOC = null
     _PDF_BASE64_STORE = ''
-    docType.value = 'blank'
-    numPages.value = 1
-    pageNum.value = 1
+    docType.value = isTemplateCreatorMode.value ? 'template' : 'blank'
 
     if (projectConfigs.value.preset === 'hd') {
       baseWidth.value = 1280
@@ -7562,10 +7657,57 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     slideConfigs.value = {}
     pdfPageMap.value = {}
     pdfThumbnails.value = {}
+    hasTemplateClosingSlide.value = false
 
-    applyTemplate(projectConfigs.value.template)
+    if (isTemplateCreatorMode.value) {
+      hasTemplateClosingSlide.value = true
+      numPages.value = 3
+      pageNum.value = 1
+
+      for (let i = 1; i <= 3; i++) {
+        documentState.value[i] = []
+        slideConfigs.value[i] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+        pdfPageMap.value[i] = i
+      }
+
+      documentState.value[1].push(
+        createTemplateElement('text', {
+          content: 'Diseña tu Portada aquí',
+          fontSize: 48,
+          x: 100,
+          y: 100,
+          width: baseWidth.value - 200,
+          color: '#111827',
+        }),
+      )
+      documentState.value[2].push(
+        createTemplateElement('text', {
+          content: 'Diseña la Diapositiva Base',
+          fontSize: 48,
+          x: 100,
+          y: 100,
+          width: baseWidth.value - 200,
+          color: '#111827',
+        }),
+      )
+      documentState.value[3].push(
+        createTemplateElement('text', {
+          content: 'Diseña el Cierre',
+          fontSize: 48,
+          x: 100,
+          y: 100,
+          width: baseWidth.value - 200,
+          color: '#111827',
+        }),
+      )
+    } else {
+      numPages.value = 1
+      pageNum.value = 1
+      applyTemplate(projectConfigs.value.template)
+    }
 
     initializeConfigs()
+
     hasDoc.value = true
     showNewProjectModal.value = false
     renderPage(1)
@@ -7591,6 +7733,74 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       animationOrder: 0,
       ...JSON.parse(JSON.stringify(ELEMENT_DEFAULTS[type] || {})),
       ...overrides,
+    }
+  }
+
+  const loadGalleryTemplates = async () => {
+    const userId = authStore.user?._id
+    if (!userId) return
+    try {
+      const result = await templateService.getUserTemplates(userId)
+      userGalleryTemplates.value = Array.isArray(result) ? result : []
+    } catch {
+      userGalleryTemplates.value = []
+    }
+  }
+
+  const applyExternalTemplate = (tpl: any) => {
+    if (tpl.documentState) {
+      documentState.value = JSON.parse(JSON.stringify(tpl.documentState))
+    }
+    if (tpl.slideConfigs) {
+      slideConfigs.value = JSON.parse(JSON.stringify(tpl.slideConfigs))
+    }
+    if (tpl.baseWidth) baseWidth.value = tpl.baseWidth
+    if (tpl.baseHeight) baseHeight.value = tpl.baseHeight
+    numPages.value = Math.max(1, Object.keys(documentState.value || {}).length)
+    hasDoc.value = true
+    docType.value = 'blank'
+    hasTemplateClosingSlide.value = tpl?.docType === 'template' && numPages.value >= 3
+    projectConfigs.value.template = 'custom'
+    isCustomTemplateMode.value = true
+    pageNum.value = 1
+    nextTick(() => renderPage(1))
+    showToast('✨ Plantilla aplicada', 'success')
+  }
+
+  const loadTemplateFromQuery = async (templateId: string) => {
+    try {
+      const template = await templateService.getTemplateById(templateId)
+      applyExternalTemplate(template)
+      setTimeout(() => fitToScreen(), 100)
+    } catch {
+      showToast('No se pudo cargar la plantilla seleccionada.', 'error')
+    }
+  }
+
+  const publishAsTemplate = async () => {
+    const isPublic = confirm('¿Quieres que esta plantilla sea pública en la tienda? (Aceptar = Pública, Cancelar = Privada)')
+    const userId = authStore.user?._id
+    if (!userId) return
+
+    const payload = {
+      userId,
+      authorName: authStore.user?.username || 'Anónimo',
+      title: presentationTitle.value || 'Mi Nueva Plantilla',
+      documentState: documentState.value,
+      slideConfigs: slideConfigs.value,
+      baseWidth: baseWidth.value,
+      baseHeight: baseHeight.value,
+      coverImage: generatedThumbnails.value[1] || null,
+      isPrivate: !isPublic,
+    }
+
+    try {
+      showToast('Publicando plantilla...', 'info')
+      await templateService.createTemplate(payload)
+      showToast('¡Plantilla guardada con éxito!', 'success')
+      loadGalleryTemplates()
+    } catch {
+      showToast('Error al guardar la plantilla', 'error')
     }
   }
 
@@ -7671,6 +7881,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
   // --- GESTIÓN DE PÁGINAS ---
   const deleteSlide = (page: number) => {
+  if (isTemplateCreatorMode.value) return
   if (numPages.value <= 1) {
       showToast('No puedes eliminar la única diapositiva del proyecto.', 'warning');
       return;
@@ -7694,6 +7905,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   }
 
   const duplicateSlide = (page: number) => {
+    if (isTemplateCreatorMode.value) return
     for (let i = numPages.value; i > page; i--) {
       documentState.value[i + 1] = documentState.value[i]
       slideConfigs.value[i + 1] = slideConfigs.value[i]
@@ -7731,23 +7943,52 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   }
 
   const addNewSlide = () => {
-    numPages.value += 1
-    const newPage = numPages.value
+    if (isTemplateCreatorMode.value) return
+    let newPage = numPages.value + 1
 
     // Tamaño base siempre heredado de las diapositivas existentes
-    slideConfigs.value[newPage] = {
-      bgColor: '#ffffff',
-      bgImage: null,
-      transition: 'none',
-    }
-    pdfPageMap.value[newPage] = 0
-
     const template = projectConfigs.value.template || 'blank'
 
-    if (template === 'blank') {
+    if (template === 'custom') {
+      // Si la plantilla vino de biblioteca, clonamos siempre la diapositiva base (2)
+      const masterElements = documentState.value[2] || []
+      const masterConfig = slideConfigs.value[2] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+
+      if (hasTemplateClosingSlide.value && numPages.value >= 3) {
+        const insertAt = numPages.value
+        for (let i = numPages.value; i >= insertAt; i--) {
+          documentState.value[i + 1] = documentState.value[i]
+          slideConfigs.value[i + 1] = slideConfigs.value[i]
+          pdfPageMap.value[i + 1] = pdfPageMap.value[i]
+        }
+        newPage = insertAt
+      }
+
+      documentState.value[newPage] = JSON.parse(JSON.stringify(masterElements)).map((el: any) => ({
+        ...el,
+        id: `el_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      }))
+      slideConfigs.value[newPage] = JSON.parse(JSON.stringify(masterConfig))
+      pdfPageMap.value[newPage] = 0
+      numPages.value += 1
+    } else if (template === 'blank') {
+      numPages.value += 1
+      slideConfigs.value[newPage] = {
+        bgColor: '#ffffff',
+        bgImage: null,
+        transition: 'none',
+      }
+      pdfPageMap.value[newPage] = 0
       documentState.value[newPage] = []
 
     } else if (template === 'modern') {
+      numPages.value += 1
+      slideConfigs.value[newPage] = {
+        bgColor: '#ffffff',
+        bgImage: null,
+        transition: 'none',
+      }
+      pdfPageMap.value[newPage] = 0
       const w = baseWidth.value
       const h = baseHeight.value
       documentState.value[newPage] = [
@@ -7773,6 +8014,13 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       slideConfigs.value[newPage].bgColor = '#f8fafc'
 
     } else if (template === 'dark') {
+      numPages.value += 1
+      slideConfigs.value[newPage] = {
+        bgColor: '#ffffff',
+        bgImage: null,
+        transition: 'none',
+      }
+      pdfPageMap.value[newPage] = 0
       const w = baseWidth.value
       const h = baseHeight.value
       documentState.value[newPage] = [
@@ -7790,17 +8038,15 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       ]
       slideConfigs.value[newPage].bgColor = '#0d1117'
 
-    } else if (template === 'custom') {
-      // Hereda diseño y elementos de la diapositiva 1 (modo maestro)
-      const masterElements = documentState.value[1] || []
-      const masterConfig = slideConfigs.value[1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
-      documentState.value[newPage] = JSON.parse(JSON.stringify(masterElements)).map((el: any) => ({
-        ...el,
-        id: `el_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-      }))
-      slideConfigs.value[newPage] = JSON.parse(JSON.stringify(masterConfig))
     } else {
       documentState.value[newPage] = []
+      numPages.value += 1
+      slideConfigs.value[newPage] = {
+        bgColor: '#ffffff',
+        bgImage: null,
+        transition: 'none',
+      }
+      pdfPageMap.value[newPage] = 0
     }
 
     changePageTo(newPage)

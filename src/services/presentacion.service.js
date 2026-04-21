@@ -68,7 +68,11 @@ export const presentationService = {
       throw new Error(`Error al eliminar: ${response.statusText}`)
     }
 
-    // COMO EL BACKEND NO DEVUELVE JSON, SIMPLEMENTE DEVOLVEMOS TRUE
-    return true;
+    const data = await response.json().catch(() => null)
+    if (!data || !data._id) {
+      throw new Error('El servidor no confirmó el borrado de la presentación')
+    }
+
+    return data;
   }
 }

@@ -6,6 +6,7 @@ import router from './router'
 import './assets/variables.css'
 import './assets/global.css'
 import 'leaflet/dist/leaflet.css'
+import '@phosphor-icons/web/regular'
 
 const app = createApp(App)
 

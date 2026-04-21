@@ -18,9 +18,11 @@
     "generate-favicons": "node scripts/generate-favicons.mjs"
   },
   "dependencies": {
+    "@phosphor-icons/web": "^2.1.2",
     "@vercel/analytics": "^2.0.1",
     "canvas-confetti": "^1.9.4",
     "cropperjs": "^1.6.2",
+    "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",

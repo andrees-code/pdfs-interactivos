@@ -25,11 +25,14 @@
             </div>
             <div class="dropdown-divider"></div>
 
-            <button class="dropdown-item" @click="navigate('/')">
-              <i class="ph ph-house"></i> Inicio
-            </button>
-            <button class="dropdown-item is-active" @click="toggleUserMenu">
+            <button class="dropdown-item" @click="navigate('/biblioteca')">
               <i class="ph ph-books"></i> Biblioteca
+            </button>
+            <button class="dropdown-item" @click="navigate('/editorpresentaciones')">
+              <i class="ph ph-presentation-chart"></i> Editor
+            </button>
+            <button class="dropdown-item" @click="navigate('/biblioteca-plantillas')">
+              <i class="ph ph-storefront"></i> Plantillas
             </button>
 
             <div class="dropdown-divider"></div>
@@ -283,7 +286,7 @@ const deleteProject = async (id: string, title: string) => {
 
   try {
     await presentationService.deletePresentation(id)
-    presentations.value = presentations.value.filter(p => p._id !== id)
+    await loadPresentations()
   } catch (error) {
     alert('No se pudo eliminar el proyecto.')
     console.error(error)
