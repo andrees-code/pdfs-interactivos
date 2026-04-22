@@ -20,6 +20,7 @@
         </label>
 
         <button
+          type="button"
           class="menu-item menu-item-ghost"
           :disabled="!hasDoc || isConverting || isSaving"
           @click="$emit('save')"
@@ -34,6 +35,7 @@
         </div>
 
         <button
+          type="button"
           class="menu-item menu-item-ghost"
           :disabled="!hasDoc || isConverting"
           @click="$emit('export')"
@@ -42,6 +44,7 @@
         </button>
 
         <button
+          type="button"
           class="menu-item menu-item-ghost"
           :disabled="!hasDoc || isConverting"
           @click="$emit('publish-as-template')"
@@ -53,28 +56,28 @@
 
     <div class="header-center" v-if="hasDoc">
       <div class="zoom-controls">
-        <button @click="$emit('change-zoom', -0.1)" class="tool-btn" title="Alejar">
+        <button type="button" @click="$emit('change-zoom', -0.1)" class="tool-btn" title="Alejar">
           <i class="ph ph-minus"></i>
         </button>
         <span class="zoom-level">{{ Math.round(zoom * 100) }}%</span>
-        <button @click="$emit('change-zoom', 0.1)" class="tool-btn" title="Acercar">
+        <button type="button" @click="$emit('change-zoom', 0.1)" class="tool-btn" title="Acercar">
           <i class="ph ph-plus"></i>
         </button>
         <div class="divider-vertical"></div>
-        <button @click="$emit('fit-screen')" class="tool-btn" title="Ajustar a pantalla">
+        <button type="button" @click="$emit('fit-screen')" class="tool-btn" title="Ajustar a pantalla">
           <i class="ph ph-corners-out"></i>
         </button>
       </div>
     </div>
 
     <div class="header-right">
-      <button class="btn-play" v-if="hasDoc" :class="{ 'is-active': playMode }" @click="$emit('toggle-play')">
+      <button type="button" class="btn-play" v-if="hasDoc" :class="{ 'is-active': playMode }" @click="$emit('toggle-play')">
         <i class="ph" :class="playMode ? 'ph-stop' : 'ph-play'"></i>
         {{ playMode ? 'Detener Presentación' : 'Iniciar Presentación' }}
       </button>
 
       <div class="user-menu-container" v-if="authStore.isAuthenticated" ref="userMenuRef">
-        <button class="avatar-btn" @click="toggleUserMenu">
+        <button type="button" class="avatar-btn" @click="toggleUserMenu">
           <div class="avatar-circle">
             {{ userInitial }}
           </div>
@@ -87,18 +90,18 @@
           </div>
           <div class="dropdown-divider"></div>
 
-          <button class="dropdown-item" @click="navigate('/biblioteca')">
+          <button type="button" class="dropdown-item" @click="navigate('/biblioteca')">
             <i class="ph ph-books"></i> Biblioteca
           </button>
-          <button class="dropdown-item" @click="navigate('/editorpresentaciones')">
+          <button type="button" class="dropdown-item" @click="navigate('/editorpresentaciones')">
             <i class="ph ph-presentation-chart"></i> Editor
           </button>
-          <button class="dropdown-item" @click="navigate('/biblioteca-plantillas')">
+          <button type="button" class="dropdown-item" @click="navigate('/biblioteca-plantillas')">
             <i class="ph ph-storefront"></i> Plantillas
           </button>
 
           <div class="dropdown-divider"></div>
-          <button class="dropdown-item btn-logout" @click="handleLogout">
+          <button type="button" class="dropdown-item btn-logout" @click="handleLogout">
             <i class="ph ph-sign-out"></i> Cerrar Sesión
           </button>
         </div>

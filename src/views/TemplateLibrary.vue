@@ -74,9 +74,28 @@
           <button class="btn-ghost" @click="openTemplatePreview(tpl)">
             <i class="ph ph-eye"></i> Vista previa
           </button>
-          <button class="btn-primary" @click="saveToMyGallery(tpl._id)" :disabled="savingId === tpl._id">
-            <i class="ph" :class="savingId === tpl._id ? 'ph-spinner icon-spin' : 'ph-download-simple'"></i>
-            {{ savingId === tpl._id ? 'Guardando...' : 'Guardar en mi Galería' }}
+          <button
+            class="btn-primary"
+            @click="saveToMyGallery(tpl._id)"
+            :disabled="savingId === tpl._id || isTemplateSaved(tpl)"
+          >
+            <i
+              class="ph"
+              :class="
+                savingId === tpl._id
+                  ? 'ph-spinner icon-spin'
+                  : isTemplateSaved(tpl)
+                    ? 'ph-check'
+                    : 'ph-download-simple'
+              "
+            ></i>
+            {{
+              savingId === tpl._id
+                ? 'Guardando...'
+                : isTemplateSaved(tpl)
+                  ? 'Ya guardado'
+                  : 'Guardar en mi Galería'
+            }}
           </button>
         </div>
       </div>
@@ -194,6 +213,14 @@ const canPublishSelected = computed(() => {
   return Boolean(isSelectedNativeTemplate.value && selectedTemplate.value?.isPrivate);
 });
 
+const savedTemplateIds = computed(() => {
+  const ids = new Set<string>();
+  for (const tpl of myTemplates.value) {
+    if (tpl?._id) ids.add(String(tpl._id));
+  }
+  return ids;
+});
+
 const selectedSlidesCount = computed(() => {
   const state = selectedTemplate.value?.documentState;
   if (!state || typeof state !== 'object') return 0;
@@ -243,6 +270,8 @@ const loadData = async () => {
 const saveToMyGallery = async (id: string) => {
   const userId = authStore.user?._id;
   if (!userId) return;
+  if (savedTemplateIds.value.has(String(id))) return;
+
   savingId.value = id;
   try {
     await templateService.saveToGallery(id, userId);
@@ -250,6 +279,12 @@ const saveToMyGallery = async (id: string) => {
   } finally {
     savingId.value = null;
   }
+};
+
+const isTemplateSaved = (tpl: any) => {
+  if (!tpl?._id) return false;
+  if (isNativeTemplate(tpl)) return true;
+  return savedTemplateIds.value.has(String(tpl._id));
 };
 
 const discardTemplate = async (id: string) => {
@@ -261,6 +296,13 @@ const discardTemplate = async (id: string) => {
 
 const useTemplate = (tpl: any) => {
   closeTemplatePreview();
+
+  if (isNativeTemplate(tpl)) {
+    const visibility = tpl.isPrivate ? 'private' : 'public';
+    router.push(`/editorpresentaciones/${tpl._id}?mode=template&visibility=${visibility}`);
+    return;
+  }
+
   router.push(`/editorpresentaciones?templateId=${tpl._id}`);
 };
 

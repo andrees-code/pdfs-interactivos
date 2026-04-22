@@ -4465,6 +4465,7 @@
   import pako from 'pako';
   import Cropper from 'cropperjs';
   import html2canvas from 'html2canvas';
+  import JSZip from 'jszip';
 
 const isSafariBrowser = (() => {
   const ua = navigator.userAgent;
@@ -4513,6 +4514,9 @@ const themeVariables = computed(() => {
 const generatedThumbnails = ref<Record<number, string>>({});
 const isSaveInFlight = ref(false);
 const hasTemplateClosingSlide = ref(false);
+const hasUnsavedChanges = ref(false);
+const DRAFT_STORAGE_KEY = 'docflow:editor:draft:v1';
+const lastRouteLoadKey = ref('');
 
 // --- NUEVO: EDA FIGMA MODE ---
 const isSelectingTargetForEvent = ref<string | null>(null);
@@ -5413,6 +5417,8 @@ const commitThumbMove = (currentPage: number, e: Event) => {
       }
 
       console.log('✅ Presentación guardada exitosamente');
+      hasUnsavedChanges.value = false;
+      clearDraftState();
 
       // Solo mostramos el Toast verde si el usuario le dio al botón o a Ctrl+S
       if (!isAutosave) {
@@ -5451,7 +5457,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   let _PDF_BASE64_STORE: string = ''
   let timerInterval: ReturnType<typeof setInterval> | null = null
 
-  const docType = ref<'pdf' | 'blank' | 'template'>('blank')
+  const docType = ref<'pdf' | 'blank' | 'template' | 'pptx'>('blank')
   const hasDoc = ref(false)
   const playMode = ref(false)
 
@@ -6431,8 +6437,10 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     }
     document.addEventListener('keydown', handleGlobalKeydown)
     document.addEventListener('keyup', handleGlobalKeyup)
+    document.addEventListener('pointerdown', handleGlobalPointerDown, true)
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
+    window.addEventListener('beforeunload', handleBeforeUnload)
 
     // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
     document.addEventListener('mousemove', wakeUpPlayNav);
@@ -6441,45 +6449,21 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     // Cargar plantillas del usuario
     loadGalleryTemplates()
 
-    // Cargar proyecto si hay ID en la ruta
-    const routeId = route.params.id as string
-    if (routeId && routeId !== 'new') {
-      loadProjectFromDB(routeId)
-    }
-
-    const templateId = route.query.templateId as string
-    if (templateId) {
-      loadTemplateFromQuery(templateId)
-    }
-
-    // En modo plantilla abrimos directamente el modal de resolución.
-    if (isTemplateCreatorMode.value && !hasDoc.value) {
-      projectConfigs.value.template = 'custom'
-      showNewProjectModal.value = true
-    }
+    initEditorFromRoute(true)
   })
 
   onUnmounted(() => {
     document.removeEventListener('keydown', handleGlobalKeydown)
     document.removeEventListener('keyup', handleGlobalKeyup)
+    document.removeEventListener('pointerdown', handleGlobalPointerDown, true)
     document.removeEventListener('fullscreenchange', onFullscreenChange)
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+    window.removeEventListener('beforeunload', handleBeforeUnload)
 
     // 👉 NUEVO: Limpiar los eventos de movimiento al salir
     document.removeEventListener('mousemove', wakeUpPlayNav);
     document.removeEventListener('keydown', wakeUpPlayNav);
     if (playNavTimeout) clearTimeout(playNavTimeout);
-
-    if (timerInterval) clearInterval(timerInterval)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleGlobalKeydown)
-    document.removeEventListener('keyup', handleGlobalKeyup)
-
-    // REMOVER LISTENERS DE FULLSCREEN
-    document.removeEventListener('fullscreenchange', onFullscreenChange)
-    document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
 
     if (timerInterval) clearInterval(timerInterval)
 
@@ -6537,6 +6521,35 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   }
 
   // --- EDICIÓN DIRECTA DE TEXTO ---
+  const findElementById = (elementId: string) => {
+    for (const pageElements of Object.values(documentState.value || {})) {
+      const match = (pageElements as any[])?.find((item: any) => item?.id === elementId)
+      if (match) return match
+    }
+    return null
+  }
+
+  const closeActiveTextEditor = () => {
+    if (!editingElementId.value) return
+
+    const editingId = editingElementId.value
+    const editedModel = findElementById(editingId)
+    const editedNode = document.querySelector('.el-text.is-editing') as HTMLElement | null
+
+    if (editedModel && editedNode) {
+      editedModel.content = editedNode.innerText || ' '
+    }
+
+    editingElementId.value = null
+  }
+
+  const handleGlobalPointerDown = (e: PointerEvent) => {
+    if (!editingElementId.value) return
+    const target = e.target as HTMLElement | null
+    if (target?.closest('.el-text.is-editing')) return
+    closeActiveTextEditor()
+  }
+
   const enableTextEdit = async (e: MouseEvent, el: any) => {
     if (playMode.value || el.isLocked) return;
 
@@ -6548,7 +6561,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
     await nextTick(); // Esperamos que el DOM aplique el contenteditable
 
-    const target = e.target as HTMLElement;
+    const target = e.currentTarget as HTMLElement;
     target.focus();
 
     // Seleccionamos automáticamente todo el texto como hace Figma
@@ -6569,6 +6582,81 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     // Salimos del modo edición
     editingElementId.value = null;
   };
+
+  const persistDraftState = () => {
+    if (!hasDoc.value) return
+    if (presentationId.value) return
+    if (route.params.id || route.query.templateId) return
+
+    try {
+      const draftPayload = {
+        title: presentationTitle.value,
+        docType: docType.value,
+        baseWidth: baseWidth.value,
+        baseHeight: baseHeight.value,
+        documentState: documentState.value,
+        slideConfigs: slideConfigs.value,
+        pdfPageMap: pdfPageMap.value,
+        updatedAt: Date.now(),
+      }
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftPayload))
+    } catch (error) {
+      console.warn('No se pudo persistir borrador local:', error)
+    }
+  }
+
+  const clearDraftState = () => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY)
+    } catch (error) {
+      console.warn('No se pudo limpiar borrador local:', error)
+    }
+  }
+
+  const restoreDraftState = async () => {
+    if (route.params.id || route.query.templateId) return false
+
+    try {
+      const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (!rawDraft) return false
+
+      const draft = JSON.parse(rawDraft)
+      if (!draft?.documentState || typeof draft.documentState !== 'object') return false
+
+      presentationId.value = null
+      presentationTitle.value = draft.title || 'Mi Nueva Presentación'
+      docType.value = draft.docType || 'blank'
+      baseWidth.value = draft.baseWidth || 1280
+      baseHeight.value = draft.baseHeight || 720
+      documentState.value = draft.documentState || {}
+      slideConfigs.value = draft.slideConfigs || {}
+      pdfPageMap.value = draft.pdfPageMap || {}
+
+      const pagesArray = Object.keys(documentState.value).map(Number)
+      numPages.value = pagesArray.length > 0 ? Math.max(...pagesArray) : 1
+      pageNum.value = 1
+      hasDoc.value = true
+      hasUnsavedChanges.value = true
+
+      initializeConfigs()
+      resetHistory()
+      await nextTick()
+      await renderPage(1)
+      setTimeout(fitToScreen, 100)
+      showToast('Se recuperó tu borrador local.', 'info')
+      return true
+    } catch (error) {
+      console.warn('No se pudo restaurar borrador local:', error)
+      return false
+    }
+  }
+
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (!hasUnsavedChanges.value) return
+    persistDraftState()
+    e.preventDefault()
+    e.returnValue = ''
+  }
 
   const selectAllElements = () => {
     if (playMode.value) return
@@ -6671,6 +6759,9 @@ watch(
       // Evitamos autoguardar mientras el proyecto se está descargando inicialmentel
       if (isLoadingProject.value || !hasDoc.value) return;
 
+      hasUnsavedChanges.value = true;
+      persistDraftState();
+
       if (autosaveTimeout) clearTimeout(autosaveTimeout);
 
       // Espera 5 segundos de inactividad antes de guardar
@@ -6681,9 +6772,22 @@ watch(
     { deep: true }
   );
 
+  watch(
+    () => route.fullPath,
+    () => {
+      initEditorFromRoute()
+    }
+  )
+
   const handleGlobalKeydown = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement;
     const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+    if (e.key === 'Escape' && editingElementId.value) {
+      e.preventDefault();
+      closeActiveTextEditor();
+      return;
+    }
 
     // --- NUEVO: GUARDAR (Ctrl + S o Cmd + S) ---
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -6812,6 +6916,260 @@ watch(
   const removeTableColumn = (el: any, idx: number) => {
     el.headers.splice(idx, 1)
     el.rows.forEach((r: any) => r.splice(idx, 1))
+  }
+
+  const EMU_PER_INCH = 914400
+  const CSS_PX_PER_INCH = 96
+  const emuToPx = (emu: string | number | null | undefined) =>
+    (Number(emu || 0) * CSS_PX_PER_INCH) / EMU_PER_INCH
+
+  const getByLocalName = (root: Element | Document, localName: string): Element[] => {
+    return Array.from(root.getElementsByTagName('*')).filter((node: Element) => node.localName === localName)
+  }
+
+  const getFirstByLocalName = (root: Element | Document, localName: string): Element | null => {
+    return getByLocalName(root, localName)[0] || null
+  }
+
+  const stripPptxAnimationXml = (xml: string) => {
+    return xml
+      .replace(/<p:timing[\s\S]*?<\/p:timing>/gi, '')
+      .replace(/<p:timing\s*\/>/gi, '')
+      .replace(/<p:anim[^>]*\/>/gi, '')
+      .replace(/<p:anim[^>]*>[\s\S]*?<\/p:anim[^>]*>/gi, '')
+  }
+
+  const extractXfrmBounds = (node: Element) => {
+    const xfrm = getFirstByLocalName(node, 'xfrm')
+    if (!xfrm) return null
+
+    const off = Array.from(xfrm.children).find((child) => child.localName === 'off')
+    const ext = Array.from(xfrm.children).find((child) => child.localName === 'ext')
+    if (!off || !ext) return null
+
+    return {
+      x: Number(off.getAttribute('x') || 0),
+      y: Number(off.getAttribute('y') || 0),
+      cx: Number(ext.getAttribute('cx') || 0),
+      cy: Number(ext.getAttribute('cy') || 0),
+    }
+  }
+
+  const extractParagraphTextFromPptx = (paragraph: Element) => {
+    let output = ''
+    for (const node of Array.from(paragraph.childNodes)) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue
+
+      const el = node as Element
+      if (el.localName === 'r' || el.localName === 'fld') {
+        const textNodes = getByLocalName(el, 't')
+        const textValue = textNodes.map((txt) => txt.textContent || '').join('')
+        output += textValue
+      } else if (el.localName === 'br') {
+        output += '\n'
+      } else if (el.localName === 'tab') {
+        output += '\t'
+      }
+    }
+    return output.replace(/\s+$/g, '')
+  }
+
+  const parseTableCellTextFromPptx = (cell: Element) => {
+    const paragraphs = getByLocalName(cell, 'p')
+      .map((p) => extractParagraphTextFromPptx(p))
+      .filter((txt) => txt.length > 0)
+
+    if (paragraphs.length === 0) return ''
+    return paragraphs.join('\n')
+  }
+
+  const parsePptxStructure = async (file: File) => {
+    const zip = await JSZip.loadAsync(await file.arrayBuffer())
+    const presentationXml = await zip.file('ppt/presentation.xml')?.async('text')
+
+    let slideCx = 12192000
+    let slideCy = 6858000
+
+    if (presentationXml) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(presentationXml, 'application/xml')
+      const sldSz = getFirstByLocalName(doc, 'sldSz')
+      if (sldSz) {
+        slideCx = Number(sldSz.getAttribute('cx') || slideCx)
+        slideCy = Number(sldSz.getAttribute('cy') || slideCy)
+      }
+    }
+
+    const parsedBaseWidth = Math.max(1, Math.round(emuToPx(slideCx)))
+    const parsedBaseHeight = Math.max(1, Math.round(emuToPx(slideCy)))
+
+    const slidePaths = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+      .sort((a, b) => {
+        const aNum = Number((a.match(/slide(\d+)\.xml$/i) || [])[1] || 0)
+        const bNum = Number((b.match(/slide(\d+)\.xml$/i) || [])[1] || 0)
+        return aNum - bNum
+      })
+
+    const slides: any[][] = []
+    const parser = new DOMParser()
+
+    for (const slidePath of slidePaths) {
+      const rawSlideXml = await zip.file(slidePath)?.async('text')
+      if (!rawSlideXml) {
+        slides.push([])
+        continue
+      }
+
+      const sanitizedXml = stripPptxAnimationXml(rawSlideXml)
+      const slideDoc = parser.parseFromString(sanitizedXml, 'application/xml')
+      const parserError = slideDoc.getElementsByTagName('parsererror')
+      if (parserError.length > 0) {
+        slides.push([])
+        continue
+      }
+
+      const slideElements: any[] = []
+
+      for (const shape of getByLocalName(slideDoc, 'sp')) {
+        const txBody = getFirstByLocalName(shape, 'txBody')
+        if (!txBody) continue
+
+        const paragraphs = getByLocalName(txBody, 'p')
+          .map((p) => extractParagraphTextFromPptx(p))
+          .filter((txt) => txt.trim().length > 0)
+
+        if (paragraphs.length === 0) continue
+
+        const bounds = extractXfrmBounds(shape)
+        const paraStyle = getFirstByLocalName(txBody, 'rPr') || getFirstByLocalName(txBody, 'defRPr')
+        const fontSizePt = Number(paraStyle?.getAttribute('sz') || 2800) / 100
+        const fontSizePx = Math.max(12, Math.round((fontSizePt * CSS_PX_PER_INCH) / 72))
+
+        const widthPx = bounds ? Math.max(80, Math.round(emuToPx(bounds.cx))) : 260
+        const xPx = bounds ? Math.max(-50, Math.round(emuToPx(bounds.x))) : 40
+        const yPx = bounds ? Math.max(-50, Math.round(emuToPx(bounds.y))) : 40
+
+        slideElements.push({
+          id: `el_pptx_text_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+          type: 'text',
+          x: xPx,
+          y: yPx,
+          width: widthPx,
+          height: 'auto',
+          content: paragraphs.join('\n'),
+          color: '#1e293b',
+          fontSize: fontSizePx,
+          fontWeight: '400',
+          fontFamily: 'Helvetica, Arial, sans-serif',
+          fontStyle: 'normal',
+          textAlign: 'left',
+          textTransform: 'none',
+          textDecoration: 'none',
+          lineHeight: 1.2,
+          letterSpacing: 0,
+          textShadow: 'none',
+          textBgColor: 'transparent',
+          opacity: 1,
+          rotation: 0,
+          mixBlendMode: 'normal',
+          isHidden: false,
+          isLocked: false,
+          groupId: null,
+          animationType: 'none',
+          animationTrigger: 'onClick',
+          animationOrder: 0,
+        })
+      }
+
+      for (const frame of getByLocalName(slideDoc, 'graphicFrame')) {
+        const table = getFirstByLocalName(frame, 'tbl')
+        if (!table) continue
+
+        const rows = getByLocalName(table, 'tr').map((row) =>
+          getByLocalName(row, 'tc').map((cell) => parseTableCellTextFromPptx(cell)),
+        )
+
+        const headerRow = rows[0]
+        if (!headerRow || headerRow.length === 0) continue
+
+        const bounds = extractXfrmBounds(frame)
+        const xPx = bounds ? Math.max(-50, Math.round(emuToPx(bounds.x))) : 60
+        const yPx = bounds ? Math.max(-50, Math.round(emuToPx(bounds.y))) : 120
+        const widthPx = bounds ? Math.max(240, Math.round(emuToPx(bounds.cx))) : 520
+        const heightPx = bounds ? Math.max(120, Math.round(emuToPx(bounds.cy))) : 260
+
+        slideElements.push({
+          id: `el_pptx_table_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+          type: 'table',
+          x: xPx,
+          y: yPx,
+          width: widthPx,
+          height: heightPx,
+          headers: headerRow.map((header) => header || ''),
+          rows: rows.slice(1).map((row) => row.map((cell) => cell || '')),
+          color: '#1e293b',
+          fontSize: 16,
+          fontWeight: '400',
+          fontFamily: 'Helvetica, Arial, sans-serif',
+          textAlign: 'left',
+          headerBgColor: '#2563eb',
+          rowBgColor1: '#ffffff',
+          rowBgColor2: '#f8fafc',
+          borderWidth: 1,
+          borderColor: '#cbd5e1',
+          borderRadius: 8,
+          opacity: 1,
+          rotation: 0,
+          mixBlendMode: 'normal',
+          isHidden: false,
+          isLocked: false,
+          groupId: null,
+          animationType: 'none',
+          animationTrigger: 'onClick',
+          animationOrder: 0,
+        })
+      }
+
+      slides.push(slideElements)
+    }
+
+    return {
+      baseWidth: parsedBaseWidth,
+      baseHeight: parsedBaseHeight,
+      slides,
+    }
+  }
+
+  const applyPptxStructuredImport = async (file: File) => {
+    const parsed = await parsePptxStructure(file)
+    if (!parsed.slides.length) {
+      showToast('PPTX importado. No se detectaron bloques estructurados adicionales.', 'warning')
+      return
+    }
+
+    baseWidth.value = parsed.baseWidth || baseWidth.value
+    baseHeight.value = parsed.baseHeight || baseHeight.value
+    numPages.value = Math.max(numPages.value, parsed.slides.length)
+    initializeConfigs()
+
+    for (let index = 0; index < parsed.slides.length; index++) {
+      const page = index + 1
+      const pageElements = documentState.value[page] || []
+
+      const withoutPdfText = pageElements.filter(
+        (el: any) => !(typeof el?.id === 'string' && el.id.startsWith('el_pdf_')),
+      )
+
+      documentState.value[page] = [...withoutPdfText, ...parsed.slides[index]]
+    }
+
+    docType.value = 'pptx'
+    hasDoc.value = true
+
+    await renderPage(pageNum.value)
+    setTimeout(fitToScreen, 100)
+    showToast('PPTX importado con texto y tablas estructurados.', 'success')
   }
 
   const getCalendarDays = (month: number, year: number) => {
@@ -7164,6 +7522,7 @@ watch(
       }
       // 5. Activamos la interfaz
       hasDoc.value = true;
+      hasUnsavedChanges.value = false;
       resetHistory();
 
       await renderPage(1);
@@ -7342,8 +7701,16 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   documentState.value[pageIndex].push(...newElements);
 };
 
-  const processPdfFile = async (file: File | Blob) => {
-  docType.value = 'pdf';
+  const processPdfFile = async (
+    file: File | Blob,
+    options: {
+      extractText?: boolean
+      targetDocType?: 'pdf' | 'pptx'
+      successMessage?: string | null
+    } = {},
+  ) => {
+  const shouldExtractText = options.extractText ?? true;
+  docType.value = options.targetDocType || 'pdf';
   presentationId.value = null;
 
   // Validar tamaño (máximo 100MB por seguridad)
@@ -7431,12 +7798,13 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     initializeConfigs();
     await generatePdfThumbnails();
 
-    // 3. ✨ LA MAGIA: Extraer textos página por página
-    for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
-      const page = await _RAW_PDF_DOC.getPage(i);
-      const viewport = page.getViewport({ scale: 1.0 });
-      // Extrae los textos y los convierte en tus elementos editables
-      await extractTextToNativeElements(page, i, viewport);
+    // 3. Extraer textos cuando aplique
+    if (shouldExtractText) {
+      for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
+        const page = await _RAW_PDF_DOC.getPage(i);
+        const viewport = page.getViewport({ scale: 1.0 });
+        await extractTextToNativeElements(page, i, viewport);
+      }
     }
 
     await renderPage(1);
@@ -7444,7 +7812,16 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     setTimeout(() => {
       fitToScreen();
       savePresentation(true);
-      showToast('¡Documento importado con textos editables!', 'success');
+
+      const finalMessage = options.successMessage !== undefined
+        ? options.successMessage
+        : shouldExtractText
+          ? '¡Documento importado con textos editables!'
+          : 'Documento importado correctamente.'
+
+      if (finalMessage) {
+        showToast(finalMessage, 'success');
+      }
     }, 100);
 
   } catch (error) {
@@ -7530,8 +7907,12 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     try {
       showToast('Convirtiendo PowerPoint a PDF (Gratis)...', 'info');
       const pdfBlob = await convertWithRetries();
-      // Le pasamos el Blob directamente a tu procesador de PDFs
-      await processPdfFile(pdfBlob);
+      await processPdfFile(pdfBlob, {
+        extractText: false,
+        targetDocType: 'pptx',
+        successMessage: null,
+      });
+      await applyPptxStructuredImport(file);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error('Error al convertir PowerPoint:', error);
@@ -7575,7 +7956,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           const docTypeMatch = htmlText.match(/const docType = ref\('(.*?)'\);/)
           baseWidth.value = widthMatch ? parseInt(widthMatch[1]) : 1280
           baseHeight.value = heightMatch ? parseInt(heightMatch[1]) : 720
-          docType.value = (docTypeMatch ? docTypeMatch[1] : 'blank') as 'pdf' | 'blank' | 'template'
+          docType.value = (docTypeMatch ? docTypeMatch[1] : 'blank') as 'pdf' | 'blank' | 'template' | 'pptx'
         }
 
         const pdfDataNode = doc.getElementById('app-pdf-data')
@@ -7748,6 +8129,8 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   }
 
   const applyExternalTemplate = (tpl: any) => {
+    tryDecompressProjectState(tpl)
+
     if (tpl.documentState) {
       documentState.value = JSON.parse(JSON.stringify(tpl.documentState))
     }
@@ -7756,24 +8139,67 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }
     if (tpl.baseWidth) baseWidth.value = tpl.baseWidth
     if (tpl.baseHeight) baseHeight.value = tpl.baseHeight
+    presentationId.value = null
+    presentationTitle.value = tpl.title || 'Plantilla sin título'
     numPages.value = Math.max(1, Object.keys(documentState.value || {}).length)
     hasDoc.value = true
     docType.value = 'blank'
+    hasUnsavedChanges.value = true
     hasTemplateClosingSlide.value = tpl?.docType === 'template' && numPages.value >= 3
     projectConfigs.value.template = 'custom'
     isCustomTemplateMode.value = true
     pageNum.value = 1
+    resetHistory()
     nextTick(() => renderPage(1))
     showToast('✨ Plantilla aplicada', 'success')
   }
 
-  const loadTemplateFromQuery = async (templateId: string) => {
+  const loadTemplateFromQuery = async (templateId: string, preserveTemplateId = false) => {
     try {
       const template = await templateService.getTemplateById(templateId)
       applyExternalTemplate(template)
+      if (preserveTemplateId) {
+        presentationId.value = template?._id || null
+        docType.value = 'template'
+        hasUnsavedChanges.value = false
+      }
       setTimeout(() => fitToScreen(), 100)
     } catch {
       showToast('No se pudo cargar la plantilla seleccionada.', 'error')
+    }
+  }
+
+  const initEditorFromRoute = async (force = false) => {
+    const routeKey = `${String(route.params.id || '')}|${String(route.query.templateId || '')}|${String(route.query.mode || '')}`
+    if (!force && lastRouteLoadKey.value === routeKey) return
+    lastRouteLoadKey.value = routeKey
+
+    const routeId = route.params.id as string | undefined
+    const templateId = route.query.templateId as string | undefined
+
+    if (templateId) {
+      await loadTemplateFromQuery(templateId)
+      return
+    }
+
+    if (routeId && routeId !== 'new') {
+      if (!isTemplateCreatorMode.value && presentationId.value === routeId && hasDoc.value) {
+        return
+      }
+      if (isTemplateCreatorMode.value) {
+        await loadTemplateFromQuery(routeId, true)
+      } else {
+        await loadProjectFromDB(routeId)
+      }
+      return
+    }
+
+    const restored = await restoreDraftState()
+    if (restored) return
+
+    if (isTemplateCreatorMode.value && !hasDoc.value) {
+      projectConfigs.value.template = 'custom'
+      showNewProjectModal.value = true
     }
   }
 
@@ -8403,7 +8829,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   // BASE64 AL SUBIR ARCHIVOS LOCALES
   // --- OPTIMIZADOR DE IMÁGENES AL VUELO ---
-  const optimizeImage = (file: File, maxWidth = 1920, maxHeight = 1080, quality = 0.8): Promise<string> => {
+  const optimizeImage = (file: File, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -8441,7 +8867,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     });
   };
   // --- OPTIMIZAR IMÁGENES BASE64 HEREDADAS ---
-  const optimizeBase64Image = (base64Str: string, maxWidth = 1920, maxHeight = 1080, quality = 0.75): Promise<string> => {
+  const optimizeBase64Image = (base64Str: string, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<string> => {
     return new Promise((resolve) => {
       // Si no es un base64 de imagen o pesa menos de ~400KB, no gastamos recursos en tocarla
       if (!base64Str.startsWith('data:image/') || base64Str.length < 500000) {
@@ -8484,7 +8910,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     for (const page in slideConfigs.value) {
       const config = slideConfigs.value[page];
       if (config.bgImage && config.bgImage.startsWith('data:image/') && config.bgImage.length > 500000) {
-        config.bgImage = await optimizeBase64Image(config.bgImage, 2560, 1440, 0.8);
+        config.bgImage = await optimizeBase64Image(config.bgImage, 3840, 2160, 0.9);
         optimizedCount++;
       }
     }
@@ -8494,7 +8920,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       const elements = documentState.value[page];
       for (const el of elements) {
         if (el.type === 'image' && el.src && el.src.startsWith('data:image/') && el.src.length > 500000) {
-          el.src = await optimizeBase64Image(el.src, 1920, 1080, 0.75);
+          el.src = await optimizeBase64Image(el.src, 3840, 2160, 0.9);
           optimizedCount++;
         }
       }
@@ -8515,7 +8941,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     // Si es una imagen, la pasamos por la trituradora para optimizarla
     if (file.type.startsWith('image/')) {
       try {
-        const optimizedSrc = await optimizeImage(file, 1920, 1920, 0.75); // Calidad 75% es perfecta para WebP
+        const optimizedSrc = await optimizeImage(file, 3840, 3840, 0.9);
         el.src = optimizedSrc;
         if (el.type === '3d') el.name = file.name;
         saveHistory();
@@ -8545,7 +8971,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (!file || !el) return;
 
     try {
-      const optimizedSrc = await optimizeImage(file, 1920, 1920, 0.75);
+      const optimizedSrc = await optimizeImage(file, 3840, 3840, 0.9);
       el[field] = optimizedSrc;
       saveHistory();
       target.value = '';
@@ -8616,7 +9042,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (file.type.startsWith('image/')) {
       try {
         // Los fondos suelen necesitar abarcar toda la pantalla, usamos formato panorámico de límite
-        const optimizedSrc = await optimizeImage(file, 2560, 1440, 0.8);
+        const optimizedSrc = await optimizeImage(file, 3840, 2160, 0.9);
         slideConfigs.value[pageNum.value].bgImage = optimizedSrc;
         renderPage(pageNum.value);
         saveHistory();
@@ -9116,14 +9542,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     return `https://${trimmed}`;
   };
 
-  const getMapStaticImageUrl = (el: any) => {
+  const getMapStaticImageUrl = (el: any, scaleFactor = 1) => {
     if (!el) return '';
     const zoomRaw = Number(el.zoomLevel ?? 14);
     const zoom = Number.isNaN(zoomRaw) ? 14 : Math.max(1, Math.min(19, zoomRaw));
     const centerLat = Number(el.centerLat ?? 40.4168);
     const centerLng = Number(el.centerLng ?? -3.7038);
-    const mapWidth = Math.max(120, Math.min(1024, Math.round(Number(el.width) || 400)));
-    const mapHeight = Math.max(120, Math.min(1024, Math.round(Number(el.height) || 300)));
+    const mapWidth = Math.max(120, Math.min(2048, Math.round((Number(el.width) || 400) * scaleFactor)));
+    const mapHeight = Math.max(120, Math.min(2048, Math.round((Number(el.height) || 300) * scaleFactor)));
     const markerList = Array.isArray(el.markers)
       ? el.markers.filter((m: any) => m && m.lat !== undefined && m.lng !== undefined)
       : [];
@@ -9237,7 +9663,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         ) {
           const newEl = { ...el };
           if (newEl.type === 'map') {
-            const staticMapUrl = getMapStaticImageUrl(newEl);
+            const staticMapUrl = getMapStaticImageUrl(newEl, 2);
             const embeddedMapImage = await urlToBase64(staticMapUrl);
             newEl.type = 'image';
             newEl.fit = newEl.fit || 'cover';
