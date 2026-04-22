@@ -1,27 +1,28 @@
 :root {
-  --surface-base: #0f1117;
-  --surface-panel: rgba(23, 26, 34, 0.92);
-  --surface-elevated: rgba(31, 36, 48, 0.96);
+  --surface-base: #0d1117;
+  --surface-panel: #161b22;
+  --surface-elevated: #21262d;
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(13, 153, 255, 0.55);
+  --border-subtle: #30363d;
+  --border-strong: #30363d;
 
-  --text-primary: #f5f7fb;
-  --text-secondary: #98a2b3;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
   --text-disabled: #667085;
 
-  --accent-primary: #0d99ff;
+  --accent-primary: #0D99FF;
+  --accent-hover: #388bfd;
   --accent-rgb: 13, 153, 255;
 
   --bg-base: var(--surface-base);
-  --bg-surface: var(--surface-panel);
+  --bg-surface: var(--surface-elevated);
   --bg-surface-hover: rgba(var(--accent-rgb), 0.06);
-  --bg-surface-active: rgba(var(--accent-rgb), 0.1);
+  --bg-surface-active: #30363d;
   --bg-panel: var(--surface-panel);
   --bg-hover: rgba(var(--accent-rgb), 0.08);
   --bg-elevated: var(--surface-elevated);
 
-  --glass-bg: rgba(23, 26, 34, 0.78);
+  --glass-bg: #161b22;
   --glass-border: var(--border-subtle);
   --overlay-backdrop: rgba(6, 10, 18, 0.6);
   --surface-soft: rgba(var(--accent-rgb), 0.08);

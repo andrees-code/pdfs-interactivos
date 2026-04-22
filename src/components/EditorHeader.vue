@@ -178,19 +178,14 @@ defineEmits<{
 
 <style scoped>
 .pro-header {
-  position: relative;
-  z-index: 99999 !important;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  background: var(--bg-panel) !important;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 55px;
-  border-bottom: 1px solid var(--border-subtle);
+  height: 52px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-strong);
   padding: 0 20px;
-  flex-shrink: 0;
-  box-shadow: var(--shadow-sm);
+  z-index: 100;
 }
 .header-left,
 .header-center,
@@ -218,20 +213,20 @@ defineEmits<{
 .menu-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-primary);
-  padding: 6px 14px;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px 12px;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 .menu-item-ghost:hover:not(:disabled) {
   background: var(--bg-surface-active);
-  border-color: var(--border-subtle);
+  color: var(--text-primary);
 }
 .menu-item:disabled {
   opacity: 0.5;
@@ -307,10 +302,10 @@ defineEmits<{
   display: flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface);
   padding: 4px;
-  border-radius: 999px;
-  border: none;
+  border-radius: 100px;
+  border: 1px solid var(--border-strong);
 }
 .zoom-level {
   font-size: 0.85rem;
@@ -329,19 +324,17 @@ defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--accent-primary);
-  color: #ffffff;
-  border: 1px solid transparent;
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border: none;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.2s;
 }
 .btn-play:hover {
-  filter: brightness(1.05);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
 }
 .btn-play.is-active {
   background: var(--surface-elevated);

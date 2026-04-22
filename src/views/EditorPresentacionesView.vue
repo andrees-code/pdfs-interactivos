@@ -624,8 +624,10 @@
                     <div
                       v-if="el.type === 'text' || el.type === 'sticky'"
                       class="el-text"
+                      :class="{ 'is-editing-mode': editingElementId === el.id }"
                       :contenteditable="editingElementId === el.id"
                       @dblclick.stop="enableTextEdit($event, el)"
+                      @mousedown="editingElementId === el.id ? $event.stopPropagation() : null"
                       @blur="onTextBlur($event, el)"
                       :style="{
                         color: el.color,
@@ -4461,6 +4463,7 @@
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
   import { templateService } from '@/services/template.service';
+  import { cloudinaryService } from '@/services/cloudinary.service';
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
   import pako from 'pako';
   import Cropper from 'cropperjs';
@@ -4546,6 +4549,18 @@ const thumbDragTarget = ref<number | null>(null)
 const thumbEditingPage = ref<number | null>(null)
 const thumbPosInputRef = ref<HTMLInputElement | null>(null)
 
+const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/jpeg', quality = 0.82): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('No se pudo convertir canvas a Blob'))
+        return
+      }
+      resolve(blob)
+    }, type, quality)
+  })
+}
+
 
   // --- NUEVO: FUNCIÓN PARA CAPTURAR PREVIEW DEL LIENZO ---
 // --- NUEVO: FUNCIÓN PARA CAPTURAR PREVIEW DEL LIENZO (ALTA FIDELIDAD) ---
@@ -4569,7 +4584,7 @@ const captureThumbnail = async () => {
     // Aquí usamos una ruta alternativa que no usa ese flujo interno.
     if (isSafariBrowser) {
       const { toJpeg } = await import('html-to-image');
-      generatedThumbnails.value[pageNum.value] = await toJpeg(slideNode, {
+      const dataUrl = await toJpeg(slideNode, {
         cacheBust: true,
         skipFonts: true,
         quality: 0.8,
@@ -4580,6 +4595,13 @@ const captureThumbnail = async () => {
         canvasHeight: Math.round(baseHeight.value * exactScale * 2.0),
         backgroundColor: currentBgColor.value || '#ffffff'
       });
+      const thumbBlob = await fetch(dataUrl).then((res) => res.blob())
+      const upload = await cloudinaryService.uploadFile(thumbBlob, {
+        resourceType: 'image',
+        folder: 'presentaciones/thumbnails',
+        fileName: `thumb_page_${pageNum.value}.jpg`,
+      })
+      generatedThumbnails.value[pageNum.value] = upload.secureUrl
       return;
     }
 
@@ -4605,8 +4627,13 @@ const captureThumbnail = async () => {
       }
     });
 
-    // Guardamos la foto generada
-    generatedThumbnails.value[pageNum.value] = canvas.toDataURL('image/jpeg', 0.8);
+    const thumbBlob = await canvasToBlob(canvas, 'image/jpeg', 0.8)
+    const upload = await cloudinaryService.uploadFile(thumbBlob, {
+      resourceType: 'image',
+      folder: 'presentaciones/thumbnails',
+      fileName: `thumb_page_${pageNum.value}.jpg`,
+    })
+    generatedThumbnails.value[pageNum.value] = upload.secureUrl
   } catch (error) {
     console.warn("No se pudo generar la miniatura:", error);
   }
@@ -5328,14 +5355,10 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         coverImage: generatedThumbnails.value[1] || null,
       };
 
-      // Convertir media base64 a URLs antes de comprimir / enviar
-      payload = await normalizePayloadMedia(payload)
-
-      // Primero, comprimimos el estado si es posible y necesario.
-      const safePayload = tryCompressProjectState(payload)
-      const payloadJson = JSON.stringify(safePayload)
+      // Payload limpio: solo metadata + elementos + URLs públicas
+      const payloadJson = JSON.stringify(payload)
       const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2)
-      console.log(`📤 Enviando presentación (${payloadSizeMB}MB) (compressed=${Boolean(safePayload.compressedState)})...`)
+      console.log(`📤 Enviando presentación (${payloadSizeMB}MB)...`)
 
       // Validar tamaño ANTES de enviar
       if (payloadJson.length > 8 * 1024 * 1024) {
@@ -5392,7 +5415,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
 
       if (isTemplateCreatorMode.value) {
         const templatePayload = {
-          ...safePayload,
+          ...payload,
           authorName: authStore.user?.username || 'Anónimo',
           isPrivate: isPrivateTemplateTarget.value,
           docType: 'template',
@@ -5682,7 +5705,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     }
   };
 
-  const applyCrop = () => {
+  const applyCrop = async () => {
     if (!myCropper) {
       showToast('La herramienta aún está cargando...', 'warning');
       return;
@@ -5699,8 +5722,13 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
     if (croppedCanvas) {
       try {
-        const newSrc = croppedCanvas.toDataURL('image/png', 0.9);
-        selectedElement.value.src = newSrc;
+        const blob = await canvasToBlob(croppedCanvas, 'image/webp', 0.9);
+        const upload = await cloudinaryService.uploadFile(blob, {
+          resourceType: 'image',
+          folder: 'presentaciones/media',
+          fileName: `cropped_${Date.now()}.webp`,
+        });
+        selectedElement.value.src = upload.secureUrl;
         saveHistory();
 
         closeCropper();
@@ -6553,6 +6581,8 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   const enableTextEdit = async (e: MouseEvent, el: any) => {
     if (playMode.value || el.isLocked) return;
 
+    e.stopPropagation();
+
     // Seleccionamos la herramienta de selección normal por si acaso
     activeTool.value = 'select';
 
@@ -6561,15 +6591,17 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
     await nextTick(); // Esperamos que el DOM aplique el contenteditable
 
-    const target = e.currentTarget as HTMLElement;
-    target.focus();
+    const target = e.target as HTMLElement;
+    if (target) {
+      target.focus();
 
-    // Seleccionamos automáticamente todo el texto como hace Figma
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    selection?.removeAllRanges();
-    selection?.addRange(range);
+      // Seleccionamos automáticamente todo el texto como hace Figma
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
   };
 
   const onTextBlur = (e: Event, el: any) => {
@@ -6983,6 +7015,189 @@ watch(
     return paragraphs.join('\n')
   }
 
+  const getMimeTypeFromPptxAsset = (assetPath: string) => {
+    const normalized = assetPath.toLowerCase()
+    if (normalized.endsWith('.png')) return 'image/png'
+    if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg'
+    if (normalized.endsWith('.gif')) return 'image/gif'
+    if (normalized.endsWith('.webp')) return 'image/webp'
+    if (normalized.endsWith('.svg')) return 'image/svg+xml'
+    return null
+  }
+
+  const uint8ArrayToBase64 = (bytes: Uint8Array) => {
+    let binary = ''
+    const chunkSize = 0x8000
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+    }
+
+    return btoa(binary)
+  }
+
+  const resolveZipAssetPath = (basePath: string, targetPath: string) => {
+    const baseParts = basePath.split('/')
+    baseParts.pop()
+
+    for (const segment of targetPath.replace(/\\/g, '/').split('/')) {
+      if (!segment || segment === '.') continue
+      if (segment === '..') baseParts.pop()
+      else baseParts.push(segment)
+    }
+
+    return baseParts.join('/')
+  }
+
+  const readPptxRelationships = async (zip: JSZip, relsPath: string) => {
+    const relsXml = await zip.file(relsPath)?.async('text')
+    if (!relsXml) return new Map<string, string>()
+
+    const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml')
+    const relsMap = new Map<string, string>()
+
+    for (const relation of getByLocalName(relsDoc, 'Relationship')) {
+      const id = relation.getAttribute('Id')
+      const target = relation.getAttribute('Target')
+      if (id && target) relsMap.set(id, target)
+    }
+
+    return relsMap
+  }
+
+  const readPptxRelationshipEntries = async (zip: JSZip, relsPath: string) => {
+    const relsXml = await zip.file(relsPath)?.async('text')
+    if (!relsXml) return [] as Array<{ id: string; target: string; type: string }>
+
+    const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml')
+    const entries: Array<{ id: string; target: string; type: string }> = []
+
+    for (const relation of getByLocalName(relsDoc, 'Relationship')) {
+      const id = relation.getAttribute('Id')
+      const target = relation.getAttribute('Target')
+      const type = relation.getAttribute('Type')
+      if (id && target) {
+        entries.push({ id, target, type: type || '' })
+      }
+    }
+
+    return entries
+  }
+
+  const getRelationshipTargetByType = (
+    entries: Array<{ id: string; target: string; type: string }>,
+    typeSuffix: string,
+  ) => {
+    const suffix = typeSuffix.toLowerCase()
+    return entries.find((entry) => entry.type.toLowerCase().endsWith(suffix))?.target || null
+  }
+
+  const extractPptxImageDataUrl = async (
+    zip: JSZip,
+    slidePath: string,
+    slideRelationships: Map<string, string>,
+    node: Element,
+  ) => {
+    const blip = getFirstByLocalName(node, 'blip')
+    const relationId = blip?.getAttribute('r:embed') || blip?.getAttribute('embed')
+    if (!relationId) return null
+
+    const target = slideRelationships.get(relationId)
+    if (!target) return null
+
+    const assetPath = resolveZipAssetPath(slidePath, target)
+    const mimeType = getMimeTypeFromPptxAsset(assetPath)
+    if (!mimeType) return null
+
+    const fileBytes = await zip.file(assetPath)?.async('uint8array')
+    if (!fileBytes) return null
+
+    return `data:${mimeType};base64,${uint8ArrayToBase64(fileBytes)}`
+  }
+
+  const extractPptxBackgroundFromDoc = async (
+    zip: JSZip,
+    ownerPath: string,
+    relationships: Map<string, string>,
+    doc: Document,
+  ) => {
+    for (const bg of getByLocalName(doc, 'bg')) {
+      const blip = getFirstByLocalName(bg, 'blip')
+      const relationId = blip?.getAttribute('r:embed') || blip?.getAttribute('embed')
+      if (!relationId) continue
+
+      const target = relationships.get(relationId)
+      if (!target) continue
+
+      const assetPath = resolveZipAssetPath(ownerPath, target)
+      const mimeType = getMimeTypeFromPptxAsset(assetPath)
+      if (!mimeType) continue
+
+      const fileBytes = await zip.file(assetPath)?.async('uint8array')
+      if (!fileBytes) continue
+
+      return `data:${mimeType};base64,${uint8ArrayToBase64(fileBytes)}`
+    }
+
+    return null
+  }
+
+  const extractPptxSlideBackground = async (
+    zip: JSZip,
+    slidePath: string,
+    slideDoc: Document,
+    slideRelationshipEntries: Array<{ id: string; target: string; type: string }>,
+    slideRelationships: Map<string, string>,
+  ) => {
+    const slideOwnBg = await extractPptxBackgroundFromDoc(zip, slidePath, slideRelationships, slideDoc)
+    if (slideOwnBg) return slideOwnBg
+
+    const slideLayoutTarget = getRelationshipTargetByType(
+      slideRelationshipEntries,
+      '/slideLayout',
+    )
+    if (!slideLayoutTarget) return null
+
+    const slideLayoutPath = resolveZipAssetPath(slidePath, slideLayoutTarget)
+    const slideLayoutXml = await zip.file(slideLayoutPath)?.async('text')
+    if (!slideLayoutXml) return null
+
+    const parser = new DOMParser()
+    const slideLayoutDoc = parser.parseFromString(slideLayoutXml, 'application/xml')
+    const slideLayoutRelsPath = slideLayoutPath.replace(/\/([^/]+)$/u, '/_rels/$1.rels')
+    const slideLayoutRelationships = await readPptxRelationships(zip, slideLayoutRelsPath)
+
+    const layoutBg = await extractPptxBackgroundFromDoc(
+      zip,
+      slideLayoutPath,
+      slideLayoutRelationships,
+      slideLayoutDoc,
+    )
+    if (layoutBg) return layoutBg
+
+    const slideLayoutRelationshipEntries = await readPptxRelationshipEntries(zip, slideLayoutRelsPath)
+    const slideMasterTarget = getRelationshipTargetByType(
+      slideLayoutRelationshipEntries,
+      '/slideMaster',
+    )
+    if (!slideMasterTarget) return null
+
+    const slideMasterPath = resolveZipAssetPath(slideLayoutPath, slideMasterTarget)
+    const slideMasterXml = await zip.file(slideMasterPath)?.async('text')
+    if (!slideMasterXml) return null
+
+    const slideMasterDoc = parser.parseFromString(slideMasterXml, 'application/xml')
+    const slideMasterRelsPath = slideMasterPath.replace(/\/([^/]+)$/u, '/_rels/$1.rels')
+    const slideMasterRelationships = await readPptxRelationships(zip, slideMasterRelsPath)
+
+    return await extractPptxBackgroundFromDoc(
+      zip,
+      slideMasterPath,
+      slideMasterRelationships,
+      slideMasterDoc,
+    )
+  }
+
   const parsePptxStructure = async (file: File) => {
     const zip = await JSZip.loadAsync(await file.arrayBuffer())
     const presentationXml = await zip.file('ppt/presentation.xml')?.async('text')
@@ -7012,24 +7227,79 @@ watch(
       })
 
     const slides: any[][] = []
+    const backgrounds: Array<string | null> = []
     const parser = new DOMParser()
 
     for (const slidePath of slidePaths) {
       const rawSlideXml = await zip.file(slidePath)?.async('text')
       if (!rawSlideXml) {
         slides.push([])
+        backgrounds.push(null)
         continue
       }
+
+      const slideRelsPath = slidePath.replace(/\/([^/]+)$/u, '/_rels/$1.rels')
+      const slideRelationshipEntries = await readPptxRelationshipEntries(zip, slideRelsPath)
+      const slideRelationships = new Map(
+        slideRelationshipEntries.map((entry) => [entry.id, entry.target]),
+      )
 
       const sanitizedXml = stripPptxAnimationXml(rawSlideXml)
       const slideDoc = parser.parseFromString(sanitizedXml, 'application/xml')
       const parserError = slideDoc.getElementsByTagName('parsererror')
       if (parserError.length > 0) {
         slides.push([])
+        backgrounds.push(null)
         continue
       }
 
+      const slideBackground = await extractPptxSlideBackground(
+        zip,
+        slidePath,
+        slideDoc,
+        slideRelationshipEntries,
+        slideRelationships,
+      )
+      backgrounds.push(slideBackground)
+
       const slideElements: any[] = []
+
+      for (const picture of getByLocalName(slideDoc, 'pic')) {
+        const src = await extractPptxImageDataUrl(zip, slidePath, slideRelationships, picture)
+        if (!src) continue
+
+        const bounds = extractXfrmBounds(picture)
+        const xPx = bounds ? Math.max(-50, Math.round(emuToPx(bounds.x))) : 40
+        const yPx = bounds ? Math.max(-50, Math.round(emuToPx(bounds.y))) : 40
+        const widthPx = bounds ? Math.max(40, Math.round(emuToPx(bounds.cx))) : 320
+        const heightPx = bounds ? Math.max(40, Math.round(emuToPx(bounds.cy))) : 180
+
+        slideElements.push({
+          id: `el_pptx_image_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+          type: 'image',
+          x: xPx,
+          y: yPx,
+          width: widthPx,
+          height: heightPx,
+          src,
+          fit: 'fill',
+          borderRadius: 0,
+          borderWidth: 0,
+          borderColor: '#000000',
+          grayscale: 0,
+          blur: 0,
+          sepia: 0,
+          opacity: 1,
+          rotation: 0,
+          mixBlendMode: 'normal',
+          isHidden: false,
+          isLocked: false,
+          groupId: null,
+          animationType: 'none',
+          animationTrigger: 'onClick',
+          animationOrder: 0,
+        })
+      }
 
       for (const shape of getByLocalName(slideDoc, 'sp')) {
         const txBody = getFirstByLocalName(shape, 'txBody')
@@ -7138,10 +7408,16 @@ watch(
       baseWidth: parsedBaseWidth,
       baseHeight: parsedBaseHeight,
       slides,
+      backgrounds,
     }
   }
 
-  const applyPptxStructuredImport = async (file: File) => {
+  const applyPptxStructuredImport = async (
+    file: File,
+    options?: {
+      silentSuccessToast?: boolean
+    },
+  ) => {
     const parsed = await parsePptxStructure(file)
     if (!parsed.slides.length) {
       showToast('PPTX importado. No se detectaron bloques estructurados adicionales.', 'warning')
@@ -7162,6 +7438,14 @@ watch(
       )
 
       documentState.value[page] = [...withoutPdfText, ...parsed.slides[index]]
+
+      const extractedBg = parsed.backgrounds?.[index] || null
+      if (extractedBg) {
+        if (!slideConfigs.value[page]) {
+          slideConfigs.value[page] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+        }
+        slideConfigs.value[page].bgImage = extractedBg
+      }
     }
 
     docType.value = 'pptx'
@@ -7169,7 +7453,9 @@ watch(
 
     await renderPage(pageNum.value)
     setTimeout(fitToScreen, 100)
-    showToast('PPTX importado con texto y tablas estructurados.', 'success')
+    if (!options?.silentSuccessToast) {
+      showToast('PPTX importado con texto y tablas estructurados.', 'success')
+    }
   }
 
   const getCalendarDays = (month: number, year: number) => {
@@ -7230,21 +7516,29 @@ watch(
   // --- ARCHIVOS, PDF Y THUMBNAILS ---
   const generatePdfThumbnails = async () => {
     if (!_RAW_PDF_DOC) return
+    const devicePixelRatio = Math.max(1, window.devicePixelRatio || 1)
+    const renderScale = 2.0
+
     for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
       try {
         const page = await _RAW_PDF_DOC.getPage(i)
-        const viewport = page.getViewport({ scale: 0.25 })
+        const viewport = page.getViewport({ scale: renderScale })
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         if (ctx) {
-          canvas.width = viewport.width
-          canvas.height = viewport.height
+          canvas.width = Math.floor(viewport.width * devicePixelRatio)
+          canvas.height = Math.floor(viewport.height * devicePixelRatio)
+          canvas.style.width = `${Math.floor(viewport.width)}px`
+          canvas.style.height = `${Math.floor(viewport.height)}px`
+          ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0)
           ctx.fillStyle = '#ffffff'
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.fillRect(0, 0, viewport.width, viewport.height)
           await page.render({ canvasContext: ctx, viewport }).promise
-          pdfThumbnails.value[i] = canvas.toDataURL('image/jpeg', 0.8)
+          pdfThumbnails.value[i] = canvas.toDataURL('image/jpeg', 0.9)
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error generando thumbnail HD:', e)
+      }
     }
   }
 
@@ -7476,8 +7770,8 @@ watch(
         return src;
       };
 
-      // 4. Si es PDF, lo reconstruimos a partir del Base64
-      if (docType.value === 'pdf' && data.pdfBase64) {
+      // 4. Si hay documento convertido a PDF, reconstruimos miniaturas para PDF y PPTX
+      if ((docType.value === 'pdf' || docType.value === 'pptx') && data.pdfBase64) {
         _PDF_BASE64_STORE = normalizePdfSource(data.pdfBase64);
 
         let loadingTask;
@@ -7723,31 +8017,19 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   isConverting.value = true;
   showToast('Procesando documento para convertir a HTML editable...', 'info');
 
-  const formData = new FormData();
-  formData.append('file', file as Blob, 'documento.pdf');
-
-  // Función auxiliar para subir con reintentos
-  const uploadWithRetries = async (maxRetries = 3, timeoutMs = 120000) => {
+  // Subida directa cliente -> Cloudinary (sin pasar por Vercel)
+  const uploadWithRetries = async (maxRetries = 3) => {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-        const response = await fetch(`${API_BASE}/upload`, {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal
+        const fileName = file instanceof File ? file.name : 'documento.pdf'
+        const upload = await cloudinaryService.uploadFile(file, {
+          resourceType: 'raw',
+          folder: 'presentaciones/pdfs',
+          fileName,
         });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        return await response.json();
+        return upload.secureUrl
       } catch (error) {
         lastError = error as Error;
         console.warn(`Intento ${attempt}/${maxRetries} fallido:`, error);
@@ -7766,12 +8048,8 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   };
 
   try {
-    // 1. Enviamos el archivo al backend con reintentos
-    const data = await uploadWithRetries();
-    let safeUrl = data.url;
-    if (safeUrl && safeUrl.includes('.vercel-storage.com')) {
-      safeUrl = `${API_BASE}/upload/file?url=${encodeURIComponent(safeUrl)}`;
-    }
+    // 1. Subimos PDF directo a storage y obtenemos URL pública
+    const safeUrl = await uploadWithRetries();
 
     _PDF_BASE64_STORE = safeUrl;
 
@@ -7870,9 +8148,38 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
     isConverting.value = true;
 
-    const formData = new FormData();
-    // Gotenberg exige que el campo se llame 'files'
-    formData.append('files', file);
+    const buildConvertPayload = () => {
+      const formData = new FormData();
+      // Gotenberg exige que el campo se llame 'files'
+      formData.append('files', file, file.name || 'presentacion.pptx');
+      return formData;
+    };
+
+    const parseConvertError = async (response: Response) => {
+      let detail = '';
+      try {
+        const raw = await response.text();
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            detail = parsed?.detail ? JSON.stringify(parsed.detail) : raw;
+          } catch {
+            detail = raw;
+          }
+        }
+      } catch {
+        detail = '';
+      }
+
+      const suffix = detail ? ` - ${detail.slice(0, 220)}` : '';
+      return `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}${suffix}`;
+    };
+
+    const isBlobPdf = async (blob: Blob) => {
+      if (!blob || blob.size < 5) return false;
+      const signature = await blob.slice(0, 5).text();
+      return signature === '%PDF-';
+    };
 
     const convertWithRetries = async (maxRetries = 3) => {
       let lastError: Error | null = null;
@@ -7882,12 +8189,19 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           // ✨ Reemplaza 'tuusuario' y 'mi-conversor-pptx' por los tuyos de Hugging Face
           const gotenbergUrl = import.meta.env.VITE_GOTENBERG_URL || 'https://andrees04-mi-conversor-pptx.hf.space/forms/libreoffice/convert';
 
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000);
+
           const response = await fetch(gotenbergUrl, {
             method: 'POST',
-            body: formData,
+            body: buildConvertPayload(),
+            signal: controller.signal,
           });
+          clearTimeout(timeoutId);
 
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          if (!response.ok) {
+            throw new Error(await parseConvertError(response));
+          }
 
           // Gotenberg devuelve el binario PDF directamente, cero decodificaciones extra 🚀
           return await response.blob();
@@ -7907,15 +8221,49 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     try {
       showToast('Convirtiendo PowerPoint a PDF (Gratis)...', 'info');
       const pdfBlob = await convertWithRetries();
-      await processPdfFile(pdfBlob, {
-        extractText: false,
-        targetDocType: 'pptx',
-        successMessage: null,
-      });
-      await applyPptxStructuredImport(file);
+
+      const byMimeType = (pdfBlob.type || '').toLowerCase().includes('pdf');
+      const bySignature = await isBlobPdf(pdfBlob);
+      if (!byMimeType && !bySignature) {
+        throw new Error('Respuesta de conversión inválida: el servidor no devolvió un PDF válido.');
+      }
+
+      await processPdfFile(pdfBlob);
+
+      // Bloquea cualquier fallback que fuerce modo PPTX y mantiene el visor PDF activo.
+      docType.value = 'pdf';
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error('Error al convertir PowerPoint:', error);
+
+      // Fallback: si el conversor remoto falla, importamos estructura nativa del PPTX
+      // para no bloquear completamente el flujo del usuario.
+      const shouldFallbackToStructured =
+        errorMsg.includes('HTTP 5') ||
+        errorMsg.includes('InvalidPDFException') ||
+        errorMsg.includes('Invalid PDF') ||
+        errorMsg.includes('no devolvió un PDF válido');
+
+      if (shouldFallbackToStructured) {
+        try {
+          await applyPptxStructuredImport(file, { silentSuccessToast: true });
+          showToast(
+            `Conversor PDF no disponible (${errorMsg}). Cargado en modo estructurado editable.`,
+            'warning'
+          );
+          return;
+        } catch (fallbackError) {
+          const fallbackMsg =
+            fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          console.error('Fallback estructurado de PPTX también falló:', fallbackError);
+          showToast(
+            `Falló conversión y fallback estructurado: ${fallbackMsg}`,
+            'error'
+          );
+          return;
+        }
+      }
+
       showToast(`Error al convertir PowerPoint: ${errorMsg}`, 'error');
     } finally {
       isConverting.value = false;
@@ -8829,41 +9177,44 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   // BASE64 AL SUBIR ARCHIVOS LOCALES
   // --- OPTIMIZADOR DE IMÁGENES AL VUELO ---
-  const optimizeImage = (file: File, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          let width = img.width;
-          let height = img.height;
+  const optimizeImage = (file: File, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<Blob> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const imgBitmap = await createImageBitmap(file)
+        let width = imgBitmap.width
+        let height = imgBitmap.height
 
-          // Si la imagen es más grande que nuestro límite, la reducimos manteniendo proporciones
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
 
-          // Dibujamos la imagen reducida en un canvas invisible
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
 
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            // Exportamos como WebP (Súper ligero y soporta fondos transparentes)
-            resolve(canvas.toDataURL('image/webp', quality));
-          } else {
-            resolve(img.src); // Fallback por seguridad
-          }
-        };
-        img.onerror = (error) => reject(error);
-      };
-      reader.onerror = (error) => reject(error);
+        if (!ctx) {
+          resolve(file)
+          return
+        }
+
+        ctx.drawImage(imgBitmap, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file)
+              return
+            }
+            resolve(blob)
+          },
+          'image/webp',
+          quality,
+        )
+      } catch (error) {
+        reject(error)
+      }
     });
   };
   // --- OPTIMIZAR IMÁGENES BASE64 HEREDADAS ---
@@ -8902,34 +9253,49 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     });
   };
 
-  // Función que barre todo el proyecto buscando imágenes pesadas
+  // Función que barre todo el proyecto buscando imágenes Base64 heredadas y las migra a Cloudinary
   const autoOptimizeProjectImages = async () => {
-    let optimizedCount = 0;
+    let migratedCount = 0;
 
-    // 1. Revisar fondos de diapositivas
+    const migrateBase64ToCloud = async (base64Str: string, folder: string, fileName: string): Promise<string> => {
+      try {
+        const res = await fetch(base64Str);
+        const blob = await res.blob();
+        const upload = await cloudinaryService.uploadFile(blob, {
+          resourceType: 'image',
+          folder,
+          fileName,
+        });
+        return upload.secureUrl;
+      } catch {
+        return base64Str; // fallback: dejar igual si falla
+      }
+    };
+
+    // 1. Migrar fondos de diapositivas
     for (const page in slideConfigs.value) {
       const config = slideConfigs.value[page];
-      if (config.bgImage && config.bgImage.startsWith('data:image/') && config.bgImage.length > 500000) {
-        config.bgImage = await optimizeBase64Image(config.bgImage, 3840, 2160, 0.9);
-        optimizedCount++;
+      if (config && config.bgImage && config.bgImage.startsWith('data:image/') && config.bgImage.length > 500000) {
+        config.bgImage = await migrateBase64ToCloud(config.bgImage, 'presentaciones/backgrounds', `bg_page_${page}.webp`);
+        migratedCount++;
       }
     }
 
-    // 2. Revisar elementos tipo 'image' en todas las diapositivas
+    // 2. Migrar elementos tipo 'image' en todas las diapositivas
     for (const page in documentState.value) {
       const elements = documentState.value[page];
+      if (!elements) continue;
       for (const el of elements) {
         if (el.type === 'image' && el.src && el.src.startsWith('data:image/') && el.src.length > 500000) {
-          el.src = await optimizeBase64Image(el.src, 3840, 2160, 0.9);
-          optimizedCount++;
+          el.src = await migrateBase64ToCloud(el.src, 'presentaciones/media', `img_${el.id || Date.now()}.webp`);
+          migratedCount++;
         }
       }
     }
 
-    // Si encontramos y arreglamos imágenes pesadas, guardamos el proyecto limpio
-    if (optimizedCount > 0) {
-      console.log(`Se han optimizado y aligerado ${optimizedCount} imágenes de este proyecto antiguo.`);
-      savePresentation(true); // Autoguardado silencioso
+    if (migratedCount > 0) {
+      console.log(`Migradas ${migratedCount} imágenes Base64 heredadas a Cloudinary.`);
+      savePresentation(true);
     }
   };
 
@@ -8938,11 +9304,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
-    // Si es una imagen, la pasamos por la trituradora para optimizarla
     if (file.type.startsWith('image/')) {
       try {
-        const optimizedSrc = await optimizeImage(file, 3840, 3840, 0.9);
-        el.src = optimizedSrc;
+        const optimizedBlob = await optimizeImage(file, 3840, 3840, 0.9)
+        const upload = await cloudinaryService.uploadFile(optimizedBlob, {
+          resourceType: 'image',
+          folder: 'presentaciones/media',
+          fileName: file.name,
+        })
+        el.src = upload.secureUrl
         if (el.type === '3d') el.name = file.name;
         saveHistory();
       } catch (error) {
@@ -8950,14 +9320,19 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         showToast('Error al procesar la imagen', 'error');
       }
     } else {
-      // Archivos no-imagen (audio, video, modelos 3D) van directos
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        el.src = e.target?.result as string;
+      try {
+        const upload = await cloudinaryService.uploadFile(file, {
+          resourceType: 'auto',
+          folder: 'presentaciones/media',
+          fileName: file.name,
+        })
+        el.src = upload.secureUrl
         if (el.type === '3d') el.name = file.name;
         saveHistory();
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error subiendo media:', error)
+        showToast('Error al subir el archivo', 'error')
+      }
     }
   };
 
@@ -8971,8 +9346,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (!file || !el) return;
 
     try {
-      const optimizedSrc = await optimizeImage(file, 3840, 3840, 0.9);
-      el[field] = optimizedSrc;
+      const optimizedBlob = await optimizeImage(file, 3840, 3840, 0.9)
+      const upload = await cloudinaryService.uploadFile(optimizedBlob, {
+        resourceType: 'image',
+        folder: 'presentaciones/comparator',
+        fileName: file.name,
+      })
+      el[field] = upload.secureUrl;
       saveHistory();
       target.value = '';
     } catch (error) {
@@ -9041,9 +9421,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     if (file.type.startsWith('image/')) {
       try {
-        // Los fondos suelen necesitar abarcar toda la pantalla, usamos formato panorámico de límite
-        const optimizedSrc = await optimizeImage(file, 3840, 2160, 0.9);
-        slideConfigs.value[pageNum.value].bgImage = optimizedSrc;
+        const optimizedBlob = await optimizeImage(file, 3840, 2160, 0.9)
+        const upload = await cloudinaryService.uploadFile(optimizedBlob, {
+          resourceType: 'image',
+          folder: 'presentaciones/backgrounds',
+          fileName: file.name,
+        })
+        slideConfigs.value[pageNum.value].bgImage = upload.secureUrl;
         renderPage(pageNum.value);
         saveHistory();
       } catch (error) {
@@ -10734,7 +11118,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     left: 0;
     width: 100%;
     height: 100%;
-    border: 1.5px solid var(--selection-blue);
+    border: 1.5px solid var(--accent-primary);
     pointer-events: none; /* Deja pasar los clicks al drag central */
     z-index: 100;
     box-sizing: border-box;
@@ -10743,18 +11127,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   /* CUADRADOS DE REDIMENSIÓN */
   .figma-bounding-box .resize-handle {
     position: absolute;
-    width: 10px;
-    height: 10px;
-    background: var(--text-primary);
-    border: 1.5px solid var(--selection-blue);
+    width: 8px;
+    height: 8px;
+    background: #ffffff;
+    border: 1.5px solid var(--accent-primary);
     pointer-events: auto;
     box-sizing: border-box;
     z-index: 102;
   }
-  .resize-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
-  .resize-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
-  .resize-handle.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
-  .resize-handle.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+  .resize-handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
+  .resize-handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
+  .resize-handle.sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+  .resize-handle.se { bottom: -4px; right: -4px; cursor: nwse-resize; }
 
   /* ÁREAS INVISIBLES DE ROTACIÓN (Más grandes y ubicadas fuera de las esquinas) */
   /* --- ÁREAS INVISIBLES DE ROTACIÓN CON CURSORES DE FIGMA --- */
@@ -10811,7 +11195,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     flex: 1;
     overflow: hidden;
     min-width: 0;
-    background-color: var(--surface-base);
+    background-color: var(--bg-base);
     position: relative;
     transition: all 0.3s ease;
   }
@@ -10914,21 +11298,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   /* PANELES LATERALES MÁS COMPACTOS */
   .pro-sidebar {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: var(--surface-panel) !important;
-  box-shadow: var(--shadow-panel-left) !important;
-  z-index: 40;
-    width: 240px; /* Reducido de 280px para dar más espacio a la diapositiva */
-    background-color: var(--surface-panel);
+    width: 260px;
+    background-color: var(--bg-panel) !important;
+    border-right: 1px solid var(--border-strong) !important;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    z-index: 40;
   }
   .right-sidebar {
-    box-shadow: var(--shadow-panel-right) !important;
-    width: 280px; /* Reducido de 320px para equilibrar paneles */
+    border-right: none !important;
+    border-left: 1px solid var(--border-strong) !important;
   }
   .panel-header {
     padding: 12px 15px; /* Padding reducido */
@@ -11173,19 +11554,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     letter-spacing: 0.5px;
   }
   .prop-section {
-    background: var(--surface-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    padding: 12px; /* Reducido de 15px */
-    margin-bottom: 12px; /* Reducido de 15px */
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-strong);
+    border-radius: 0;
+    padding: 16px 0;
+    margin-bottom: 0;
   }
   .section-title {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-weight: 600;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 10px;
+    font-size: 0.75rem;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -11219,23 +11599,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .pro-input {
     width: 100%;
-    background: var(--surface-soft-contrast);
-    border: 1px solid transparent;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
     color: var(--text-primary);
-    padding: 9px 10px;
-    border-radius: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
     box-sizing: border-box;
     font-family: inherit;
     font-size: 0.8rem;
-    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    transition: border-color 0.2s;
   }
   .pro-input:hover {
-    border-color: var(--border-subtle);
+    border-color: var(--border-strong);
   }
   .pro-input:focus {
+    border-color: var(--accent-primary);
+    background: var(--bg-base);
     outline: none;
-    border-color: var(--border-strong);
-    box-shadow: var(--ring-accent);
   }
   .pro-input:disabled {
     opacity: 0.5;
@@ -11532,6 +11912,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     background-size: cover;
     background-repeat: no-repeat;
   }
+  .canvas-shadow-box {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid var(--border-strong);
+  }
   .layer-pdf {
     position: absolute;
     top: 0;
@@ -11603,7 +11987,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
     font-size: 0.8rem; color: var(--text-secondary); text-align: center; padding: 10px; box-sizing: border-box;
   }
-  .drag-protector { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; cursor: move; }
+  .drag-protector { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; cursor: move; }
   .el-3d { width: 100%; height: 100%; position: relative; }
   .el-draw-board { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; }
   .draw-drag-handle {
@@ -11816,6 +12200,24 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   /* Ocultar el cursor normal del lienzo mientras se arrastra o edita */
   .pro-canvas-area:has(.el-text[contenteditable="true"]) {
     cursor: default !important;
+  }
+
+  .interactive-element:has(.is-editing-mode) {
+    z-index: 999999 !important;
+  }
+
+  .el-text.is-editing-mode {
+    cursor: text !important;
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    background-color: rgba(255, 255, 255, 0.05);
+    outline: 2px solid var(--accent-primary) !important;
+    outline-offset: 4px;
+  }
+
+  .drag-protector {
+    z-index: 1 !important;
   }
 
   .ipm-trigger-btn {
