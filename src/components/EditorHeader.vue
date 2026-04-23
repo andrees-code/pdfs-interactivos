@@ -1,7 +1,15 @@
 <template>
   <header class="pro-header">
     <div class="header-left">
-      <div class="pro-logo">
+      <div
+        class="pro-logo"
+        role="button"
+        tabindex="0"
+        title="Ir al inicio"
+        @click="navigate('/')"
+        @keydown.enter.prevent="navigate('/')"
+        @keydown.space.prevent="navigate('/')"
+      >
         <span class="logo-icon">🚀</span>
         <span class="logo-text">Doc<span class="text-accent">Flow</span></span>
       </div>
@@ -245,6 +253,7 @@ defineEmits<{
   align-items: center;
   gap: 8px;
   letter-spacing: -0.5px;
+  cursor: pointer;
 }
 .text-accent {
   color: var(--accent-primary);

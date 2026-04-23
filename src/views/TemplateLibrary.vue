@@ -6,6 +6,18 @@
           <button class="btn-back" @click="router.back()">
             <i class="ph ph-arrow-left"></i> Volver
           </button>
+          <div
+            class="pro-logo"
+            role="button"
+            tabindex="0"
+            title="Ir al inicio"
+            @click="navigate('/')"
+            @keydown.enter.prevent="navigate('/')"
+            @keydown.space.prevent="navigate('/')"
+          >
+            <span class="logo-icon">🚀</span>
+            <span class="logo-text">Doc<span class="text-accent">Flow</span></span>
+          </div>
           <h2><i class="ph ph-storefront"></i> Tienda de Plantillas</h2>
         </div>
         <div class="user-menu-container" v-if="authStore.user" ref="userMenuRef">
@@ -419,6 +431,27 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.pro-logo {
+  font-size: 1.3rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.5px;
+  cursor: pointer;
+}
+
+.logo-icon {
+  font-size: 1.4rem;
+}
+
+.text-accent {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .library-header-top h2 {

@@ -2,8 +2,16 @@
   <div class="pro-library-app anim-fade-in">
     <header class="pro-header glass-header">
       <div class="header-left">
-        <div class="pro-logo">
-          <span class="logo-icon text-gradient">🚀</span>
+        <div
+          class="pro-logo"
+          role="button"
+          tabindex="0"
+          title="Ir al inicio"
+          @click="navigate('/')"
+          @keydown.enter.prevent="navigate('/')"
+          @keydown.space.prevent="navigate('/')"
+        >
+          <span class="logo-icon">🚀</span>
           <span class="logo-text">Doc<span class="text-accent">Flow</span></span>
         </div>
         <div class="divider-vertical"></div>
@@ -397,6 +405,7 @@ const formatDate = (dateString: string) => {
   align-items: center;
   gap: 10px;
   letter-spacing: -0.5px;
+  cursor: pointer;
 }
 
 .logo-icon {

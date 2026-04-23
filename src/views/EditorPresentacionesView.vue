@@ -8770,6 +8770,38 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }
   }
 
+  const resetEditorToHome = () => {
+    if (hasUnsavedChanges.value) persistDraftState()
+
+    if (playMode.value) {
+      playMode.value = false
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
+
+    presentationId.value = null
+    presentationTitle.value = 'Mi Nueva Presentación'
+    docType.value = 'blank'
+    hasDoc.value = false
+    hasUnsavedChanges.value = false
+    showNewProjectModal.value = false
+    isCustomTemplateMode.value = false
+    hasTemplateClosingSlide.value = false
+
+    pageNum.value = 1
+    numPages.value = 0
+    documentState.value = {}
+    slideConfigs.value = {}
+    pdfPageMap.value = {}
+    pdfThumbnails.value = {}
+    generatedThumbnails.value = {}
+    selectedElementIds.value = []
+    activeTransition.value = 'none'
+    resetHistory()
+    renderTrigger.value++
+  }
+
   const initEditorFromRoute = async (force = false) => {
     const routeKey = `${String(route.params.id || '')}|${String(route.query.templateId || '')}|${String(route.query.mode || '')}`
     if (!force && lastRouteLoadKey.value === routeKey) return
@@ -8797,6 +8829,10 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
     const restored = await restoreDraftState()
     if (restored) return
+
+    if (hasDoc.value || presentationId.value) {
+      resetEditorToHome()
+    }
 
     if (isTemplateCreatorMode.value && !hasDoc.value) {
       projectConfigs.value.template = 'custom'
