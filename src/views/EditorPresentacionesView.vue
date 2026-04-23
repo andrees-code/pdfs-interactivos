@@ -4595,13 +4595,20 @@ const captureThumbnail = async () => {
         canvasHeight: Math.round(baseHeight.value * exactScale * 2.0),
         backgroundColor: currentBgColor.value || '#ffffff'
       });
+      // Preview inmediato en sidebar (tiempo real), aunque falle subida remota.
+      generatedThumbnails.value[pageNum.value] = dataUrl
+
       const thumbBlob = await fetch(dataUrl).then((res) => res.blob())
-      const upload = await cloudinaryService.uploadFile(thumbBlob, {
-        resourceType: 'image',
-        folder: 'presentaciones/thumbnails',
-        fileName: `thumb_page_${pageNum.value}.jpg`,
-      })
-      generatedThumbnails.value[pageNum.value] = upload.secureUrl
+      try {
+        const upload = await cloudinaryService.uploadFile(thumbBlob, {
+          resourceType: 'image',
+          folder: 'presentaciones/thumbnails',
+          fileName: `thumb_page_${pageNum.value}.jpg`,
+        })
+        generatedThumbnails.value[pageNum.value] = upload.secureUrl
+      } catch (error) {
+        console.warn('No se pudo subir miniatura Safari. Se mantiene preview local.', error)
+      }
       return;
     }
 
@@ -4627,13 +4634,20 @@ const captureThumbnail = async () => {
       }
     });
 
+    const localPreview = canvas.toDataURL('image/jpeg', 0.76)
+    generatedThumbnails.value[pageNum.value] = localPreview
+
     const thumbBlob = await canvasToBlob(canvas, 'image/jpeg', 0.8)
-    const upload = await cloudinaryService.uploadFile(thumbBlob, {
-      resourceType: 'image',
-      folder: 'presentaciones/thumbnails',
-      fileName: `thumb_page_${pageNum.value}.jpg`,
-    })
-    generatedThumbnails.value[pageNum.value] = upload.secureUrl
+    try {
+      const upload = await cloudinaryService.uploadFile(thumbBlob, {
+        resourceType: 'image',
+        folder: 'presentaciones/thumbnails',
+        fileName: `thumb_page_${pageNum.value}.jpg`,
+      })
+      generatedThumbnails.value[pageNum.value] = upload.secureUrl
+    } catch (error) {
+      console.warn('No se pudo subir miniatura. Se mantiene preview local.', error)
+    }
   } catch (error) {
     console.warn("No se pudo generar la miniatura:", error);
   }
@@ -6753,20 +6767,30 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   // --- NUEVO: AUTOCAPTURA DE MINIATURA "CASI EN TIEMPO REAL" ---
 let thumbnailTimeout: ReturnType<typeof setTimeout> | null = null;
 
+const scheduleThumbnailCapture = (delayMs = 700) => {
+  if (playMode.value || !hasDoc.value) return
+  if (thumbnailTimeout) clearTimeout(thumbnailTimeout)
+  thumbnailTimeout = setTimeout(() => {
+    captureThumbnail()
+  }, delayMs)
+}
+
 watch(
   [() => documentState.value, () => slideConfigs.value],
   () => {
-    if (playMode.value || !hasDoc.value) return;
-
-    if (thumbnailTimeout) clearTimeout(thumbnailTimeout);
-
-    // Retraso de 1.5s. Si el usuario sigue editando, el temporizador se reinicia.
-    thumbnailTimeout = setTimeout(() => {
-      captureThumbnail();
-    }, 2500);
+    // Reacciona rápido al editar para miniatura viva en panel izquierdo.
+    scheduleThumbnailCapture(700)
   },
   { deep: true }
 );
+
+watch(
+  () => pageNum.value,
+  () => {
+    // Al cambiar de diapositiva, refresca preview de la página activa.
+    scheduleThumbnailCapture(120)
+  }
+)
 
   // Ojo vigía mágico de Vue 👁️
   watch(
@@ -7656,7 +7680,7 @@ watch(
       const formData = new FormData()
       formData.append('file', blob, `${suggestedName}.${extension}`)
 
-      const response = await fetch(`${API_BASE}/upload`, {
+      const response = await fetch(`${API_BASE}/upload/media`, {
         method: 'POST',
         body: formData,
       })
@@ -7668,9 +7692,7 @@ watch(
 
       const jsonRes = await response.json()
       let finalUrl = dataURL;
-      if (jsonRes.url && jsonRes.url.includes('.vercel-storage.com')) {
-        finalUrl = `${API_BASE}/upload/file?url=${encodeURIComponent(jsonRes.url)}`;
-      } else if (jsonRes.url) {
+      if (jsonRes.url) {
         finalUrl = jsonRes.url;
       }
       if (typeof finalUrl === 'string' && finalUrl.startsWith('/')) {
@@ -8218,9 +8240,39 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       throw lastError || new Error('Error de red al convertir el archivo PPTX.');
     };
 
+    // ── Extrae estructura de animaciones del PPTX en paralelo con la conversión ──
+    // Devuelve JSON raw con coordenadas normalizadas (0-1); el escalado ocurre
+    // DESPUÉS de que processPdfFile actualice baseWidth/baseHeight.
+    const fetchAnimationStructure = async (): Promise<{ pages: Record<string, any[]> } | null> => {
+      try {
+        const structureUrl = (import.meta.env.VITE_GOTENBERG_URL || 'https://andrees04-mi-conversor-pptx.hf.space/forms/libreoffice/convert')
+          .replace(/\/forms\/libreoffice\/convert$/, '/forms/libreoffice/extract-structure');
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+        const formData = new FormData();
+        formData.append('files', file, file.name || 'presentacion.pptx');
+
+        const res = await fetch(structureUrl, { method: 'POST', body: formData, signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        console.warn('[PPTX] extract-structure falló (no bloqueante):', e);
+        return null;
+      }
+    };
+
     try {
       showToast('Convirtiendo PowerPoint a PDF (Gratis)...', 'info');
-      const pdfBlob = await convertWithRetries();
+
+      // Lanzamos PDF y extracción de animaciones en paralelo
+      const [pdfBlob, rawStructure] = await Promise.all([
+        convertWithRetries(),
+        fetchAnimationStructure(),
+      ]);
 
       const byMimeType = (pdfBlob.type || '').toLowerCase().includes('pdf');
       const bySignature = await isBlobPdf(pdfBlob);
@@ -8228,7 +8280,62 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         throw new Error('Respuesta de conversión inválida: el servidor no devolvió un PDF válido.');
       }
 
-      await processPdfFile(pdfBlob);
+      const hasAnimations = rawStructure !== null &&
+        Object.values(rawStructure.pages || {}).some((p: any[]) => p.length > 0);
+
+      console.log('[PPTX] rawStructure:', rawStructure);
+      console.log('[PPTX] hasAnimations:', hasAnimations);
+
+      // Cargamos el PDF extrayendo siempre el texto estático.
+      // cleaner.py ya eliminó los shapes animados del PPTX antes de convertir,
+      // así que el PDF solo contiene contenido estático → no hay duplicados.
+      await processPdfFile(pdfBlob, { extractText: true });
+
+      // AHORA baseWidth/baseHeight están actualizados con las dimensiones reales del PDF.
+      // Escalamos las coordenadas normalizadas y las inyectamos en documentState.
+      if (hasAnimations && rawStructure) {
+        const cw = baseWidth.value;
+        const ch = baseHeight.value;
+        let totalAnimated = 0;
+
+        for (const [pageStr, els] of Object.entries(rawStructure.pages || {})) {
+          if (!els.length) continue;
+          const page = parseInt(pageStr);
+          if (!documentState.value[page]) documentState.value[page] = [];
+
+          const existingIds = new Set(documentState.value[page].map((e: any) => e.id));
+          for (const el of (els as any[])) {
+            if (existingIds.has(el.id)) continue;
+            documentState.value[page].push({
+              ...el,
+              x:      Math.round((el.xNorm ?? 0) * cw),
+              y:      Math.round((el.yNorm ?? 0) * ch),
+              width:  Math.max(10, Math.round((el.wNorm ?? 0.2) * cw)),
+              height: el.height === 'auto' ? 'auto' : Math.max(10, Math.round((el.hNorm ?? 0.05) * ch)),
+            });
+            totalAnimated++;
+          }
+        }
+        console.log('[PPTX] elementos animados inyectados:', totalAnimated, documentState.value);
+
+        if (totalAnimated > 0) {
+          // Forzar reactividad Vue 3 — el push() directo no siempre dispara el re-render
+          documentState.value = { ...documentState.value };
+          await nextTick();
+          renderPage(pageNum.value);
+          showToast(`✨ ${totalAnimated} elemento(s) con animaciones importados`, 'success');
+        }
+      } else if (!hasAnimations) {
+        // Fallback: el endpoint /extract-structure no existe todavía o no retornó datos.
+        // Usamos el parser nativo del frontend para recuperar los elementos del PPTX original.
+        console.warn('[PPTX] extract-structure sin datos → fallback a parseo nativo del PPTX');
+        try {
+          await applyPptxStructuredImport(file, { silentSuccessToast: true });
+          showToast('PDF convertido + elementos PPTX cargados (modo compatibilidad)', 'info');
+        } catch (fallbackErr) {
+          console.warn('[PPTX] fallback nativo también falló:', fallbackErr);
+        }
+      }
 
       // Bloquea cualquier fallback que fuerce modo PPTX y mantiene el visor PDF activo.
       docType.value = 'pdf';

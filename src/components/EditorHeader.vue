@@ -77,13 +77,20 @@
       </button>
 
       <div class="user-menu-container" v-if="authStore.isAuthenticated" ref="userMenuRef">
-        <button type="button" class="avatar-btn" @click="toggleUserMenu">
+        <button type="button" class="avatar-btn" ref="avatarBtnRef" @click="toggleUserMenu">
           <div class="avatar-circle">
             {{ userInitial }}
           </div>
         </button>
+      </div>
 
-        <div class="user-dropdown" v-show="isUserMenuOpen">
+      <Teleport to="body">
+        <div
+          ref="userDropdownRef"
+          class="user-dropdown user-dropdown-portal"
+          v-show="isUserMenuOpen"
+          :style="userDropdownStyle"
+        >
           <div class="user-info">
             <span class="user-name">{{ authStore.user?.username || 'Usuario' }}</span>
             <span class="user-email">{{ authStore.user?.email || 'email@ejemplo.com' }}</span>
@@ -105,13 +112,13 @@
             <i class="ph ph-sign-out"></i> Cerrar Sesión
           </button>
         </div>
-      </div>
+      </Teleport>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
@@ -120,23 +127,59 @@ const router = useRouter();
 
 const isUserMenuOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
+const avatarBtnRef = ref<HTMLElement | null>(null);
+const userDropdownRef = ref<HTMLElement | null>(null);
+const userDropdownStyle = ref<Record<string, string>>({
+  top: '60px',
+  left: 'calc(100vw - 240px)',
+});
 
-const toggleUserMenu = () => {
+const updateUserDropdownPosition = () => {
+  if (!avatarBtnRef.value) return;
+
+  const rect = avatarBtnRef.value.getBoundingClientRect();
+  const dropdownWidth = 220;
+  const margin = 12;
+  const top = rect.bottom + 8;
+  const left = Math.min(
+    window.innerWidth - dropdownWidth - margin,
+    Math.max(margin, rect.right - dropdownWidth),
+  );
+
+  userDropdownStyle.value = {
+    top: `${top}px`,
+    left: `${left}px`,
+  };
+};
+
+const toggleUserMenu = async () => {
   isUserMenuOpen.value = !isUserMenuOpen.value;
+  if (isUserMenuOpen.value) {
+    await nextTick();
+    updateUserDropdownPosition();
+  }
 };
 
 const handleClickOutside = (event: MouseEvent) => {
-  if (isUserMenuOpen.value && userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+  const targetNode = event.target as Node;
+  const clickInsideTrigger = !!(userMenuRef.value && userMenuRef.value.contains(targetNode));
+  const clickInsideDropdown = !!(userDropdownRef.value && userDropdownRef.value.contains(targetNode));
+
+  if (isUserMenuOpen.value && !clickInsideTrigger && !clickInsideDropdown) {
     isUserMenuOpen.value = false;
   }
 };
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+  window.addEventListener('resize', updateUserDropdownPosition);
+  window.addEventListener('scroll', updateUserDropdownPosition, true);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('resize', updateUserDropdownPosition);
+  window.removeEventListener('scroll', updateUserDropdownPosition, true);
 });
 
 const navigate = (path: string) => {
@@ -181,11 +224,12 @@ defineEmits<{
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
   height: 52px;
   background-color: var(--bg-panel);
   border-bottom: 1px solid var(--border-strong);
   padding: 0 20px;
-  z-index: 100;
+  z-index: 1200;
 }
 .header-left,
 .header-center,
@@ -366,6 +410,7 @@ defineEmits<{
 
 .user-menu-container {
   position: relative;
+  z-index: 1300;
 }
 .avatar-btn {
   background: none;
@@ -393,20 +438,21 @@ defineEmits<{
   border: 2px solid var(--border-strong);
 }
 .user-dropdown {
-  position: absolute;
-  top: 120%;
-  right: 0;
+  position: fixed;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   width: 220px;
   box-shadow: var(--shadow-lg);
-  z-index: 100000 !important;
+  z-index: 2147483000;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   transform-origin: top right;
   animation: scaleIn 0.2s ease;
+}
+.user-dropdown-portal {
+  pointer-events: auto;
 }
 .user-info {
   padding: 12px 16px;
