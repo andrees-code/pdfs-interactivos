@@ -79,6 +79,8 @@
     thumbDragSource === page,
     thumbDragTarget === page,
     generatedThumbnails[page],
+    pdfPageMap[page] ?? 0,
+    pdfThumbnails[pdfPageMap[page] ?? 0],
     slideConfigs[page]?.bgColor,
     slideConfigs[page]?.bgImage,
     thumbEditingPage === page
@@ -4665,6 +4667,14 @@ const thumbDragSource = ref<number | null>(null)
 const thumbDragTarget = ref<number | null>(null)
 const thumbEditingPage = ref<number | null>(null)
 const thumbPosInputRef = ref<HTMLInputElement | null>(null)
+const thumbnailCaptureVersion = ref<Record<number, number>>({})
+const thumbnailLastSignature = ref<Record<number, string>>({})
+
+const getThumbnailSignature = (page: number) => {
+  const elements = documentState.value[page] || []
+  const config = slideConfigs.value[page] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+  return JSON.stringify({ elements, config })
+}
 
 const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/jpeg', quality = 0.82): Promise<Blob> => {
   return new Promise((resolve, reject) => {
@@ -4682,8 +4692,22 @@ const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/jpeg', quality = 
   // --- NUEVO: FUNCIÓN PARA CAPTURAR PREVIEW DEL LIENZO ---
 // --- NUEVO: FUNCIÓN PARA CAPTURAR PREVIEW DEL LIENZO (ALTA FIDELIDAD) ---
 // --- NUEVO: FUNCIÓN PARA CAPTURAR PREVIEW (A PRUEBA DE BALAS) ---
-const captureThumbnail = async () => {
+const captureThumbnail = async (
+  targetPage: number = pageNum.value,
+  options: { onlyIfChanged?: boolean } = { onlyIfChanged: true }
+) => {
   if (playMode.value || isConverting.value || isLoadingProject.value) return;
+
+  const signature = getThumbnailSignature(targetPage)
+  if (options.onlyIfChanged !== false && thumbnailLastSignature.value[targetPage] === signature) return
+
+  const captureVersion = (thumbnailCaptureVersion.value[targetPage] || 0) + 1
+  thumbnailCaptureVersion.value[targetPage] = captureVersion
+  const commitIfLatest = (thumbnail: string) => {
+    if (thumbnailCaptureVersion.value[targetPage] !== captureVersion) return
+    generatedThumbnails.value[targetPage] = thumbnail
+    thumbnailLastSignature.value[targetPage] = signature
+  }
 
   const slideNode = document.querySelector('.canvas-shadow-box') as HTMLElement;
   if (!slideNode) return;
@@ -4710,19 +4734,19 @@ const captureThumbnail = async () => {
         height: baseHeight.value,
         canvasWidth: Math.round(baseWidth.value * exactScale * 2.0),
         canvasHeight: Math.round(baseHeight.value * exactScale * 2.0),
-        backgroundColor: currentBgColor.value || '#ffffff'
+        backgroundColor: slideConfigs.value[targetPage]?.bgColor || currentBgColor.value || '#ffffff'
       });
       // Preview inmediato en sidebar (tiempo real), aunque falle subida remota.
-      generatedThumbnails.value[pageNum.value] = dataUrl
+      commitIfLatest(dataUrl)
 
       const thumbBlob = await fetch(dataUrl).then((res) => res.blob())
       try {
         const upload = await cloudinaryService.uploadFile(thumbBlob, {
           resourceType: 'image',
           folder: 'presentaciones/thumbnails',
-          fileName: `thumb_page_${pageNum.value}.jpg`,
+          fileName: `thumb_page_${targetPage}.jpg`,
         })
-        generatedThumbnails.value[pageNum.value] = upload.secureUrl
+        commitIfLatest(upload.secureUrl)
       } catch (error) {
         console.warn('No se pudo subir miniatura Safari. Se mantiene preview local.', error)
       }
@@ -4735,7 +4759,7 @@ const captureThumbnail = async () => {
       height: baseHeight.value,
       useCORS: true,
       logging: false,
-      backgroundColor: currentBgColor.value || '#ffffff',
+      backgroundColor: slideConfigs.value[targetPage]?.bgColor || currentBgColor.value || '#ffffff',
       allowTaint: true,
       ignoreElements: (el) => el.tagName === 'SCRIPT',
 
@@ -4752,16 +4776,16 @@ const captureThumbnail = async () => {
     });
 
     const localPreview = canvas.toDataURL('image/jpeg', 0.76)
-    generatedThumbnails.value[pageNum.value] = localPreview
+    commitIfLatest(localPreview)
 
     const thumbBlob = await canvasToBlob(canvas, 'image/jpeg', 0.8)
     try {
       const upload = await cloudinaryService.uploadFile(thumbBlob, {
         resourceType: 'image',
         folder: 'presentaciones/thumbnails',
-        fileName: `thumb_page_${pageNum.value}.jpg`,
+        fileName: `thumb_page_${targetPage}.jpg`,
       })
-      generatedThumbnails.value[pageNum.value] = upload.secureUrl
+      commitIfLatest(upload.secureUrl)
     } catch (error) {
       console.warn('No se pudo subir miniatura. Se mantiene preview local.', error)
     }
@@ -6897,30 +6921,22 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   // --- NUEVO: AUTOCAPTURA DE MINIATURA "CASI EN TIEMPO REAL" ---
 let thumbnailTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const scheduleThumbnailCapture = (delayMs = 700) => {
+const scheduleThumbnailCapture = (delayMs = 700, targetPage: number = pageNum.value) => {
   if (playMode.value || !hasDoc.value) return
   if (thumbnailTimeout) clearTimeout(thumbnailTimeout)
   thumbnailTimeout = setTimeout(() => {
-    captureThumbnail()
+    captureThumbnail(targetPage, { onlyIfChanged: true })
   }, delayMs)
 }
 
 watch(
   [() => documentState.value, () => slideConfigs.value],
   () => {
-    // Reacciona rápido al editar para miniatura viva en panel izquierdo.
+    // Solo captura si hay cambios reales en la firma de la diapositiva.
     scheduleThumbnailCapture(700)
   },
   { deep: true }
 );
-
-watch(
-  () => pageNum.value,
-  () => {
-    // Al cambiar de diapositiva, refresca preview de la página activa.
-    scheduleThumbnailCapture(120)
-  }
-)
 
   // Ojo vigía mágico de Vue 👁️
   watch(
@@ -9063,11 +9079,30 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     changePageTo(newPage)
   }
 
+  const closeAllInteractives = () => {
+    Object.values(documentState.value).forEach((pageItems: any) => {
+      pageItems.forEach((el: any) => {
+        if (el?.type === 'interactive') el.isOpen = false
+        if (el?.type === 'accordion' && Array.isArray(el.items)) {
+          el.items.forEach((item: any) => {
+            item.isOpen = false
+          })
+        }
+        if (el?.type === 'audio') {
+          el.isPlaying = false
+          const audio = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement | null
+          if (audio) audio.pause()
+        }
+        if (el?.type === 'calendar') el.activeAgendaDay = null
+      })
+    })
+  }
+
   const changePageTo = async (num: number) => {
     if (num >= 1 && num <= numPages.value) {
       // 🛡️ CORRECCIÓN CRÍTICA: Sin await — la cámara trabaja en segundo plano
       if (!playMode.value && hasDoc.value) {
-        captureThumbnail().catch((e: any) => console.warn(e));
+        captureThumbnail(pageNum.value).catch((e: any) => console.warn(e));
       }
 
       pageNum.value = num;
