@@ -74,6 +74,15 @@
                  v-for="page in numPages"
   :key="page"
   class="thumb-item"
+  v-memo="[
+    pageNum === page,
+    thumbDragSource === page,
+    thumbDragTarget === page,
+    generatedThumbnails[page],
+    slideConfigs[page]?.bgColor,
+    slideConfigs[page]?.bgImage,
+    thumbEditingPage === page
+  ]"
   :class="{ 'is-active': pageNum === page, 'thumb-dragging': thumbDragSource === page, 'thumb-drag-over': thumbDragTarget === page }"
   @click="changePageTo(page)"
   draggable="true"
@@ -143,21 +152,19 @@
                     v-if="pageNum === page && currentPageElements.length > 0"
                   >
                     <div
-                      v-for="(el, index) in [...currentPageElements].reverse()"
+                      v-for="(el, index) in currentPageElements"
                       :key="el.id"
                       class="tree-child"
                       :class="{
                         'is-selected': selectedElementIds.includes(el.id),
-                        'drag-over': dragTargetIndex === currentPageElements.length - 1 - index,
+                        'drag-over': dragTargetIndex === index,
                       }"
                       @click.stop="selectElement(el.id, $event)"
                       draggable="true"
-                      @dragstart="onDragStartLayer($event, currentPageElements.length - 1 - index)"
-                      @dragover.prevent="
-                        onDragOverLayer($event, currentPageElements.length - 1 - index)
-                      "
+                      @dragstart="onDragStartLayer($event, index)"
+                      @dragover.prevent="onDragOverLayer($event, index)"
                       @dragleave="onDragLeaveLayer"
-                      @drop="onDropLayer($event, currentPageElements.length - 1 - index)"
+                      @drop="onDropLayer($event, index)"
                     >
                       <span class="drag-handle"><i class="ph ph-dots-six-vertical"></i></span>
                       <span class="icon"><i :class="`ph ${getIconClassForType(el.type)}`"></i></span>
@@ -587,40 +594,42 @@
                     >
                   </div>
 
-                  <div
-                    v-for="(el, index) in currentPageElements"
-                    :key="el.id + (playMode ? renderTrigger : '')"
-                    v-show="(!el.isHidden || !playMode) && (!playMode || isInsideCanvas(el))"
-                    class="interactive-element"
-                    :class="[
-                      {
-                        'is-outside-canvas': !playMode && !isInsideCanvas(el),
-                        'is-selected': selectedElementIds.includes(el.id) && !playMode,
-                        'is-editing': editingElementId === el.id, /* <--- NUEVA LÍNEA */
-                        'is-clickable':
-                          playMode &&
-                          ['link', 'interactive', 'audio', 'checkbox', 'rating'].includes(el.type),
-                        'no-pointer': playMode && (el.type === 'draw' || el.type === 'mindmap'),
-                        'is-hidden-editor': el.isHidden && !playMode,
-                        'is-waiting-animation': playMode && (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && !el.isHidden && (el.animationOrder || 0) > currentAnimationStep,
-                      },
-                      playMode && (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && !el.isHidden && (el.animationOrder || 0) <= currentAnimationStep ? 'anim-' + (el.animationType || el.animation) : ''
-                    ]"
-                    :style="{
-                      left: `${el.x}px`,
-                      top: `${el.y}px`,
-                      width: `${el.width}px`,
-                      height: el.height === 'auto' ? 'auto' : `${el.height}px`,
-                      zIndex: index + 10,
-                      opacity: el.opacity ?? 1,
-                      transform: `rotate(${el.rotation || 0}deg)`,
-                      animationDelay: playMode && (el.animationTrigger === 'withPrevious' || el.animationTrigger === 'afterPrevious') ? `${index * 0.05}s` : '0s',
-                      mixBlendMode: el.mixBlendMode || 'normal',
-                    }"
-                    @mousedown.stop="startDrag($event, el)"
-                    @click.stop="playMode ? executeEvents(el, 'click') : null"
-                    @mouseenter="playMode ? executeEvents(el, 'hover') : null"
-                  >
+                  <template v-if="documentState[pageNum]">
+                    <div
+                      v-for="(el, index) in currentPageElements"
+                      :key="el.id + (playMode ? renderTrigger : '')"
+                      v-memo="getElementMemo(el, index)"
+                      v-show="shouldShowElementOnCanvas(el)"
+                      class="interactive-element"
+                      :class="[
+                        {
+                          'is-outside-canvas': !playMode && !isInsideCanvas(el),
+                          'is-selected': selectedElementIds.includes(el.id) && !playMode,
+                          'is-editing': editingElementId === el.id, /* <--- NUEVA LÍNEA */
+                          'is-clickable':
+                            playMode &&
+                            ['link', 'interactive', 'audio', 'checkbox', 'rating'].includes(el.type),
+                          'no-pointer': playMode && (el.type === 'draw' || el.type === 'mindmap'),
+                          'is-hidden-editor': el.isHidden && !playMode,
+                          'is-waiting-animation': isElementWaitingForAnimation(el),
+                        },
+                        getElementAnimationClass(el)
+                      ]"
+                      :style="{
+                        left: `${el.x}px`,
+                        top: `${el.y}px`,
+                        width: `${el.width}px`,
+                        height: el.height === 'auto' ? 'auto' : `${el.height}px`,
+                        zIndex: index + 10,
+                        opacity: el.opacity ?? 1,
+                        transform: `rotate(${el.rotation || 0}deg)`,
+                        animationDelay: playMode && (getElementAnimationTrigger(el) === 'withPrevious' || getElementAnimationTrigger(el) === 'afterPrevious') ? `${index * 0.05}s` : '0s',
+                        mixBlendMode: el.mixBlendMode || 'normal',
+                      }"
+                      @mousedown.stop="startDrag($event, el)"
+                      @click.stop="playMode ? executeEvents(el, 'click') : null"
+                      @mouseenter="playMode ? executeEvents(el, 'hover') : null"
+                    >
                     <div
                       v-if="el.type === 'text' || el.type === 'sticky'"
                       class="el-text"
@@ -1882,7 +1891,8 @@
                       <div class="resize-handle se" @mousedown.stop.prevent="startResize($event, el, 'se')"></div>
                       </template>
                     </div>
-                  </div>
+                    </div>
+                  </template>
                 </div>
                 </Transition>
               </div>
@@ -2179,7 +2189,7 @@
                 <div class="prop-group mb-0 mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
                   <label>Desencadenador</label>
                   <select v-model="selectedElement.animationTrigger" class="pro-input">
-                    <option value="onClick">Al Hacer Clic</option>
+                    <option value="onReveal">Aparecer (Oculto a Visible)</option>
                     <option value="withPrevious">Con la anterior</option>
                     <option value="afterPrevious">Después de la anterior</option>
                   </select>
@@ -4492,9 +4502,116 @@ const getPdfjsLib = async () => {
 // --- NUEVO: TIMELINE ANIMATOR PARA EL PLAYMODE ---
 const currentAnimationStep = ref(0);
 
+const normalizeAnimationType = (value: any): string => {
+  if (!value || typeof value !== 'string') return 'none';
+
+  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, '-');
+  const aliases: Record<string, string> = {
+    fade: 'fade-in',
+    fadein: 'fade-in',
+    appear: 'fade-in',
+    'fade-in': 'fade-in',
+    'slide-in': 'slide-up',
+    slideup: 'slide-up',
+    'slide-up': 'slide-up',
+    zoom: 'zoom-in',
+    zoomin: 'zoom-in',
+    'zoom-in': 'zoom-in',
+    pop: 'bounce',
+    popin: 'bounce',
+    bouncein: 'bounce',
+    bounce: 'bounce',
+    none: 'none',
+  };
+
+  return aliases[normalized] || normalized;
+};
+
+const getElementAnimationType = (el: any): string => {
+  return normalizeAnimationType(el?.animationType || el?.animation);
+};
+
+const normalizeAnimationTrigger = (value: any): string => {
+  if (!value || typeof value !== 'string') return 'onReveal';
+
+  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, '-');
+  if (normalized === 'onclick' || normalized === 'on-click' || normalized === 'onreveal' || normalized === 'on-reveal') {
+    return 'onReveal';
+  }
+  if (normalized === 'withprevious' || normalized === 'with-previous') {
+    return 'withPrevious';
+  }
+  if (normalized === 'afterprevious' || normalized === 'after-previous') {
+    return 'afterPrevious';
+  }
+
+  return 'onReveal';
+};
+
+const getElementAnimationTrigger = (el: any): string => {
+  return normalizeAnimationTrigger(el?.animationTrigger);
+};
+
+const getElementAnimationOrder = (el: any): number => {
+  const animationType = getElementAnimationType(el);
+  if (animationType === 'none') return 0;
+
+  const rawOrder = Number(
+    el?.animationOrder ?? el?.animationStep ?? el?.animationIndex ?? el?.order ?? el?.step ?? 0,
+  );
+
+  if (!Number.isFinite(rawOrder)) return 1;
+  return rawOrder <= 0 ? 1 : rawOrder;
+};
+
+const isElementWaitingForAnimation = (el: any): boolean => {
+  return (
+    playMode.value &&
+    !el?.isHidden &&
+    getElementAnimationType(el) !== 'none' &&
+    getElementAnimationOrder(el) > currentAnimationStep.value
+  );
+};
+
+const getElementAnimationClass = (el: any): string => {
+  if (!playMode.value || el?.isHidden) return '';
+
+  const animationType = getElementAnimationType(el);
+  if (animationType === 'none') return '';
+
+  return getElementAnimationOrder(el) <= currentAnimationStep.value ? `anim-${animationType}` : '';
+};
+
+const shouldShowElementOnCanvas = (el: any): boolean => {
+  if (!playMode.value) return true;
+  return !el?.isHidden && isInsideCanvas(el) && !isElementWaitingForAnimation(el);
+};
+
+const getElementMemo = (el: any, index: number) => {
+  return [
+    el?.id,
+    el?.x,
+    el?.y,
+    el?.width,
+    el?.height,
+    el?.rotation,
+    el?.opacity,
+    el?.content,
+    el?.isHidden,
+    el?.animationType,
+    el?.animation,
+    el?.animationOrder,
+    editingElementId.value === el?.id,
+    selectedElementIds.value.includes(el?.id),
+    playMode.value,
+    currentAnimationStep.value,
+    index,
+  ];
+};
+
 const maxAnimationStep = computed(() => {
   if (!currentPageElements.value) return 0;
-  return Math.max(0, ...currentPageElements.value.map(el => el.animationOrder || 0));
+  return Math.max(0, ...currentPageElements.value.map((el) => getElementAnimationOrder(el)));
 });
 
 const advancePresentation = () => {
@@ -5637,6 +5754,16 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       ? currentPageElements.value.find((el) => el.id === selectedElementIds.value[0])
       : null,
   )
+
+  watch(
+    selectedElement,
+    (el) => {
+      if (!el) return
+      el.animationTrigger = normalizeAnimationTrigger(el.animationTrigger)
+    },
+    { immediate: true },
+  )
+
   const isInsideCanvas = (el: any): boolean => {
     const elWidth = typeof el.width === 'number' ? el.width : 150
     const elHeight = typeof el.height === 'number' ? el.height : 50
@@ -6465,6 +6592,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
   // --- EXTENSIÓN: MOTOR DE EVENTOS (EDA) ---
   Object.keys(ELEMENT_DEFAULTS).forEach(key => {
+    if (ELEMENT_DEFAULTS[key].animationTrigger === 'onClick') {
+      ELEMENT_DEFAULTS[key].animationTrigger = 'onReveal';
+    }
     ELEMENT_DEFAULTS[key].events = [];
   });
 
@@ -6576,7 +6706,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
     const editingId = editingElementId.value
     const editedModel = findElementById(editingId)
-    const editedNode = document.querySelector('.el-text.is-editing') as HTMLElement | null
+    const editedNode = document.querySelector('.el-text.is-editing-mode') as HTMLElement | null
 
     if (editedModel && editedNode) {
       editedModel.content = editedNode.innerText || ' '
@@ -6588,7 +6718,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   const handleGlobalPointerDown = (e: PointerEvent) => {
     if (!editingElementId.value) return
     const target = e.target as HTMLElement | null
-    if (target?.closest('.el-text.is-editing')) return
+    if (target?.closest('.el-text.is-editing-mode')) return
     closeActiveTextEditor()
   }
 
@@ -8935,19 +9065,49 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
   const changePageTo = async (num: number) => {
     if (num >= 1 && num <= numPages.value) {
+      // 🛡️ CORRECCIÓN CRÍTICA: Sin await — la cámara trabaja en segundo plano
       if (!playMode.value && hasDoc.value) {
-      await captureThumbnail();
+        captureThumbnail().catch((e: any) => console.warn(e));
+      }
+
+      pageNum.value = num;
+      currentAnimationStep.value = 0;
+      selectedElementIds.value = [];
+      closeAllInteractives();
+      renderTrigger.value++;
+      activeTransition.value = 'none';
+
+      await nextTick();
+      if (workspaceRef.value) void workspaceRef.value.offsetWidth;
+      activeTransition.value = slideConfigs.value[num]?.transition || 'none';
+      renderPage(num);
+      preloadNextSlideAssets(num);
     }
-      pageNum.value = num
-      currentAnimationStep.value = 0
-      selectedElementIds.value = []
-      renderTrigger.value++
-      activeTransition.value = 'none'
-      await nextTick()
-      if (workspaceRef.value) void workspaceRef.value.offsetWidth
-      activeTransition.value = slideConfigs.value[num]?.transition || 'none'
-      renderPage(num)
-    }
+  }
+
+  const preloadImage = (url?: string | null) => {
+    if (!url || typeof url !== 'string') return
+    const clean = url.trim()
+    if (!clean) return
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = clean
+  }
+
+  const preloadNextSlideAssets = (currentPage: number) => {
+    const nextPage = currentPage + 1
+    const nextElements = documentState.value[nextPage]
+    if (!nextElements) return
+
+    preloadImage(slideConfigs.value[nextPage]?.bgImage)
+
+    nextElements.forEach((el: any) => {
+      if (el?.type === 'image' && el?.src) preloadImage(el.src)
+      if (el?.type === 'imagecomparator') {
+        preloadImage(el?.imageBefore)
+        preloadImage(el?.imageAfter)
+      }
+    })
   }
 
   const executeEvents = (element: any, triggerType: 'click' | 'hover', subIndex: number | null = null) => {
@@ -10367,10 +10527,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         <div class="canvas-shadow-box layer-engine" :key="pageNum" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
 
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
-                v-show="!el.isHidden"
+              v-show="!el.isHidden && !isWaitingAnimation(el)"
                 @click.stop="executeEvents(el, 'click')"
                 @mouseenter="executeEvents(el, 'hover')"
-                :class="[ (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && (el.animationOrder || 0) <= currentAnimationStep ? 'anim-' + (el.animationType || el.animation) : '', (el.animationType || el.animation) && (el.animationType || el.animation) !== 'none' && (el.animationOrder || 0) > currentAnimationStep ? 'is-waiting-animation' : '' ]"
+              :class="[ getAnimationClass(el), isWaitingAnimation(el) ? 'is-waiting-animation' : '' ]"
                 :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: (el.animationTrigger === 'withPrevious' || el.animationTrigger === 'afterPrevious') ? (index * 0.05) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">              <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
 
               <div v-else-if="el.type === 'mindmap'" class="el-mindmap-container" :style="{ fontFamily: el.fontFamily, '--mm-line-color': el.lineColor, '--mm-line-width': el.lineWidth + 'px' }">
@@ -10740,9 +10900,54 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const isFullscreen = ref(false);
           const currentAnimationStep = ref(0);
 
+          const normalizeAnimationType = (value) => {
+            if (!value || typeof value !== 'string') return 'none';
+            const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, '-');
+            const aliases = {
+              fade: 'fade-in',
+              fadein: 'fade-in',
+              appear: 'fade-in',
+              'fade-in': 'fade-in',
+              'slide-in': 'slide-up',
+              slideup: 'slide-up',
+              'slide-up': 'slide-up',
+              zoom: 'zoom-in',
+              zoomin: 'zoom-in',
+              'zoom-in': 'zoom-in',
+              pop: 'bounce',
+              popin: 'bounce',
+              bouncein: 'bounce',
+              bounce: 'bounce',
+              none: 'none',
+            };
+            return aliases[normalized] || normalized;
+          };
+
+          const getAnimationType = (el) => normalizeAnimationType(el?.animationType || el?.animation);
+
+          const getAnimationOrder = (el) => {
+            const animationType = getAnimationType(el);
+            if (animationType === 'none') return 0;
+
+            const rawOrder = Number(el?.animationOrder ?? el?.animationStep ?? el?.animationIndex ?? el?.order ?? el?.step ?? 0);
+            if (!Number.isFinite(rawOrder)) return 1;
+            return rawOrder <= 0 ? 1 : rawOrder;
+          };
+
+          const isWaitingAnimation = (el) => {
+            return !el?.isHidden && getAnimationType(el) !== 'none' && getAnimationOrder(el) > currentAnimationStep.value;
+          };
+
+          const getAnimationClass = (el) => {
+            if (el?.isHidden) return '';
+            const animationType = getAnimationType(el);
+            if (animationType === 'none') return '';
+            return getAnimationOrder(el) <= currentAnimationStep.value ? 'anim-' + animationType : '';
+          };
+
           const maxAnimationStep = computed(() => {
             if (!currentPageElements.value) return 0;
-            return Math.max(0, ...currentPageElements.value.map(el => el.animationOrder || 0));
+            return Math.max(0, ...currentPageElements.value.map(el => getAnimationOrder(el)));
           });
           const advancePresentation = () => {
             if (currentAnimationStep.value < maxAnimationStep.value) { currentAnimationStep.value++; }
@@ -10977,7 +11182,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getCalendarDays, getDayEvents, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getCalendarDays, getDayEvents, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation, isWaitingAnimation, getAnimationClass
           };
         }
       }).mount('#app');
@@ -11555,7 +11760,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     padding: 4px 0 0 0;
     background: transparent;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse; /* Voltea lista sin clonar array */
     gap: 2px;
   }
   .tree-child {
