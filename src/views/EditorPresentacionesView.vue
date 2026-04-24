@@ -250,30 +250,82 @@
                   >
                     <i class="ph ph-note"></i>
                   </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'shape' }"
-                    @click="activeTool = 'shape'"
-                    title="Forma"
-                  >
-                    <i class="ph ph-square"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'arrow' }"
-                    @click="activeTool = 'arrow'"
-                    title="Flecha / Línea"
-                  >
-                    <i class="ph ph-arrow-right"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'icon' }"
-                    @click="activeTool = 'icon'"
-                    title="Icono Vectorial"
-                  >
-                    <i class="ph ph-star"></i>
-                  </button>
+                  <div class="shape-tool-wrap" :class="{ open: showShapeDropdown }">
+                    <button
+                      class="tool-btn shape-dropdown-btn"
+                      :class="{ active: activeTool === 'shape' || showShapeDropdown }"
+                      @click="toggleShapeDropdown"
+                      :title="shapeDropdownTitle"
+                    >
+                      <span class="shape-tool-icon" :style="getShapePreviewStyle(selectedShapePreset)"></span>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showShapeDropdown" class="shape-dropdown-menu">
+                      <button
+                        v-for="shapePreset in SHAPE_PRESETS"
+                        :key="shapePreset.id"
+                        type="button"
+                        class="shape-dropdown-item"
+                        :class="{ active: selectedShapePreset === shapePreset.id }"
+                        @click="selectShapePreset(shapePreset.id)"
+                      >
+                        <span class="shape-chip" :style="getShapePreviewStyle(shapePreset.id)"></span>
+                        <span>{{ shapePreset.label }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="arrow-tool-wrap" :class="{ open: showArrowDropdown }">
+                    <button
+                      class="tool-btn arrow-dropdown-btn"
+                      :class="{ active: activeTool === 'arrow' || showArrowDropdown }"
+                      @click="toggleArrowDropdown"
+                      :title="arrowDropdownTitle"
+                    >
+                      <i class="ph" :class="`ph-${getArrowPreset(selectedArrowPreset).icon}`"></i>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showArrowDropdown" class="arrow-dropdown-menu">
+                      <button
+                        v-for="arrowPreset in ARROW_PRESETS"
+                        :key="arrowPreset.id"
+                        type="button"
+                        class="arrow-dropdown-item"
+                        :class="{ active: selectedArrowPreset === arrowPreset.id }"
+                        @click="selectArrowPreset(arrowPreset.id)"
+                      >
+                        <i class="ph" :class="`ph-${arrowPreset.icon}`"></i>
+                        <span>{{ arrowPreset.label }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="icon-tool-wrap" :class="{ open: showIconDropdown }">
+                    <button
+                      class="tool-btn icon-dropdown-btn"
+                      :class="{ active: activeTool === 'icon' || showIconDropdown }"
+                      @click="toggleIconDropdown"
+                      :title="iconDropdownTitle"
+                    >
+                      <i class="ph" :class="`ph-${selectedIconPreset}`"></i>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showIconDropdown" class="icon-dropdown-menu">
+                      <button
+                        v-for="iconName in ICON_TOOL_PRESETS"
+                        :key="iconName"
+                        type="button"
+                        class="icon-dropdown-item"
+                        :class="{ active: selectedIconPreset === iconName }"
+                        @click="selectIconPreset(iconName)"
+                      >
+                        <i class="ph" :class="`ph-${iconName}`"></i>
+                        <span>{{ iconName }}</span>
+                      </button>
+                      <button type="button" class="icon-dropdown-item more" @click="openIconPicker('toolbar')">
+                        <i class="ph ph-dots-three"></i>
+                        <span>Más iconos...</span>
+                      </button>
+                    </div>
+                  </div>
                   <button
                     class="tool-btn"
                     :class="{ active: activeTool === 'draw' }"
@@ -288,14 +340,30 @@
               <div class="toolbar-category">
                 <span class="category-label">Datos & Mapas</span>
                 <div class="category-tools">
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'mindmap' }"
-                    @click="activeTool = 'mindmap'"
-                    title="Mapa Mental"
-                  >
-                    <i class="ph ph-tree-structure"></i>
-                  </button>
+                  <div class="mindmap-tool-wrap" :class="{ open: showMindmapDropdown }">
+                    <button
+                      class="tool-btn mindmap-dropdown-btn"
+                      :class="{ active: activeTool === 'mindmap' || showMindmapDropdown }"
+                      @click="toggleMindmapDropdown"
+                      :title="mindmapDropdownTitle"
+                    >
+                      <i class="ph" :class="`ph-${getMindmapPreset(selectedMindmapPreset).icon}`"></i>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showMindmapDropdown" class="mindmap-dropdown-menu">
+                      <button
+                        v-for="mindmapPreset in MINDMAP_PRESETS"
+                        :key="mindmapPreset.id"
+                        type="button"
+                        class="mindmap-dropdown-item"
+                        :class="{ active: selectedMindmapPreset === mindmapPreset.id }"
+                        @click="selectMindmapPreset(mindmapPreset.id)"
+                      >
+                        <i class="ph" :class="`ph-${mindmapPreset.icon}`"></i>
+                        <span>{{ mindmapPreset.label }}</span>
+                      </button>
+                    </div>
+                  </div>
                   <button
                     class="tool-btn"
                     :class="{ active: activeTool === 'map' }"
@@ -320,22 +388,54 @@
                   >
                     <i class="ph ph-trend-up"></i>
                   </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'table' }"
-                    @click="activeTool = 'table'"
-                    title="Tabla de Datos"
-                  >
-                    <i class="ph ph-table"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'chart' }"
-                    @click="activeTool = 'chart'"
-                    title="Gráfico"
-                  >
-                    <i class="ph ph-chart-bar"></i>
-                  </button>
+                  <div class="table-tool-wrap" :class="{ open: showTableDropdown }">
+                    <button
+                      class="tool-btn table-dropdown-btn"
+                      :class="{ active: activeTool === 'table' || showTableDropdown }"
+                      @click="toggleTableDropdown"
+                      :title="tableDropdownTitle"
+                    >
+                      <i class="ph" :class="`ph-${getTablePreset(selectedTablePreset).icon}`"></i>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showTableDropdown" class="table-dropdown-menu">
+                      <button
+                        v-for="tablePreset in TABLE_PRESETS"
+                        :key="tablePreset.id"
+                        type="button"
+                        class="table-dropdown-item"
+                        :class="{ active: selectedTablePreset === tablePreset.id }"
+                        @click="selectTablePreset(tablePreset.id)"
+                      >
+                        <i class="ph" :class="`ph-${tablePreset.icon}`"></i>
+                        <span>{{ tablePreset.label }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="chart-tool-wrap" :class="{ open: showChartDropdown }">
+                    <button
+                      class="tool-btn chart-dropdown-btn"
+                      :class="{ active: activeTool === 'chart' || showChartDropdown }"
+                      @click="toggleChartDropdown"
+                      :title="chartDropdownTitle"
+                    >
+                      <i class="ph" :class="`ph-${getChartPreset(selectedChartPreset).icon}`"></i>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showChartDropdown" class="chart-dropdown-menu">
+                      <button
+                        v-for="chartPreset in CHART_PRESETS"
+                        :key="chartPreset.id"
+                        type="button"
+                        class="chart-dropdown-item"
+                        :class="{ active: selectedChartPreset === chartPreset.id }"
+                        @click="selectChartPreset(chartPreset.id)"
+                      >
+                        <i class="ph" :class="`ph-${chartPreset.icon}`"></i>
+                        <span>{{ chartPreset.label }}</span>
+                      </button>
+                    </div>
+                  </div>
                   <button
                     class="tool-btn"
                     :class="{ active: activeTool === 'poll' }"
@@ -352,14 +452,30 @@
                   >
                     <i class="ph ph-star-half"></i>
                   </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'qrcode' }"
-                    @click="activeTool = 'qrcode'"
-                    title="Código QR"
-                  >
-                    <i class="ph ph-qr-code"></i>
-                  </button>
+                  <div class="qr-tool-wrap" :class="{ open: showQrDropdown }">
+                    <button
+                      class="tool-btn qr-dropdown-btn"
+                      :class="{ active: activeTool === 'qrcode' || showQrDropdown }"
+                      @click="toggleQrDropdown"
+                      :title="qrDropdownTitle"
+                    >
+                      <i class="ph" :class="`ph-${getQrPreset(selectedQrPreset).icon}`"></i>
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div v-if="showQrDropdown" class="qr-dropdown-menu">
+                      <button
+                        v-for="qrPreset in QR_PRESETS"
+                        :key="qrPreset.id"
+                        type="button"
+                        class="qr-dropdown-item"
+                        :class="{ active: selectedQrPreset === qrPreset.id }"
+                        @click="selectQrPreset(qrPreset.id)"
+                      >
+                        <i class="ph" :class="`ph-${qrPreset.icon}`"></i>
+                        <span>{{ qrPreset.label }}</span>
+                      </button>
+                    </div>
+                  </div>
                   <button
                     class="tool-btn"
                     :class="{ active: activeTool === 'progress' }"
@@ -670,7 +786,7 @@
                         '--mm-line-width': el.lineWidth + 'px',
                       }"
                     >
-                      <div class="mm-wrapper">
+                      <div class="mm-wrapper" :class="el.layout === 'vertical' ? 'layout-vertical' : 'layout-horizontal'">
                         <div
                           class="mm-level-0"
                           v-for="n0 in getNodesByParent(el.nodes, null)"
@@ -915,33 +1031,7 @@
                       </table>
                     </div>
 
-                    <div
-                      v-else-if="el.type === 'shape'"
-                      class="el-shape"
-                      :style="{
-                        background: el.isGlass
-                          ? 'rgba(255,255,255,0.2)'
-                          : el.gradientType && el.gradientType !== 'none'
-                            ? el.gradientType === 'linear'
-                              ? 'linear-gradient(135deg, ' +
-                                el.bgColor +
-                                ', ' +
-                                el.gradientColor +
-                                ')'
-                              : 'radial-gradient(circle, ' +
-                                el.bgColor +
-                                ', ' +
-                                el.gradientColor +
-                                ')'
-                            : el.bgColor,
-                        borderRadius: el.borderRadius + 'px',
-                        border:
-                          el.borderWidth + 'px ' + (el.borderStyle || 'solid') + ' ' + el.borderColor,
-                        boxShadow: el.boxShadow || 'none',
-                        backdropFilter: el.isGlass ? 'blur(10px)' : 'none',
-                        WebkitBackdropFilter: el.isGlass ? 'blur(10px)' : 'none',
-                      }"
-                    ></div>
+                    <div v-else-if="el.type === 'shape'" class="el-shape" :style="getShapeStyle(el)"></div>
 
                     <div
                       v-else-if="el.type === 'arrow'"
@@ -964,7 +1054,7 @@
                         }"
                       ></div>
                       <div
-                        :style="{ flex: 1, height: el.strokeWidth + 'px', backgroundColor: el.color }"
+                        :style="getArrowBodyStyle(el)"
                       ></div>
                       <div
                         v-if="['end', 'both'].includes(el.arrowHead)"
@@ -1119,7 +1209,7 @@
                             >
                           </div>
                         </div>
-                        <div v-if="el.chartType === 'hbar'" class="chart-hbar-container">
+                        <div v-else-if="el.chartType === 'hbar'" class="chart-hbar-container">
                           <div v-for="(item, i) in el.chartData" :key="i" class="hbar-row">
                             <span
                               v-if="el.showLegend"
@@ -1147,7 +1237,7 @@
                           </div>
                         </div>
                         <div
-                          v-if="el.chartType === 'pie' || el.chartType === 'donut'"
+                          v-else-if="el.chartType === 'pie' || el.chartType === 'donut'"
                           class="chart-pie-container"
                         >
                           <div
@@ -1171,6 +1261,113 @@
                                 >{{ item.label }}
                                 <span v-if="el.showValues">({{ item.value }})</span></span
                               >
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else-if="el.chartType === 'line' || el.chartType === 'area'" class="chart-line-container">
+                          <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polygon
+                              v-if="el.chartType === 'area'"
+                              :points="getAreaPoints(el.chartData)"
+                              :fill="(el.chartData?.[0]?.color || '#2563eb') + '33'"
+                            />
+                            <polyline
+                              :points="getLinePoints(el.chartData)"
+                              fill="none"
+                              :stroke="el.chartData?.[0]?.color || '#2563eb'"
+                              stroke-width="2.2"
+                            />
+                            <circle
+                              v-for="(point, pIdx) in getScatterPoints(el.chartData)"
+                              :key="`lp-${pIdx}`"
+                              :cx="point.x"
+                              :cy="point.y"
+                              r="1.9"
+                              :fill="el.chartData?.[0]?.color || '#2563eb'"
+                            />
+                          </svg>
+                          <div v-if="el.showLegend" class="line-legend">
+                            <span v-for="(item, i) in el.chartData" :key="`ll-${i}`" :style="{ color: el.color }">{{ item.label }}</span>
+                          </div>
+                        </div>
+                        <div v-else-if="el.chartType === 'scatter'" class="chart-scatter-container">
+                          <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <line x1="0" y1="100" x2="100" y2="100" stroke="#cbd5e1" stroke-width="0.6" />
+                            <line x1="0" y1="0" x2="0" y2="100" stroke="#cbd5e1" stroke-width="0.6" />
+                            <circle
+                              v-for="(point, pIdx) in getScatterPoints(el.chartData)"
+                              :key="`sp-${pIdx}`"
+                              :cx="point.x"
+                              :cy="point.y"
+                              r="2.6"
+                              :fill="point.color"
+                            />
+                          </svg>
+                        </div>
+                        <div v-else-if="el.chartType === 'combo'" class="chart-combo-container">
+                          <div class="chart-bar-container combo-bars">
+                            <div v-for="(item, i) in el.chartData" :key="`cb-${i}`" class="bar-col">
+                              <div class="bar-fill" :style="{ height: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }"></div>
+                            </div>
+                          </div>
+                          <svg class="chart-svg combo-line" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polyline :points="getLinePoints(el.chartData)" fill="none" stroke="#0f172a" stroke-width="2" />
+                          </svg>
+                        </div>
+                        <div v-else-if="el.chartType === 'funnel'" class="chart-funnel-container">
+                          <div
+                            v-for="(item, i) in el.chartData"
+                            :key="`fu-${i}`"
+                            class="funnel-stage"
+                            :style="{ width: getFunnelWidth(item.value, getChartMax(el.chartData)), backgroundColor: item.color }"
+                          >
+                            <span class="funnel-label">{{ item.label }}</span>
+                            <span v-if="el.showValues" class="funnel-value">{{ item.value }}</span>
+                          </div>
+                        </div>
+                        <div v-else-if="el.chartType === 'treemap'" class="chart-treemap-container">
+                          <div
+                            v-for="(item, i) in el.chartData"
+                            :key="`tm-${i}`"
+                            class="treemap-node"
+                            :style="{ flexBasis: getTreemapPercent(item.value, getChartValues(el.chartData).reduce((s, n) => s + n, 0)), backgroundColor: item.color }"
+                          >
+                            <strong>{{ item.label }}</strong>
+                            <span v-if="el.showValues">{{ item.value }}</span>
+                          </div>
+                        </div>
+                        <div v-else-if="el.chartType === 'stat'" class="chart-stat-container">
+                          <div v-for="(item, i) in el.chartData" :key="`st-${i}`" class="stat-row">
+                            <span class="chart-label hbar-lbl" :style="{ color: el.color }">{{ item.label }}</span>
+                            <div class="stat-track">
+                              <div class="stat-whisker" :style="{ left: getStatRange(item.value, getChartMax(el.chartData)).lowPct + '%', width: (getStatRange(item.value, getChartMax(el.chartData)).highPct - getStatRange(item.value, getChartMax(el.chartData)).lowPct) + '%' }"></div>
+                              <div class="stat-box" :style="{ left: getStatRange(item.value, getChartMax(el.chartData)).q1Pct + '%', width: (getStatRange(item.value, getChartMax(el.chartData)).q3Pct - getStatRange(item.value, getChartMax(el.chartData)).q1Pct) + '%', backgroundColor: item.color }"></div>
+                              <div class="stat-median" :style="{ left: getStatRange(item.value, getChartMax(el.chartData)).medianPct + '%' }"></div>
+                            </div>
+                            <span v-if="el.showValues" class="chart-value hbar-val" :style="{ color: el.color }">{{ item.value }}</span>
+                          </div>
+                        </div>
+                        <div v-else-if="el.chartType === 'radar'" class="chart-radar-container">
+                          <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                            <polygon
+                              v-for="(grid, gIdx) in getRadarGrid(el.chartData)"
+                              :key="`rg-${gIdx}`"
+                              :points="grid"
+                              fill="none"
+                              stroke="#cbd5e1"
+                              stroke-width="0.5"
+                            />
+                            <polygon
+                              :points="getRadarPoints(el.chartData)"
+                              :fill="(el.chartData?.[0]?.color || '#2563eb') + '33'"
+                              :stroke="el.chartData?.[0]?.color || '#2563eb'"
+                              stroke-width="1.4"
+                            />
+                          </svg>
+                          <div v-if="el.showLegend" class="pie-legend">
+                            <div v-for="(item, i) in el.chartData" :key="`rl-${i}`" class="pie-legend-item">
+                              <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
+                              <span :style="{ color: el.color }">{{ item.label }}</span>
                             </div>
                           </div>
                         </div>
@@ -2296,6 +2493,18 @@
               <template v-if="selectedElement.type === 'mindmap' && activeInspectorTab === 'data'">
                 <div class="prop-section">
                   <div class="section-title">Diseño del Mapa Mental</div>
+                  <div class="prop-group">
+                    <label>Plantilla</label>
+                    <select
+                      v-model="selectedElement.mindmapPreset"
+                      class="pro-input"
+                      @change="applyMindmapPresetToElement(selectedElement, selectedElement.mindmapPreset, true)"
+                    >
+                      <option v-for="mindmapPreset in MINDMAP_PRESETS" :key="mindmapPreset.id" :value="mindmapPreset.id">
+                        {{ mindmapPreset.label }}
+                      </option>
+                    </select>
+                  </div>
                   <div class="prop-row">
                     <div class="prop-group half">
                       <label>Color Líneas</label>
@@ -2628,6 +2837,21 @@
               <template v-if="selectedElement.type === 'table'">
                 <div class="prop-section" v-show="activeInspectorTab === 'design'">
                   <div class="section-title">Estructura y Estilo Tabla</div>
+
+                  <div class="prop-row">
+                    <div class="prop-group">
+                      <label>Plantilla</label>
+                      <select
+                        v-model="selectedElement.tablePreset"
+                        class="pro-input"
+                        @change="applyTablePresetToElement(selectedElement, selectedElement.tablePreset, true)"
+                      >
+                        <option v-for="tablePreset in TABLE_PRESETS" :key="tablePreset.id" :value="tablePreset.id">
+                          {{ tablePreset.label }}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
 
                   <div class="prop-row">
                     <div class="prop-group half">
@@ -3160,7 +3384,7 @@
 
                   <div class="prop-group" v-if="selectedElement.type === 'icon'">
     <label>Icono seleccionado</label>
-    <button class="ipm-trigger-btn" @click="showIconPicker = true">
+    <button class="ipm-trigger-btn" @click="openIconPicker('element')">
       <i :class="`ph ph-${selectedElement.iconName}`"></i>
       <span>{{ selectedElement.iconName }}</span>
       <i class="ph ph-caret-down" style="margin-left: auto; font-size: 0.8rem; opacity: 0.5;"></i>
@@ -3195,6 +3419,32 @@
                       class="pro-color-picker"
                     />
                   </div>
+                  </div>
+
+                  <div class="prop-group" v-if="selectedElement.type === 'shape'">
+                    <label>Tipo de forma</label>
+                    <select
+                      v-model="selectedElement.shapePreset"
+                      class="pro-input"
+                      @change="applyShapePresetToElement(selectedElement, selectedElement.shapePreset, true)"
+                    >
+                      <option v-for="shapePreset in SHAPE_PRESETS" :key="shapePreset.id" :value="shapePreset.id">
+                        {{ shapePreset.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="prop-group" v-if="selectedElement.type === 'arrow'">
+                    <label>Tipo de flecha</label>
+                    <select
+                      v-model="selectedElement.arrowPreset"
+                      class="pro-input"
+                      @change="applyArrowPresetToElement(selectedElement, selectedElement.arrowPreset, true)"
+                    >
+                      <option v-for="arrowPreset in ARROW_PRESETS" :key="arrowPreset.id" :value="arrowPreset.id">
+                        {{ arrowPreset.label }}
+                      </option>
+                    </select>
                   </div>
 
                   <div class="prop-row" v-if="selectedElement.type === 'arrow'">
@@ -3476,6 +3726,18 @@
               <template v-if="selectedElement.type === 'qrcode' && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Código QR Dinámico</div>
+                  <div class="prop-group">
+                    <label>Plantilla QR</label>
+                    <select
+                      v-model="selectedElement.qrPreset"
+                      class="pro-input"
+                      @change="applyQrPresetToElement(selectedElement, selectedElement.qrPreset, true)"
+                    >
+                      <option v-for="qrPreset in QR_PRESETS" :key="qrPreset.id" :value="qrPreset.id">
+                        {{ qrPreset.label }}
+                      </option>
+                    </select>
+                  </div>
                   <div class="prop-group">
                     <label>URL o Texto a codificar</label
                     ><input
@@ -3778,14 +4040,36 @@
                   </div>
                   <div class="prop-row" v-if="selectedElement.type === 'chart'">
                     <div class="prop-group half">
+                      <label>Plantilla</label>
+                      <select
+                        v-model="selectedElement.chartPreset"
+                        class="pro-input"
+                        @change="applyChartPresetToElement(selectedElement, selectedElement.chartPreset, true)"
+                      >
+                        <option v-for="chartPreset in CHART_PRESETS" :key="chartPreset.id" :value="chartPreset.id">
+                          {{ chartPreset.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="prop-group half">
                       <label>Diseño</label>
                       <select v-model="selectedElement.chartType" class="pro-input">
                         <option value="bar">Barras (Vert)</option>
                         <option value="hbar">Barras (Horiz)</option>
                         <option value="pie">Circular</option>
                         <option value="donut">Anillo</option>
+                        <option value="line">Líneas</option>
+                        <option value="area">Áreas</option>
+                        <option value="scatter">XY Dispersión</option>
+                        <option value="combo">Combinado</option>
+                        <option value="funnel">Embudo</option>
+                        <option value="treemap">Jerárquico</option>
+                        <option value="stat">Estadística</option>
+                        <option value="radar">Radar</option>
                       </select>
                     </div>
+                  </div>
+                  <div class="prop-row" v-if="selectedElement.type === 'chart'">
                     <div class="prop-group half">
                       <label>Radio Cajas</label
                       ><input
@@ -4451,8 +4735,8 @@
         </div>
   <IconPickerModal
     v-model="showIconPicker"
-    :selected-icon="selectedElement?.iconName"
-    @select="(name) => { if (selectedElement) selectedElement.iconName = name }"
+    :selected-icon="iconPickerSelectedIcon"
+    @select="handleIconPicked"
   />
 
   <Chatbot
@@ -4590,6 +4874,18 @@ const shouldShowElementOnCanvas = (el: any): boolean => {
 };
 
 const getElementMemo = (el: any, index: number) => {
+  // Si el elemento está seleccionado, incluir un JSON completo para que cualquier
+  // cambio de propiedad en el inspector se refleje de inmediato en el canvas.
+  if (selectedElementIds.value.includes(el?.id)) {
+    return [
+      el?.id,
+      JSON.stringify(el),
+      editingElementId.value === el?.id,
+      playMode.value,
+      currentAnimationStep.value,
+      index,
+    ];
+  }
   return [
     el?.id,
     el?.x,
@@ -5698,7 +5994,1407 @@ const wakeUpPlayNav = () => {
     | 'typewriter'
     | 'poll'
     | 'rating'
+
+  type ShapePreset = {
+    id: string
+    label: string
+    clipPath: string
+    borderRadius: number
+    width: number
+    height: number
+  }
+
+  type ArrowPreset = {
+    id: string
+    label: string
+    icon: string
+    arrowHead: 'none' | 'start' | 'end' | 'both'
+    strokeWidth: number
+    lineStyle: 'solid' | 'dashed' | 'dotted'
+    width: number
+  }
+
+  type TablePreset = {
+    id: string
+    label: string
+    icon: string
+    headers: string[]
+    rows: string[][]
+    color: string
+    borderColor: string
+    borderWidth: number
+    headerBgColor: string
+    rowBgColor1: string
+    rowBgColor2: string
+    fontSize: number
+    fontFamily: string
+    textAlign: 'left' | 'center' | 'right'
+    borderRadius: number
+    width: number
+    height: number | 'auto'
+  }
+
+  type QrPreset = {
+    id: string
+    label: string
+    icon: string
+    qrUrl: string
+    color: string
+    bgColor: string
+    borderRadius: number
+    width: number
+    height: number
+  }
+
+  type MindmapPreset = {
+    id: string
+    label: string
+    icon: string
+    lineColor: string
+    lineWidth: number
+    fontFamily: string
+    layout?: 'horizontal' | 'vertical'
+    width: number
+    height: number
+    nodes: Array<{
+      id: string
+      text: string
+      parentId: string | null
+      bgColor: string
+      color: string
+      shape: 'round' | 'rect' | 'circle'
+      note: string
+      image: string
+    }>
+  }
+
+  type ChartPreset = {
+    id: string
+    label: string
+    icon: string
+    chartType:
+      | 'bar'
+      | 'hbar'
+      | 'pie'
+      | 'donut'
+      | 'line'
+      | 'area'
+      | 'scatter'
+      | 'combo'
+      | 'funnel'
+      | 'treemap'
+      | 'stat'
+      | 'radar'
+    chartTitle: string
+    bgColor: string
+    color: string
+    borderRadius: number
+    borderWidth: number
+    borderColor: string
+    showValues: boolean
+    showLegend: boolean
+    chartData: Array<{ label: string; value: number; color: string }>
+    width: number
+    height: number
+  }
+
+  const SHAPE_PRESETS: ShapePreset[] = [
+    { id: 'rectangle', label: 'Rectángulo', clipPath: 'none', borderRadius: 8, width: 170, height: 120 },
+    { id: 'roundedRectangle', label: 'Rectángulo redondeado', clipPath: 'none', borderRadius: 28, width: 170, height: 120 },
+    { id: 'capsule', label: 'Cápsula', clipPath: 'none', borderRadius: 999, width: 190, height: 90 },
+    { id: 'circle', label: 'Círculo', clipPath: 'none', borderRadius: 999, width: 150, height: 150 },
+    { id: 'triangle', label: 'Triángulo', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)', borderRadius: 0, width: 170, height: 150 },
+    { id: 'rightTriangle', label: 'Triángulo recto', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', borderRadius: 0, width: 170, height: 150 },
+    { id: 'diamond', label: 'Diamante', clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', borderRadius: 0, width: 150, height: 150 },
+    { id: 'trapezoid', label: 'Trapecio', clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)', borderRadius: 0, width: 180, height: 130 },
+    { id: 'parallelogram', label: 'Paralelogramo', clipPath: 'polygon(18% 0%, 100% 0%, 82% 100%, 0% 100%)', borderRadius: 0, width: 180, height: 120 },
+    { id: 'pentagon', label: 'Pentágono', clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)', borderRadius: 0, width: 160, height: 150 },
+    { id: 'hexagon', label: 'Hexágono', clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', borderRadius: 0, width: 180, height: 150 },
+    { id: 'octagon', label: 'Octágono', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)', borderRadius: 0, width: 160, height: 160 },
+    { id: 'star', label: 'Estrella', clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)', borderRadius: 0, width: 170, height: 170 },
+    { id: 'starFour', label: 'Estrella 4 puntas', clipPath: 'polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%)', borderRadius: 0, width: 170, height: 170 },
+    { id: 'heart', label: 'Corazón', clipPath: 'polygon(50% 92%, 8% 50%, 8% 24%, 25% 8%, 50% 20%, 75% 8%, 92% 24%, 92% 50%)', borderRadius: 0, width: 170, height: 150 },
+    { id: 'arrowRight', label: 'Flecha derecha', clipPath: 'polygon(0 20%, 68% 20%, 68% 0%, 100% 50%, 68% 100%, 68% 80%, 0 80%)', borderRadius: 0, width: 200, height: 120 },
+    { id: 'arrowLeft', label: 'Flecha izquierda', clipPath: 'polygon(100% 20%, 32% 20%, 32% 0%, 0 50%, 32% 100%, 32% 80%, 100% 80%)', borderRadius: 0, width: 200, height: 120 },
+    { id: 'chevronRight', label: 'Chevron derecha', clipPath: 'polygon(0 0, 42% 0, 100% 50%, 42% 100%, 0 100%, 58% 50%)', borderRadius: 0, width: 190, height: 120 },
+    { id: 'cross', label: 'Cruz', clipPath: 'polygon(35% 0, 65% 0, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0 65%, 0 35%, 35% 35%)', borderRadius: 0, width: 160, height: 160 },
+    { id: 'speech', label: 'Bocadillo', clipPath: 'polygon(0 0, 100% 0, 100% 80%, 64% 80%, 50% 100%, 40% 80%, 0 80%)', borderRadius: 10, width: 210, height: 140 },
+  ]
+
+  const ARROW_PRESETS: ArrowPreset[] = [
+    { id: 'line', label: 'Línea', icon: 'minus', arrowHead: 'none', strokeWidth: 3, lineStyle: 'solid', width: 220 },
+    { id: 'arrowRight', label: 'Flecha derecha', icon: 'arrow-right', arrowHead: 'end', strokeWidth: 3, lineStyle: 'solid', width: 220 },
+    { id: 'arrowLeft', label: 'Flecha izquierda', icon: 'arrow-left', arrowHead: 'start', strokeWidth: 3, lineStyle: 'solid', width: 220 },
+    { id: 'doubleArrow', label: 'Doble flecha', icon: 'arrows-left-right', arrowHead: 'both', strokeWidth: 3, lineStyle: 'solid', width: 230 },
+    { id: 'thickArrow', label: 'Flecha gruesa', icon: 'arrow-fat-right', arrowHead: 'end', strokeWidth: 6, lineStyle: 'solid', width: 220 },
+    { id: 'dashedArrow', label: 'Flecha discontinua', icon: 'arrow-right', arrowHead: 'end', strokeWidth: 3, lineStyle: 'dashed', width: 220 },
+    { id: 'dottedArrow', label: 'Flecha punteada', icon: 'arrow-right', arrowHead: 'end', strokeWidth: 3, lineStyle: 'dotted', width: 220 },
+  ]
+
+  const TABLE_PRESETS: TablePreset[] = [
+    {
+      id: 'corporateBlueA',
+      label: 'Corporativa Azul A',
+      icon: 'table',
+      headers: ['Unidad', 'Ingresos', 'Margen', 'Estado'],
+      rows: [
+        ['Norte', '1.24M', '21%', 'OK'],
+        ['Centro', '1.08M', '19%', 'OK'],
+        ['Sur', '0.92M', '16%', 'Revisar'],
+      ],
+      color: '#1f2937',
+      borderColor: '#cbd5e1',
+      borderWidth: 1,
+      headerBgColor: '#dbeafe',
+      rowBgColor1: '#ffffff',
+      rowBgColor2: '#f8fafc',
+      fontSize: 15,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'left',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+    {
+      id: 'corporateBlueB',
+      label: 'Corporativa Azul B',
+      icon: 'table',
+      headers: ['Proyecto', 'Owner', 'Avance', 'Fecha'],
+      rows: [
+        ['ERP', 'M. Ruiz', '74%', '30/06'],
+        ['BI', 'L. Vega', '52%', '18/07'],
+        ['Portal', 'A. Soto', '89%', '12/05'],
+      ],
+      color: '#0f172a',
+      borderColor: '#bfdbfe',
+      borderWidth: 1,
+      headerBgColor: '#1d4ed8',
+      rowBgColor1: '#eff6ff',
+      rowBgColor2: '#dbeafe',
+      fontSize: 15,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'left',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+    {
+      id: 'executiveGrayA',
+      label: 'Ejecutiva Gris A',
+      icon: 'table',
+      headers: ['KPI', 'Q1', 'Q2', 'Q3', 'Q4'],
+      rows: [
+        ['NPS', '48', '51', '53', '56'],
+        ['Churn', '4.2%', '3.9%', '3.7%', '3.4%'],
+        ['SLA', '93%', '94%', '95%', '96%'],
+      ],
+      color: '#111827',
+      borderColor: '#d1d5db',
+      borderWidth: 1,
+      headerBgColor: '#e5e7eb',
+      rowBgColor1: '#ffffff',
+      rowBgColor2: '#f9fafb',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'center',
+      borderRadius: 6,
+      width: 600,
+      height: 'auto',
+    },
+    {
+      id: 'executiveGrayB',
+      label: 'Ejecutiva Gris B',
+      icon: 'table',
+      headers: ['Área', 'Objetivo', 'Real', 'Delta'],
+      rows: [
+        ['Ventas', '2.4M', '2.1M', '-12%'],
+        ['Costes', '1.1M', '1.0M', '-9%'],
+        ['Soporte', '96%', '95%', '-1pp'],
+      ],
+      color: '#1f2937',
+      borderColor: '#9ca3af',
+      borderWidth: 1,
+      headerBgColor: '#374151',
+      rowBgColor1: '#f3f4f6',
+      rowBgColor2: '#e5e7eb',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'center',
+      borderRadius: 6,
+      width: 600,
+      height: 'auto',
+    },
+    {
+      id: 'boardDarkA',
+      label: 'Board Oscuro A',
+      icon: 'table',
+      headers: ['Cuenta', 'ARR', 'Riesgo', 'Prioridad'],
+      rows: [
+        ['Acme', '420k', 'Bajo', 'Alta'],
+        ['Globex', '380k', 'Medio', 'Alta'],
+        ['Initech', '250k', 'Alto', 'Media'],
+      ],
+      color: '#e5e7eb',
+      borderColor: '#334155',
+      borderWidth: 1,
+      headerBgColor: '#0f172a',
+      rowBgColor1: '#111827',
+      rowBgColor2: '#1f2937',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'left',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+    {
+      id: 'boardDarkB',
+      label: 'Board Oscuro B',
+      icon: 'table',
+      headers: ['Iniciativa', 'Sponsor', 'ROI', 'Semáforo'],
+      rows: [
+        ['Automatización', 'CIO', '2.1x', 'Verde'],
+        ['Cloud', 'CTO', '1.5x', 'Ámbar'],
+        ['Data Hub', 'CDO', '1.8x', 'Verde'],
+      ],
+      color: '#f1f5f9',
+      borderColor: '#475569',
+      borderWidth: 1,
+      headerBgColor: '#1e293b',
+      rowBgColor1: '#0f172a',
+      rowBgColor2: '#1e293b',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'left',
+      borderRadius: 8,
+      width: 580,
+      height: 'auto',
+    },
+    {
+      id: 'financeLedgerA',
+      label: 'Ledger Financiero A',
+      icon: 'table',
+      headers: ['Cuenta', 'Presupuesto', 'Ejecutado', 'Var %'],
+      rows: [
+        ['Operación', '620k', '605k', '-2.4%'],
+        ['Tech', '410k', '432k', '+5.3%'],
+        ['People', '520k', '511k', '-1.7%'],
+      ],
+      color: '#0f172a',
+      borderColor: '#d6d3d1',
+      borderWidth: 1,
+      headerBgColor: '#f5f5f4',
+      rowBgColor1: '#ffffff',
+      rowBgColor2: '#fafaf9',
+      fontSize: 14,
+      fontFamily: 'Georgia, serif',
+      textAlign: 'right',
+      borderRadius: 4,
+      width: 620,
+      height: 'auto',
+    },
+    {
+      id: 'financeLedgerB',
+      label: 'Ledger Financiero B',
+      icon: 'table',
+      headers: ['Mes', 'Ingresos', 'Gastos', 'EBITDA'],
+      rows: [
+        ['Ene', '820k', '540k', '280k'],
+        ['Feb', '790k', '525k', '265k'],
+        ['Mar', '860k', '558k', '302k'],
+      ],
+      color: '#1f2937',
+      borderColor: '#a8a29e',
+      borderWidth: 1,
+      headerBgColor: '#e7e5e4',
+      rowBgColor1: '#ffffff',
+      rowBgColor2: '#f5f5f4',
+      fontSize: 14,
+      fontFamily: 'Georgia, serif',
+      textAlign: 'right',
+      borderRadius: 4,
+      width: 620,
+      height: 'auto',
+    },
+    {
+      id: 'kpiMatrixA',
+      label: 'Matriz KPI A',
+      icon: 'table',
+      headers: ['KPI', 'Target', 'Actual', 'Estado'],
+      rows: [
+        ['On-time', '95%', '93%', 'Ámbar'],
+        ['Defectos', '<2.0%', '1.7%', 'Verde'],
+        ['Backlog', '<80', '96', 'Rojo'],
+      ],
+      color: '#0f172a',
+      borderColor: '#cbd5e1',
+      borderWidth: 1,
+      headerBgColor: '#cffafe',
+      rowBgColor1: '#ffffff',
+      rowBgColor2: '#f0fdfa',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'center',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+    {
+      id: 'kpiMatrixB',
+      label: 'Matriz KPI B',
+      icon: 'table',
+      headers: ['Proceso', 'SLA', 'Calidad', 'Owner'],
+      rows: [
+        ['Alta cliente', '98%', 'A', 'Ops'],
+        ['Facturación', '96%', 'A', 'Fin'],
+        ['Soporte', '94%', 'B', 'CX'],
+      ],
+      color: '#0f172a',
+      borderColor: '#bae6fd',
+      borderWidth: 1,
+      headerBgColor: '#0ea5e9',
+      rowBgColor1: '#f0f9ff',
+      rowBgColor2: '#e0f2fe',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'center',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+    {
+      id: 'comparisonA',
+      label: 'Comparativa A',
+      icon: 'table',
+      headers: ['Proveedor', 'Coste', 'Plazo', 'Score'],
+      rows: [
+        ['A', 'Alto', 'Corto', '7.8'],
+        ['B', 'Medio', 'Medio', '8.4'],
+        ['C', 'Bajo', 'Largo', '7.1'],
+      ],
+      color: '#111827',
+      borderColor: '#d1d5db',
+      borderWidth: 1,
+      headerBgColor: '#fef3c7',
+      rowBgColor1: '#fffbeb',
+      rowBgColor2: '#fef3c7',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'center',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+    {
+      id: 'comparisonB',
+      label: 'Comparativa B',
+      icon: 'table',
+      headers: ['Alternativa', 'CapEx', 'OpEx', 'Riesgo'],
+      rows: [
+        ['Build', 'Alto', 'Medio', 'Medio'],
+        ['Buy', 'Bajo', 'Alto', 'Bajo'],
+        ['Híbrido', 'Medio', 'Medio', 'Bajo'],
+      ],
+      color: '#1f2937',
+      borderColor: '#f59e0b',
+      borderWidth: 1,
+      headerBgColor: '#92400e',
+      rowBgColor1: '#fffbeb',
+      rowBgColor2: '#fef3c7',
+      fontSize: 14,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      textAlign: 'center',
+      borderRadius: 8,
+      width: 560,
+      height: 'auto',
+    },
+  ]
+
+  const QR_PRESETS: QrPreset[] = [
+    { id: 'qrWebCorporate', label: 'Web Corporativa', icon: 'qr-code', qrUrl: 'https://empresa.com', color: '#0f172a', bgColor: '#ffffff', borderRadius: 8, width: 160, height: 160 },
+    { id: 'qrLandingCampaign', label: 'Landing Campaña', icon: 'qr-code', qrUrl: 'https://empresa.com/campana', color: '#1d4ed8', bgColor: '#eff6ff', borderRadius: 10, width: 170, height: 170 },
+    { id: 'qrWhatsappSales', label: 'WhatsApp Ventas', icon: 'qr-code', qrUrl: 'https://wa.me/34123456789', color: '#065f46', bgColor: '#ecfdf5', borderRadius: 12, width: 165, height: 165 },
+    { id: 'qrEmailContact', label: 'Email Contacto', icon: 'qr-code', qrUrl: 'mailto:comercial@empresa.com', color: '#334155', bgColor: '#f8fafc', borderRadius: 8, width: 160, height: 160 },
+    { id: 'qrPhoneCall', label: 'Llamada Directa', icon: 'phone-call', qrUrl: 'tel:+34911222333', color: '#1f2937', bgColor: '#f3f4f6', borderRadius: 8, width: 155, height: 155 },
+    { id: 'qrVcardProfile', label: 'Tarjeta vCard', icon: 'identification-card', qrUrl: 'BEGIN:VCARD\nVERSION:3.0\nFN:Empresa Demo\nORG:Empresa Demo\nTEL:+34911222333\nEMAIL:info@empresa.com\nEND:VCARD', color: '#111827', bgColor: '#ffffff', borderRadius: 6, width: 175, height: 175 },
+    { id: 'qrWifiGuest', label: 'WiFi Invitados', icon: 'wifi-high', qrUrl: 'WIFI:T:WPA;S:EmpresaGuest;P:ClaveSegura123;;', color: '#0f172a', bgColor: '#e2e8f0', borderRadius: 10, width: 165, height: 165 },
+    { id: 'qrCalendarEvent', label: 'Evento Calendario', icon: 'calendar-blank', qrUrl: 'BEGIN:VEVENT\nSUMMARY:Reunión Ejecutiva\nLOCATION:Oficina Central\nDTSTART:20260510T090000Z\nDTEND:20260510T100000Z\nEND:VEVENT', color: '#1e3a8a', bgColor: '#eef2ff', borderRadius: 12, width: 175, height: 175 },
+    { id: 'qrPdfDownload', label: 'Descarga PDF', icon: 'file-pdf', qrUrl: 'https://empresa.com/brochure.pdf', color: '#7f1d1d', bgColor: '#fef2f2', borderRadius: 8, width: 165, height: 165 },
+    { id: 'qrAppStore', label: 'Descarga App', icon: 'device-mobile', qrUrl: 'https://empresa.com/app', color: '#312e81', bgColor: '#eef2ff', borderRadius: 14, width: 175, height: 175 },
+  ]
+
+  const MINDMAP_PRESETS: MindmapPreset[] = [
+    {
+      id: 'organigramaA',
+      label: 'Organigrama Jerárquico',
+      icon: 'users-three',
+      lineColor: '#475569',
+      lineWidth: 2,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      layout: 'vertical',
+      width: 800,
+      height: 500,
+      nodes: [
+        { id: 'ceo', text: 'Director General', parentId: null, bgColor: '#1e293b', color: '#ffffff', shape: 'rect', note: 'CEO', image: '' },
+        { id: 'dir1', text: 'Operaciones', parentId: 'ceo', bgColor: '#334155', color: '#ffffff', shape: 'rect', note: 'COO', image: '' },
+        { id: 'dir2', text: 'Tecnología', parentId: 'ceo', bgColor: '#334155', color: '#ffffff', shape: 'rect', note: 'CTO', image: '' },
+        { id: 'dir3', text: 'Finanzas', parentId: 'ceo', bgColor: '#334155', color: '#ffffff', shape: 'rect', note: 'CFO', image: '' },
+        { id: 'emp1', text: 'Logística', parentId: 'dir1', bgColor: '#f1f5f9', color: '#0f172a', shape: 'round', note: '', image: '' },
+        { id: 'emp2', text: 'Soporte', parentId: 'dir1', bgColor: '#f1f5f9', color: '#0f172a', shape: 'round', note: '', image: '' },
+        { id: 'emp3', text: 'Desarrollo', parentId: 'dir2', bgColor: '#f1f5f9', color: '#0f172a', shape: 'round', note: '', image: '' },
+        { id: 'emp4', text: 'Infraestructura', parentId: 'dir2', bgColor: '#f1f5f9', color: '#0f172a', shape: 'round', note: '', image: '' },
+      ],
+    },
+
+    // 2) Mapa de burbujas – descripción de temas
+    {
+      id: 'bubbleA',
+      label: 'Burbujas A',
+      icon: 'dots-three-circle',
+      lineColor: '#7c3aed',
+      lineWidth: 2,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      width: 640,
+      height: 430,
+      nodes: [
+        { id: 'm1', text: 'Animal', parentId: null, bgColor: '#6d28d9', color: '#ffffff', shape: 'circle', note: '', image: '' },
+        { id: 'm2', text: 'rápido', parentId: 'm1', bgColor: '#ede9fe', color: '#4c1d95', shape: 'circle', note: '', image: '' },
+        { id: 'm3', text: 'fuerte', parentId: 'm1', bgColor: '#ede9fe', color: '#4c1d95', shape: 'circle', note: '', image: '' },
+        { id: 'm4', text: 'inteligente', parentId: 'm1', bgColor: '#ddd6fe', color: '#4c1d95', shape: 'circle', note: '', image: '' },
+        { id: 'm5', text: 'social', parentId: 'm1', bgColor: '#ddd6fe', color: '#4c1d95', shape: 'circle', note: '', image: '' },
+      ],
+    },
+    // 3) Mapa de flujo – ordenar y secuenciar
+    {
+      id: 'flowB',
+      label: 'Flujo B',
+      icon: 'arrows-clockwise',
+      lineColor: '#1d4ed8',
+      lineWidth: 2,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      width: 680,
+      height: 400,
+      nodes: [
+        { id: 'm1', text: 'Registro', parentId: null, bgColor: '#1e40af', color: '#ffffff', shape: 'circle', note: '', image: '' },
+        { id: 'm2', text: 'Validar', parentId: 'm1', bgColor: '#dbeafe', color: '#1e3a8a', shape: 'rect', note: '', image: '' },
+        { id: 'm3', text: 'Aprobar', parentId: 'm2', bgColor: '#bfdbfe', color: '#1e3a8a', shape: 'rect', note: '', image: '' },
+        { id: 'm4', text: 'Finalizar', parentId: 'm3', bgColor: '#93c5fd', color: '#1e3a8a', shape: 'rect', note: '', image: '' },
+      ],
+    },
+
+    // 4) Mapa de flujo múltiple – causas y resultados
+    {
+      id: 'multiflowB',
+      label: 'Flujo Múltiple B',
+      icon: 'arrows-merge',
+      lineColor: '#ea580c',
+      lineWidth: 2,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      width: 720,
+      height: 420,
+      nodes: [
+        { id: 'm1', text: 'Contaminación', parentId: null, bgColor: '#9a3412', color: '#ffffff', shape: 'round', note: '', image: '' },
+        { id: 'm2', text: 'Fábricas', parentId: 'm1', bgColor: '#ffedd5', color: '#9a3412', shape: 'rect', note: '', image: '' },
+        { id: 'm3', text: 'Coches', parentId: 'm1', bgColor: '#ffedd5', color: '#9a3412', shape: 'rect', note: '', image: '' },
+        { id: 'm4', text: 'Lluvia ácida', parentId: 'm1', bgColor: '#fed7aa', color: '#7c2d12', shape: 'rect', note: '', image: '' },
+        { id: 'm5', text: 'Daño pulmonar', parentId: 'm1', bgColor: '#fdba74', color: '#7c2d12', shape: 'rect', note: '', image: '' },
+      ],
+    },
+
+    // 8) Mapa tipo puente – analogías
+    {
+      id: 'bridgeB',
+      label: 'Puente B',
+      icon: 'link',
+      lineColor: '#be123c',
+      lineWidth: 2,
+      fontFamily: 'Helvetica, Arial, sans-serif',
+      width: 700,
+      height: 430,
+      nodes: [
+        { id: 'm1', text: 'Planeta : Órbita', parentId: null, bgColor: '#9f1239', color: '#ffffff', shape: 'round', note: '', image: '' },
+        { id: 'm2', text: 'Electrón : Núcleo', parentId: 'm1', bgColor: '#ffe4e6', color: '#881337', shape: 'rect', note: '', image: '' },
+        { id: 'm3', text: 'Satélite : Tierra', parentId: 'm1', bgColor: '#ffe4e6', color: '#881337', shape: 'rect', note: '', image: '' },
+        { id: 'm4', text: 'Luna : Gravedad', parentId: 'm1', bgColor: '#fecdd3', color: '#881337', shape: 'rect', note: '', image: '' },
+      ],
+    },
+  ]
+
+  const CHART_PRESETS: ChartPreset[] = [
+    {
+      id: 'barExecutiveA',
+      label: 'Barras Ejecutivo A',
+      icon: 'chart-bar',
+      chartType: 'bar',
+      chartTitle: 'Resultados Trimestrales',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Q1', value: 42, color: '#1f4e79' },
+        { label: 'Q2', value: 58, color: '#2f6fa3' },
+        { label: 'Q3', value: 63, color: '#4b87c2' },
+        { label: 'Q4', value: 71, color: '#7aa6d1' },
+      ],
+      width: 430,
+      height: 300,
+    },
+    {
+      id: 'barExecutiveB',
+      label: 'Barras Ejecutivo B',
+      icon: 'chart-bar',
+      chartType: 'bar',
+      chartTitle: 'Desempeño por Unidad',
+      bgColor: '#f8fafc',
+      color: '#111827',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Norte', value: 65, color: '#0f766e' },
+        { label: 'Centro', value: 53, color: '#0e9f8f' },
+        { label: 'Sur', value: 47, color: '#38b2ac' },
+        { label: 'Online', value: 74, color: '#7dd3c7' },
+      ],
+      width: 430,
+      height: 300,
+    },
+    {
+      id: 'hbarExecutiveA',
+      label: 'Barras Horizontales A',
+      icon: 'chart-bar-horizontal',
+      chartType: 'hbar',
+      chartTitle: 'Participación por Canal',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Directo', value: 74, color: '#1f4e79' },
+        { label: 'Partners', value: 61, color: '#2f6fa3' },
+        { label: 'Ads', value: 52, color: '#4b87c2' },
+        { label: 'Referidos', value: 37, color: '#7aa6d1' },
+      ],
+      width: 440,
+      height: 300,
+    },
+    {
+      id: 'hbarExecutiveB',
+      label: 'Barras Horizontales B',
+      icon: 'chart-bar-horizontal',
+      chartType: 'hbar',
+      chartTitle: 'Prioridad de Iniciativas',
+      bgColor: '#f1f5f9',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Automatización', value: 82, color: '#334155' },
+        { label: 'Compliance', value: 69, color: '#475569' },
+        { label: 'Costes', value: 55, color: '#64748b' },
+        { label: 'Capacitación', value: 41, color: '#94a3b8' },
+      ],
+      width: 440,
+      height: 300,
+    },
+    {
+      id: 'pieExecutiveA',
+      label: 'Circular Ejecutivo A',
+      icon: 'chart-pie',
+      chartType: 'pie',
+      chartTitle: 'Mix de Ingresos',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Servicios', value: 44, color: '#1f4e79' },
+        { label: 'Licencias', value: 31, color: '#2f6fa3' },
+        { label: 'Soporte', value: 17, color: '#4b87c2' },
+        { label: 'Otros', value: 8, color: '#9ca3af' },
+      ],
+      width: 430,
+      height: 310,
+    },
+    {
+      id: 'pieExecutiveB',
+      label: 'Circular Ejecutivo B',
+      icon: 'chart-pie-slice',
+      chartType: 'pie',
+      chartTitle: 'Distribución de Costes',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Operación', value: 38, color: '#374151' },
+        { label: 'Personal', value: 33, color: '#4b5563' },
+        { label: 'Tecnología', value: 21, color: '#6b7280' },
+        { label: 'Legal', value: 8, color: '#9ca3af' },
+      ],
+      width: 430,
+      height: 310,
+    },
+    {
+      id: 'donutExecutiveA',
+      label: 'Anillo Ejecutivo A',
+      icon: 'chart-donut',
+      chartType: 'donut',
+      chartTitle: 'Conversión Comercial',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Leads', value: 58, color: '#1f4e79' },
+        { label: 'Ofertas', value: 29, color: '#2f6fa3' },
+        { label: 'Cierres', value: 13, color: '#4b87c2' },
+      ],
+      width: 430,
+      height: 310,
+    },
+    {
+      id: 'donutExecutiveB',
+      label: 'Anillo Ejecutivo B',
+      icon: 'chart-donut',
+      chartType: 'donut',
+      chartTitle: 'SLA por Segmento',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Enterprise', value: 49, color: '#0f766e' },
+        { label: 'Mid-Market', value: 34, color: '#0e9f8f' },
+        { label: 'SMB', value: 17, color: '#38b2ac' },
+      ],
+      width: 430,
+      height: 310,
+    },
+    {
+      id: 'lineExecutiveA',
+      label: 'Líneas Ejecutivo A',
+      icon: 'chart-line',
+      chartType: 'line',
+      chartTitle: 'Evolución de Ingresos',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'Ene', value: 34, color: '#1f4e79' },
+        { label: 'Feb', value: 41, color: '#1f4e79' },
+        { label: 'Mar', value: 46, color: '#1f4e79' },
+        { label: 'Abr', value: 57, color: '#1f4e79' },
+        { label: 'May', value: 63, color: '#1f4e79' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'lineExecutiveB',
+      label: 'Líneas Ejecutivo B',
+      icon: 'chart-line-up',
+      chartType: 'line',
+      chartTitle: 'Evolución de Margen',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'S1', value: 28, color: '#0f766e' },
+        { label: 'S2', value: 36, color: '#0f766e' },
+        { label: 'S3', value: 39, color: '#0f766e' },
+        { label: 'S4', value: 44, color: '#0f766e' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'areaExecutiveA',
+      label: 'Áreas Ejecutivo A',
+      icon: 'chart-line',
+      chartType: 'area',
+      chartTitle: 'Capacidad Utilizada',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'Q1', value: 45, color: '#2f6fa3' },
+        { label: 'Q2', value: 54, color: '#2f6fa3' },
+        { label: 'Q3', value: 62, color: '#2f6fa3' },
+        { label: 'Q4', value: 67, color: '#2f6fa3' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'areaExecutiveB',
+      label: 'Áreas Ejecutivo B',
+      icon: 'chart-line-up',
+      chartType: 'area',
+      chartTitle: 'Demanda Semanal',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'L', value: 26, color: '#475569' },
+        { label: 'M', value: 33, color: '#475569' },
+        { label: 'X', value: 35, color: '#475569' },
+        { label: 'J', value: 29, color: '#475569' },
+        { label: 'V', value: 41, color: '#475569' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'scatterExecutiveA',
+      label: 'XY Dispersión A',
+      icon: 'dots-three',
+      chartType: 'scatter',
+      chartTitle: 'Riesgo vs Retorno',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'A', value: 24, color: '#1f4e79' },
+        { label: 'B', value: 48, color: '#2f6fa3' },
+        { label: 'C', value: 36, color: '#4b87c2' },
+        { label: 'D', value: 63, color: '#7aa6d1' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'scatterExecutiveB',
+      label: 'XY Dispersión B',
+      icon: 'dots-three-circle',
+      chartType: 'scatter',
+      chartTitle: 'Calidad vs Coste',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'A1', value: 31, color: '#334155' },
+        { label: 'A2', value: 44, color: '#475569' },
+        { label: 'A3', value: 57, color: '#64748b' },
+        { label: 'A4', value: 29, color: '#94a3b8' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'comboExecutiveA',
+      label: 'Combinado Ejecutivo A',
+      icon: 'chart-line-up',
+      chartType: 'combo',
+      chartTitle: 'Ventas y Tendencia',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'Q1', value: 30, color: '#7aa6d1' },
+        { label: 'Q2', value: 42, color: '#7aa6d1' },
+        { label: 'Q3', value: 55, color: '#7aa6d1' },
+        { label: 'Q4', value: 67, color: '#7aa6d1' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'comboExecutiveB',
+      label: 'Combinado Ejecutivo B',
+      icon: 'chart-line',
+      chartType: 'combo',
+      chartTitle: 'Coste y Eficiencia',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: false,
+      showLegend: true,
+      chartData: [
+        { label: 'Ene', value: 40, color: '#94a3b8' },
+        { label: 'Feb', value: 34, color: '#94a3b8' },
+        { label: 'Mar', value: 46, color: '#94a3b8' },
+        { label: 'Abr', value: 52, color: '#94a3b8' },
+      ],
+      width: 450,
+      height: 300,
+    },
+    {
+      id: 'funnelExecutiveA',
+      label: 'Embudo Ejecutivo A',
+      icon: 'funnel-simple',
+      chartType: 'funnel',
+      chartTitle: 'Embudo Comercial',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Prospectos', value: 100, color: '#1f4e79' },
+        { label: 'Calificados', value: 63, color: '#2f6fa3' },
+        { label: 'Propuestas', value: 34, color: '#4b87c2' },
+        { label: 'Cierres', value: 17, color: '#7aa6d1' },
+      ],
+      width: 450,
+      height: 320,
+    },
+    {
+      id: 'funnelExecutiveB',
+      label: 'Embudo Ejecutivo B',
+      icon: 'funnel',
+      chartType: 'funnel',
+      chartTitle: 'Embudo de Soporte',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Tickets', value: 100, color: '#334155' },
+        { label: 'Diagnóstico', value: 76, color: '#475569' },
+        { label: 'Resolución', value: 58, color: '#64748b' },
+        { label: 'Cierre', value: 46, color: '#94a3b8' },
+      ],
+      width: 450,
+      height: 320,
+    },
+    {
+      id: 'treemapExecutiveA',
+      label: 'Jerárquico Ejecutivo A',
+      icon: 'squares-four',
+      chartType: 'treemap',
+      chartTitle: 'Distribución de Presupuesto',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Operación', value: 42, color: '#1f4e79' },
+        { label: 'Tecnología', value: 28, color: '#2f6fa3' },
+        { label: 'Personas', value: 18, color: '#4b87c2' },
+        { label: 'Legal', value: 12, color: '#7aa6d1' },
+      ],
+      width: 460,
+      height: 300,
+    },
+    {
+      id: 'treemapExecutiveB',
+      label: 'Jerárquico Ejecutivo B',
+      icon: 'grid-four',
+      chartType: 'treemap',
+      chartTitle: 'Portafolio de Proyectos',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Core', value: 37, color: '#334155' },
+        { label: 'Crecimiento', value: 29, color: '#475569' },
+        { label: 'Riesgo', value: 19, color: '#64748b' },
+        { label: 'Exploración', value: 15, color: '#94a3b8' },
+      ],
+      width: 460,
+      height: 300,
+    },
+    {
+      id: 'statExecutiveA',
+      label: 'Estadística Ejecutivo A',
+      icon: 'sigma',
+      chartType: 'stat',
+      chartTitle: 'Variación por Equipo',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Equipo A', value: 52, color: '#1f4e79' },
+        { label: 'Equipo B', value: 39, color: '#2f6fa3' },
+        { label: 'Equipo C', value: 61, color: '#4b87c2' },
+        { label: 'Equipo D', value: 47, color: '#7aa6d1' },
+      ],
+      width: 450,
+      height: 320,
+    },
+    {
+      id: 'statExecutiveB',
+      label: 'Estadística Ejecutivo B',
+      icon: 'chart-line',
+      chartType: 'stat',
+      chartTitle: 'Dispersión de Tiempos',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'P1', value: 28, color: '#334155' },
+        { label: 'P2', value: 35, color: '#475569' },
+        { label: 'P3', value: 49, color: '#64748b' },
+        { label: 'P4', value: 56, color: '#94a3b8' },
+      ],
+      width: 450,
+      height: 320,
+    },
+    {
+      id: 'radarExecutiveA',
+      label: 'Radar Ejecutivo A',
+      icon: 'polygon',
+      chartType: 'radar',
+      chartTitle: 'Capacidades Clave',
+      bgColor: '#ffffff',
+      color: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#d1d5db',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Ventas', value: 72, color: '#1f4e79' },
+        { label: 'Operación', value: 64, color: '#1f4e79' },
+        { label: 'Riesgo', value: 51, color: '#1f4e79' },
+        { label: 'Servicio', value: 69, color: '#1f4e79' },
+        { label: 'Cumplimiento', value: 58, color: '#1f4e79' },
+      ],
+      width: 440,
+      height: 320,
+    },
+    {
+      id: 'radarExecutiveB',
+      label: 'Radar Ejecutivo B',
+      icon: 'polygon',
+      chartType: 'radar',
+      chartTitle: 'Madurez por Área',
+      bgColor: '#f8fafc',
+      color: '#0f172a',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      showValues: true,
+      showLegend: true,
+      chartData: [
+        { label: 'Finanzas', value: 61, color: '#334155' },
+        { label: 'Procesos', value: 54, color: '#334155' },
+        { label: 'Tecnología', value: 66, color: '#334155' },
+        { label: 'Personas', value: 49, color: '#334155' },
+        { label: 'Control', value: 58, color: '#334155' },
+      ],
+      width: 440,
+      height: 320,
+    },
+  ]
+
   const activeTool = ref<ToolType>('select')
+  const selectedShapePreset = ref('rectangle')
+  const showShapeDropdown = ref(false)
+  const selectedArrowPreset = ref('arrowRight')
+  const showArrowDropdown = ref(false)
+  const selectedMindmapPreset = ref('organigramaA')
+  const showMindmapDropdown = ref(false)
+  const selectedTablePreset = ref('corporateBlueA')
+  const showTableDropdown = ref(false)
+  const selectedQrPreset = ref('qrWebCorporate')
+  const showQrDropdown = ref(false)
+  const selectedChartPreset = ref('barExecutiveA')
+  const showChartDropdown = ref(false)
+  const ICON_TOOL_PRESETS = ['star', 'heart', 'check-circle', 'lightning', 'warning-circle', 'thumbs-up', 'rocket', 'camera']
+  const selectedIconPreset = ref('star')
+  const showIconDropdown = ref(false)
+  const iconPickerTarget = ref<'element' | 'toolbar'>('element')
+
+  const getShapePreset = (presetId?: string): ShapePreset => {
+    if (!presetId) return SHAPE_PRESETS[0]!
+    return SHAPE_PRESETS.find((preset) => preset.id === presetId) || SHAPE_PRESETS[0]!
+  }
+
+  const shapeDropdownTitle = computed(() => {
+    const preset = getShapePreset(selectedShapePreset.value)
+    return `Forma: ${preset.label}`
+  })
+
+  const getArrowPreset = (presetId?: string): ArrowPreset => {
+    if (!presetId) return ARROW_PRESETS[0]!
+    return ARROW_PRESETS.find((preset) => preset.id === presetId) || ARROW_PRESETS[0]!
+  }
+
+  const arrowDropdownTitle = computed(() => {
+    const preset = getArrowPreset(selectedArrowPreset.value)
+    return `Flecha: ${preset.label}`
+  })
+
+  const getMindmapPreset = (presetId?: string): MindmapPreset => {
+    if (!presetId) return MINDMAP_PRESETS[0]!
+    return MINDMAP_PRESETS.find((preset) => preset.id === presetId) || MINDMAP_PRESETS[0]!
+  }
+
+  const mindmapDropdownTitle = computed(() => {
+    const preset = getMindmapPreset(selectedMindmapPreset.value)
+    return `Mapa mental: ${preset.label}`
+  })
+
+  const getChartPreset = (presetId?: string): ChartPreset => {
+    if (!presetId) return CHART_PRESETS[0]!
+    return CHART_PRESETS.find((preset) => preset.id === presetId) || CHART_PRESETS[0]!
+  }
+
+  const chartDropdownTitle = computed(() => {
+    const preset = getChartPreset(selectedChartPreset.value)
+    return `Gráfico: ${preset.label}`
+  })
+
+  const getTablePreset = (presetId?: string): TablePreset => {
+    if (!presetId) return TABLE_PRESETS[0]!
+    return TABLE_PRESETS.find((preset) => preset.id === presetId) || TABLE_PRESETS[0]!
+  }
+
+  const tableDropdownTitle = computed(() => {
+    const preset = getTablePreset(selectedTablePreset.value)
+    return `Tabla: ${preset.label}`
+  })
+
+  const getQrPreset = (presetId?: string): QrPreset => {
+    if (!presetId) return QR_PRESETS[0]!
+    return QR_PRESETS.find((preset) => preset.id === presetId) || QR_PRESETS[0]!
+  }
+
+  const qrDropdownTitle = computed(() => {
+    const preset = getQrPreset(selectedQrPreset.value)
+    return `QR: ${preset.label}`
+  })
+
+  const iconDropdownTitle = computed(() => `Icono: ${selectedIconPreset.value}`)
+  const iconPickerSelectedIcon = computed(() =>
+    iconPickerTarget.value === 'toolbar'
+      ? selectedIconPreset.value
+      : selectedElement.value?.iconName || selectedIconPreset.value,
+  )
+
+  const getShapePreviewStyle = (presetId?: string) => {
+    const preset = getShapePreset(presetId)
+    const isCircle = preset.id === 'circle'
+    return {
+      clipPath: preset.clipPath !== 'none' ? preset.clipPath : 'none',
+      WebkitClipPath: preset.clipPath !== 'none' ? preset.clipPath : 'none',
+      borderRadius: isCircle ? '50%' : `${preset.borderRadius}px`,
+    }
+  }
+
+  const toggleShapeDropdown = () => {
+    activeTool.value = 'shape'
+    showShapeDropdown.value = !showShapeDropdown.value
+  }
+
+  const selectShapePreset = (presetId: string) => {
+    selectedShapePreset.value = presetId
+    activeTool.value = 'shape'
+    showShapeDropdown.value = false
+  }
+
+  const toggleArrowDropdown = () => {
+    activeTool.value = 'arrow'
+    showArrowDropdown.value = !showArrowDropdown.value
+  }
+
+  const selectArrowPreset = (presetId: string) => {
+    selectedArrowPreset.value = presetId
+    activeTool.value = 'arrow'
+    showArrowDropdown.value = false
+  }
+
+  const toggleMindmapDropdown = () => {
+    activeTool.value = 'mindmap'
+    showMindmapDropdown.value = !showMindmapDropdown.value
+  }
+
+  const selectMindmapPreset = (presetId: string) => {
+    selectedMindmapPreset.value = presetId
+    activeTool.value = 'mindmap'
+    showMindmapDropdown.value = false
+  }
+
+  const toggleTableDropdown = () => {
+    activeTool.value = 'table'
+    showTableDropdown.value = !showTableDropdown.value
+  }
+
+  const selectTablePreset = (presetId: string) => {
+    selectedTablePreset.value = presetId
+    activeTool.value = 'table'
+    showTableDropdown.value = false
+  }
+
+  const toggleQrDropdown = () => {
+    activeTool.value = 'qrcode'
+    showQrDropdown.value = !showQrDropdown.value
+  }
+
+  const selectQrPreset = (presetId: string) => {
+    selectedQrPreset.value = presetId
+    activeTool.value = 'qrcode'
+    showQrDropdown.value = false
+  }
+
+  const toggleChartDropdown = () => {
+    activeTool.value = 'chart'
+    showChartDropdown.value = !showChartDropdown.value
+  }
+
+  const selectChartPreset = (presetId: string) => {
+    selectedChartPreset.value = presetId
+    activeTool.value = 'chart'
+    showChartDropdown.value = false
+  }
+
+  const toggleIconDropdown = () => {
+    activeTool.value = 'icon'
+    showIconDropdown.value = !showIconDropdown.value
+  }
+
+  const selectIconPreset = (iconName: string) => {
+    selectedIconPreset.value = iconName
+    activeTool.value = 'icon'
+    showIconDropdown.value = false
+  }
+
+  const openIconPicker = (target: 'element' | 'toolbar') => {
+    iconPickerTarget.value = target
+    showIconPicker.value = true
+    showIconDropdown.value = false
+  }
+
+  const handleIconPicked = (name: string) => {
+    if (iconPickerTarget.value === 'toolbar') {
+      selectedIconPreset.value = name
+      activeTool.value = 'icon'
+      return
+    }
+    if (selectedElement.value && selectedElement.value.type === 'icon') {
+      selectedElement.value.iconName = name
+      selectedIconPreset.value = name
+    }
+  }
+
+  const applyShapePresetToElement = (el: any, presetId?: string, preserveSize = true) => {
+    if (!el) return
+    const preset = getShapePreset(presetId || el.shapePreset)
+    el.shapePreset = preset.id
+    el.shapeClipPath = preset.clipPath
+    el.borderRadius = preset.id === 'circle' ? 999 : preset.borderRadius
+    if (!preserveSize) {
+      el.width = preset.width
+      el.height = preset.height
+    }
+    if (el.name === 'Forma' || !el.name || String(el.name).startsWith('Forma:')) {
+      el.name = `Forma: ${preset.label}`
+    }
+  }
+
+  const applyArrowPresetToElement = (el: any, presetId?: string, preserveSize = true) => {
+    if (!el) return
+    const preset = getArrowPreset(presetId || el.arrowPreset)
+    el.arrowPreset = preset.id
+    el.arrowHead = preset.arrowHead
+    el.strokeWidth = preset.strokeWidth
+    el.lineStyle = preset.lineStyle
+    if (!preserveSize) {
+      el.width = preset.width
+      if (el.height === 'auto' || typeof el.height !== 'number') {
+        el.height = 24
+      }
+    }
+    if (el.name === 'Flecha' || !el.name || String(el.name).startsWith('Flecha:')) {
+      el.name = `Flecha: ${preset.label}`
+    }
+  }
+
+  const applyMindmapPresetToElement = (el: any, presetId?: string, preserveSize = true) => {
+    if (!el) return
+    const preset = getMindmapPreset(presetId || el.mindmapPreset)
+    el.mindmapPreset = preset.id
+    el.lineColor = preset.lineColor
+    el.lineWidth = preset.lineWidth
+    el.fontFamily = preset.fontFamily
+    el.layout = preset.layout || 'horizontal'
+    el.nodes = JSON.parse(JSON.stringify(preset.nodes))
+    if (!preserveSize) {
+      el.width = preset.width
+      el.height = preset.height
+    }
+    if (el.name === 'Mapa Mental' || !el.name || String(el.name).startsWith('Mapa:')) {
+      el.name = `Mapa: ${preset.label}`
+    }
+  }
+
+  const applyChartPresetToElement = (el: any, presetId?: string, preserveSize = true) => {
+    if (!el) return
+    const preset = getChartPreset(presetId || el.chartPreset)
+    el.chartPreset = preset.id
+    el.chartType = preset.chartType
+    el.chartTitle = preset.chartTitle
+    el.bgColor = preset.bgColor
+    el.color = preset.color
+    el.borderRadius = preset.borderRadius
+    el.borderWidth = preset.borderWidth
+    el.borderColor = preset.borderColor
+    el.showValues = preset.showValues
+    el.showLegend = preset.showLegend
+    el.chartData = JSON.parse(JSON.stringify(preset.chartData))
+    if (!preserveSize) {
+      el.width = preset.width
+      el.height = preset.height
+    }
+    if (el.name === 'Gráfico' || !el.name || String(el.name).startsWith('Gráfico:')) {
+      el.name = `Gráfico: ${preset.label}`
+    }
+  }
+
+  const applyTablePresetToElement = (el: any, presetId?: string, preserveSize = true) => {
+    if (!el) return
+    const preset = getTablePreset(presetId || el.tablePreset)
+    el.tablePreset = preset.id
+    el.headers = JSON.parse(JSON.stringify(preset.headers))
+    el.rows = JSON.parse(JSON.stringify(preset.rows))
+    el.color = preset.color
+    el.borderColor = preset.borderColor
+    el.borderWidth = preset.borderWidth
+    el.headerBgColor = preset.headerBgColor
+    el.rowBgColor1 = preset.rowBgColor1
+    el.rowBgColor2 = preset.rowBgColor2
+    el.fontSize = preset.fontSize
+    el.fontFamily = preset.fontFamily
+    el.textAlign = preset.textAlign
+    el.borderRadius = preset.borderRadius
+    if (!preserveSize) {
+      el.width = preset.width
+      el.height = preset.height
+    }
+    if (el.name === 'Tabla' || !el.name || String(el.name).startsWith('Tabla:')) {
+      el.name = `Tabla: ${preset.label}`
+    }
+  }
+
+  const applyQrPresetToElement = (el: any, presetId?: string, preserveSize = true) => {
+    if (!el) return
+    const preset = getQrPreset(presetId || el.qrPreset)
+    el.qrPreset = preset.id
+    el.qrUrl = preset.qrUrl
+    el.color = preset.color
+    el.bgColor = preset.bgColor
+    el.borderRadius = preset.borderRadius
+    if (!preserveSize) {
+      el.width = preset.width
+      el.height = preset.height
+    }
+    if (el.name === 'Código QR' || !el.name || String(el.name).startsWith('QR:')) {
+      el.name = `QR: ${preset.label}`
+    }
+  }
+
+  const getShapeStyle = (el: any) => {
+    const preset = getShapePreset(el?.shapePreset)
+    const clipPath = el?.shapeClipPath || preset.clipPath
+    const borderRadius = (el?.shapePreset || preset.id) === 'circle' ? '50%' : `${el?.borderRadius ?? preset.borderRadius}px`
+    const background = el?.isGlass
+      ? 'rgba(255,255,255,0.2)'
+      : el?.gradientType && el.gradientType !== 'none'
+        ? el.gradientType === 'linear'
+          ? `linear-gradient(135deg, ${el.bgColor}, ${el.gradientColor})`
+          : `radial-gradient(circle, ${el.bgColor}, ${el.gradientColor})`
+        : el?.bgColor
+
+    return {
+      background,
+      borderRadius,
+      border: `${el?.borderWidth ?? 1}px ${el?.borderStyle || 'solid'} ${el?.borderColor || '#000000'}`,
+      boxShadow: el?.boxShadow || 'none',
+      backdropFilter: el?.isGlass ? 'blur(10px)' : 'none',
+      WebkitBackdropFilter: el?.isGlass ? 'blur(10px)' : 'none',
+      clipPath: clipPath !== 'none' ? clipPath : 'none',
+      WebkitClipPath: clipPath !== 'none' ? clipPath : 'none',
+    }
+  }
+
+  const getArrowBodyStyle = (el: any) => {
+    const width = Math.max(1, Number(el?.strokeWidth || 3))
+    const style = el?.lineStyle || 'solid'
+    const color = el?.color || '#000000'
+    return {
+      flex: 1,
+      height: '0px',
+      borderTop: `${width}px ${style} ${color}`,
+      backgroundColor: 'transparent',
+    }
+  }
+
   const baseWidth = ref(1280)
   const baseHeight = ref(720)
 
@@ -5784,6 +7480,75 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     (el) => {
       if (!el) return
       el.animationTrigger = normalizeAnimationTrigger(el.animationTrigger)
+      if (el.type === 'shape') {
+        if (!el.shapePreset) {
+          applyShapePresetToElement(el, 'rectangle', true)
+        }
+        selectedShapePreset.value = el.shapePreset || 'rectangle'
+      }
+      if (el.type === 'arrow') {
+        if (!el.arrowPreset) {
+          const inferredPreset = el.arrowHead === 'both'
+            ? 'doubleArrow'
+            : el.arrowHead === 'start'
+              ? 'arrowLeft'
+              : el.arrowHead === 'none'
+                ? 'line'
+                : 'arrowRight'
+          applyArrowPresetToElement(el, inferredPreset, true)
+        }
+        selectedArrowPreset.value = el.arrowPreset || 'arrowRight'
+      }
+      if (el.type === 'mindmap') {
+        if (!el.mindmapPreset) {
+          el.mindmapPreset = 'base'
+        }
+        selectedMindmapPreset.value = el.mindmapPreset || 'base'
+      }
+      if (el.type === 'icon' && el.iconName) {
+        selectedIconPreset.value = el.iconName
+      }
+      if (el.type === 'table') {
+        if (!el.tablePreset) {
+          el.tablePreset = 'corporateBlueA'
+        }
+        selectedTablePreset.value = el.tablePreset || 'corporateBlueA'
+      }
+      if (el.type === 'qrcode') {
+        if (!el.qrPreset) {
+          el.qrPreset = 'qrWebCorporate'
+        }
+        selectedQrPreset.value = el.qrPreset || 'qrWebCorporate'
+      }
+      if (el.type === 'chart') {
+        if (!el.chartPreset) {
+          const inferredPreset = el.chartType === 'hbar'
+            ? 'hbarExecutiveA'
+            : el.chartType === 'pie'
+              ? 'pieExecutiveA'
+              : el.chartType === 'donut'
+                ? 'donutExecutiveA'
+                : el.chartType === 'line'
+                  ? 'lineExecutiveA'
+                  : el.chartType === 'area'
+                    ? 'areaExecutiveA'
+                    : el.chartType === 'scatter'
+                      ? 'scatterExecutiveA'
+                      : el.chartType === 'combo'
+                        ? 'comboExecutiveA'
+                        : el.chartType === 'funnel'
+                          ? 'funnelExecutiveA'
+                          : el.chartType === 'treemap'
+                            ? 'treemapExecutiveA'
+                            : el.chartType === 'stat'
+                              ? 'statExecutiveA'
+                              : el.chartType === 'radar'
+                                ? 'radarExecutiveA'
+                                : 'barExecutiveA'
+          applyChartPresetToElement(el, inferredPreset, true)
+        }
+        selectedChartPreset.value = el.chartPreset || 'barExecutiveA'
+      }
     },
     { immediate: true },
   )
@@ -6161,6 +7926,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     },
     table: {
       name: 'Tabla',
+      tablePreset: 'corporateBlueA',
       width: 400,
       height: 'auto',
       headers: ['Col 1', 'Col 2'],
@@ -6206,11 +7972,13 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     },
     mindmap: {
       name: 'Mapa Mental',
+      mindmapPreset: 'organigramaA',
       width: 600,
       height: 400,
       lineColor: '#94a3b8',
       lineWidth: 2,
       fontFamily: 'Helvetica, Arial, sans-serif',
+      layout: 'horizontal',
       animationType: 'none',
       animationTrigger: 'onClick',
       animationOrder: 0,
@@ -6251,6 +8019,8 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       name: 'Forma',
       width: 150,
       height: 150,
+      shapePreset: 'rectangle',
+      shapeClipPath: 'none',
       bgColor: 'var(--pres-bg)',
       gradientType: 'none',
       gradientColor: 'var(--pres-accent)',
@@ -6268,8 +8038,10 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       name: 'Flecha',
       width: 200,
       height: 'auto',
+      arrowPreset: 'arrowRight',
       color: 'var(--pres-accent)',
       strokeWidth: 3,
+      lineStyle: 'solid',
       arrowHead: 'end',
       animationType: 'none',
       animationTrigger: 'onClick',
@@ -6350,6 +8122,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       name: 'Gráfico',
       width: 400,
       height: 300,
+      chartPreset: 'barExecutiveA',
       color: 'var(--pres-text)',
       bgColor: 'transparent',
       chartType: 'bar',
@@ -6357,6 +8130,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       showValues: true,
       showLegend: true,
       borderRadius: 12,
+      borderWidth: 0,
+      borderColor: '#000000',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
       chartData: [
         { label: 'Q1', value: 30, color: 'var(--pres-accent)' },
         { label: 'Q2', value: 60, color: '#10b981' },
@@ -6463,6 +8239,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     },
     qrcode: {
       name: 'Código QR',
+      qrPreset: 'qrWebCorporate',
       width: 150,
       height: 150,
       qrUrl: 'https://',
@@ -6740,8 +8517,30 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   }
 
   const handleGlobalPointerDown = (e: PointerEvent) => {
-    if (!editingElementId.value) return
     const target = e.target as HTMLElement | null
+    if (showShapeDropdown.value && !target?.closest('.shape-tool-wrap')) {
+      showShapeDropdown.value = false
+    }
+    if (showArrowDropdown.value && !target?.closest('.arrow-tool-wrap')) {
+      showArrowDropdown.value = false
+    }
+    if (showMindmapDropdown.value && !target?.closest('.mindmap-tool-wrap')) {
+      showMindmapDropdown.value = false
+    }
+    if (showIconDropdown.value && !target?.closest('.icon-tool-wrap')) {
+      showIconDropdown.value = false
+    }
+    if (showTableDropdown.value && !target?.closest('.table-tool-wrap')) {
+      showTableDropdown.value = false
+    }
+    if (showQrDropdown.value && !target?.closest('.qr-tool-wrap')) {
+      showQrDropdown.value = false
+    }
+    if (showChartDropdown.value && !target?.closest('.chart-tool-wrap')) {
+      showChartDropdown.value = false
+    }
+
+    if (!editingElementId.value) return
     if (target?.closest('.el-text.is-editing-mode')) return
     closeActiveTextEditor()
   }
@@ -7091,6 +8890,103 @@ watch(
 
   const getChartMax = (data: any[]) =>
     Math.max(...(data || []).map((d: any) => parseFloat(d.value) || 0), 1)
+
+  const getChartValues = (data: any[]) => (data || []).map((d: any) => Math.max(0, parseFloat(d?.value) || 0))
+
+  const getLinePoints = (data: any[]) => {
+    const values = getChartValues(data)
+    if (!values.length) return ''
+    const max = Math.max(...values, 1)
+    const stepX = values.length > 1 ? 100 / (values.length - 1) : 100
+    return values
+      .map((value, index) => {
+        const x = values.length > 1 ? index * stepX : 50
+        const y = 100 - (value / max) * 100
+        return `${x},${y}`
+      })
+      .join(' ')
+  }
+
+  const getAreaPoints = (data: any[]) => {
+    const line = getLinePoints(data)
+    if (!line) return '0,100 100,100'
+    return `0,100 ${line} 100,100`
+  }
+
+  const getScatterPoints = (data: any[]) => {
+    const values = getChartValues(data)
+    const max = Math.max(...values, 1)
+    const stepX = values.length > 1 ? 100 / (values.length - 1) : 100
+    return (data || []).map((item: any, index: number) => {
+      const value = Math.max(0, parseFloat(item?.value) || 0)
+      const x = values.length > 1 ? index * stepX : 50
+      const y = 100 - (value / max) * 100
+      return { x, y, color: item?.color || '#2563eb', label: item?.label || `P${index + 1}`, value }
+    })
+  }
+
+  const getRadarPoints = (data: any[]) => {
+    const values = getChartValues(data)
+    if (!values.length) return ''
+    const max = Math.max(...values, 1)
+    const cx = 50
+    const cy = 50
+    const r = 42
+    return values
+      .map((value, index) => {
+        const angle = (-Math.PI / 2) + (index / values.length) * Math.PI * 2
+        const radius = (value / max) * r
+        const x = cx + Math.cos(angle) * radius
+        const y = cy + Math.sin(angle) * radius
+        return `${x},${y}`
+      })
+      .join(' ')
+  }
+
+  const getRadarGrid = (data: any[]) => {
+    const count = Math.max((data || []).length, 3)
+    const levels = [0.25, 0.5, 0.75, 1]
+    const cx = 50
+    const cy = 50
+    const r = 42
+    return levels.map((level) => {
+      return Array.from({ length: count })
+        .map((_, index) => {
+          const angle = (-Math.PI / 2) + (index / count) * Math.PI * 2
+          const x = cx + Math.cos(angle) * r * level
+          const y = cy + Math.sin(angle) * r * level
+          return `${x},${y}`
+        })
+        .join(' ')
+    })
+  }
+
+  const getFunnelWidth = (value: number, max: number) => {
+    const safeMax = Math.max(max, 1)
+    return `${Math.max(20, (value / safeMax) * 100)}%`
+  }
+
+  const getStatRange = (value: number, max: number) => {
+    const safeMax = Math.max(max, 1)
+    const median = Math.max(0, value)
+    const q1 = Math.max(0, median * 0.75)
+    const q3 = Math.min(safeMax, median * 1.2)
+    const min = Math.max(0, q1 * 0.7)
+    const high = Math.min(safeMax, q3 * 1.15)
+    return {
+      lowPct: (min / safeMax) * 100,
+      q1Pct: (q1 / safeMax) * 100,
+      q3Pct: (q3 / safeMax) * 100,
+      highPct: (high / safeMax) * 100,
+      medianPct: (median / safeMax) * 100,
+    }
+  }
+
+  const getTreemapPercent = (value: number, total: number) => {
+    const safeTotal = Math.max(total, 1)
+    return `${Math.max(10, (value / safeTotal) * 100)}%`
+  }
+
   const getPieGradient = (data: any[]) => {
     if (!data || !data.length) return 'transparent'
     const total = data.reduce((sum: number, d: any) => sum + (parseFloat(d.value) || 0), 0) || 1
@@ -9398,7 +11294,42 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   // Lógica compartida de creación de elemento
   const placeNewElement = (x: number, y: number) => {
-    const defaults = JSON.parse(JSON.stringify(ELEMENT_DEFAULTS[activeTool.value] || {}));
+    let defaults = JSON.parse(JSON.stringify(ELEMENT_DEFAULTS[activeTool.value] || {}));
+
+    if (activeTool.value === 'shape') {
+      const shapeDraft = { ...defaults }
+      applyShapePresetToElement(shapeDraft, selectedShapePreset.value, false)
+      defaults = shapeDraft
+    }
+    if (activeTool.value === 'arrow') {
+      const arrowDraft = { ...defaults }
+      applyArrowPresetToElement(arrowDraft, selectedArrowPreset.value, false)
+      defaults = arrowDraft
+    }
+    if (activeTool.value === 'mindmap') {
+      const mindmapDraft = { ...defaults }
+      applyMindmapPresetToElement(mindmapDraft, selectedMindmapPreset.value, false)
+      defaults = mindmapDraft
+    }
+    if (activeTool.value === 'icon') {
+      defaults = { ...defaults, iconName: selectedIconPreset.value }
+    }
+    if (activeTool.value === 'chart') {
+      const chartDraft = { ...defaults }
+      applyChartPresetToElement(chartDraft, selectedChartPreset.value, false)
+      defaults = chartDraft
+    }
+    if (activeTool.value === 'table') {
+      const tableDraft = { ...defaults }
+      applyTablePresetToElement(tableDraft, selectedTablePreset.value, false)
+      defaults = tableDraft
+    }
+    if (activeTool.value === 'qrcode') {
+      const qrDraft = { ...defaults }
+      applyQrPresetToElement(qrDraft, selectedQrPreset.value, false)
+      defaults = qrDraft
+    }
+
     const elWidth = typeof defaults.width === 'number' ? defaults.width : 200;
     // Si el height es 'auto' (como en los textos), estimamos unos 50px de altura para centrarlo visualmente
     const elHeight = typeof defaults.height === 'number' ? defaults.height : 50;
@@ -10516,6 +12447,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .mm-child-wrapper:not(:first-child):not(:last-child)::after { top: 0; bottom: 0; }
       .mm-child-wrapper:first-child:last-child::after { display: none; }
       .mm-connector-right { position: absolute; right: -20px; top: 50%; width: 20px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
+      .layout-vertical.mm-wrapper { flex-direction: column; align-items: center; justify-content: flex-start; }
+      .layout-vertical .mm-level-0 { flex-direction: column; align-items: center; }
+      .layout-vertical .mm-children { flex-direction: row; padding-left: 0; padding-top: 30px; gap: 20px; justify-content: center; }
+      .layout-vertical .mm-child-wrapper { flex-direction: column; align-items: center; }
+      .layout-vertical .mm-child-wrapper::before { left: 50%; top: -15px; width: 1px; height: 15px; border-top: none; border-left: var(--mm-line-width) solid var(--mm-line-color); }
+      .layout-vertical .mm-child-wrapper::after { left: 0; top: -15px; border-left: none; border-top: var(--mm-line-width) solid var(--mm-line-color); width: 100%; }
+      .layout-vertical .mm-child-wrapper:first-child::after { left: 50%; width: 50%; }
+      .layout-vertical .mm-child-wrapper:last-child::after { left: 0; width: 50%; }
+      .layout-vertical .mm-child-wrapper:not(:first-child):not(:last-child)::after { left: 0; width: 100%; }
+      .layout-vertical .mm-child-wrapper:first-child:last-child::after { display: none; }
+      .layout-vertical .mm-connector-right { right: auto; left: 50%; top: 100%; width: 1px; height: 15px; border-top: none; border-left: var(--mm-line-width) solid var(--mm-line-color); }
 
       .slide-trans-dissolve-enter-active, .slide-trans-dissolve-leave-active { transition: opacity 0.6s ease; }
       .slide-trans-dissolve-enter-from, .slide-trans-dissolve-leave-to { opacity: 0; }
@@ -10605,7 +12547,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 :style="{ left: el.x + 'px', top: el.y + 'px', width: el.width + 'px', height: (el.height === 'auto' ? 'auto' : el.height + 'px'), zIndex: index + 10, opacity: el.opacity ?? 1, transform: 'rotate(' + (el.rotation || 0) + 'deg)', animationDelay: (el.animationTrigger === 'withPrevious' || el.animationTrigger === 'afterPrevious') ? (index * 0.05) + 's' : '0s', mixBlendMode: el.mixBlendMode || 'normal' }">              <div v-if="el.type === 'text' || el.type === 'sticky'" class="el-text" :style="{ color: el.color, fontSize: el.fontSize + 'px', fontWeight: el.fontWeight, fontFamily: el.fontFamily, fontStyle: el.fontStyle, textAlign: el.textAlign, textTransform: el.textTransform || 'none', textDecoration: el.textDecoration || 'none', lineHeight: el.lineHeight || 1.2, letterSpacing: (el.letterSpacing || 0) + 'px', textShadow: el.textShadow || 'none', backgroundColor: el.textBgColor || 'transparent', padding: el.textBgColor !== 'transparent' ? '15px' : '0', borderRadius: el.type === 'sticky' ? '0 0 16px 4px' : '4px', boxShadow: el.boxShadow || 'none' }">{{ el.content }}</div>
 
               <div v-else-if="el.type === 'mindmap'" class="el-mindmap-container" :style="{ fontFamily: el.fontFamily, '--mm-line-color': el.lineColor, '--mm-line-width': el.lineWidth + 'px' }">
-                <div class="mm-wrapper">
+                <div class="mm-wrapper" :class="el.layout === 'vertical' ? 'layout-vertical' : 'layout-horizontal'">
                   <div class="mm-level-0" v-for="n0 in getNodesByParent(el.nodes, null)" :key="n0.id">
                     <div class="mm-node-block" :style="getNodeStyle(n0, false)">
                       <img v-if="n0.image" :src="n0.image" class="mm-node-img" draggable="false" />
@@ -10674,11 +12616,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 </table>
               </div>
 
-              <div v-else-if="el.type === 'shape'" class="el-shape" :style="{ background: el.isGlass ? 'rgba(255,255,255,0.1)' : (el.gradientType && el.gradientType !== 'none' ? (el.gradientType === 'linear' ? 'linear-gradient(135deg, ' + el.bgColor + ', ' + el.gradientColor + ')' : 'radial-gradient(circle, ' + el.bgColor + ', ' + el.gradientColor + ')') : el.bgColor), borderRadius: el.borderRadius + 'px', border: el.borderWidth + 'px ' + (el.borderStyle || 'solid') + ' ' + el.borderColor, boxShadow: el.boxShadow || 'none', backdropFilter: el.isGlass ? 'blur(10px)' : 'none', WebkitBackdropFilter: el.isGlass ? 'blur(10px)' : 'none' }"></div>
+              <div v-else-if="el.type === 'shape'" class="el-shape" :style="getShapeStyle(el)"></div>
 
               <div v-else-if="el.type === 'arrow'" style="width: 100%; height: 100%; display: flex; align-items: center; position: relative;">
                 <div v-if="['start', 'both'].includes(el.arrowHead)" :style="{ width: 0, height: 0, borderTop: (el.strokeWidth * 1.5) + 'px solid transparent', borderBottom: (el.strokeWidth * 1.5) + 'px solid transparent', borderRight: (el.strokeWidth * 2) + 'px solid ' + el.color }"></div>
-                <div :style="{ flex: 1, height: el.strokeWidth + 'px', backgroundColor: el.color }"></div>
+                <div :style="getArrowBodyStyle(el)"></div>
                 <div v-if="['end', 'both'].includes(el.arrowHead)" :style="{ width: 0, height: 0, borderTop: (el.strokeWidth * 1.5) + 'px solid transparent', borderBottom: (el.strokeWidth * 1.5) + 'px solid transparent', borderLeft: (el.strokeWidth * 2) + 'px solid ' + el.color }"></div>
               </div>
 
@@ -10704,14 +12646,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                     <span v-if="el.showLegend" class="chart-label" :style="{ color: el.color }">{{ item.label }}</span>
                   </div>
                 </div>
-                <div v-if="el.chartType === 'hbar'" class="chart-hbar-container">
+                <div v-else-if="el.chartType === 'hbar'" class="chart-hbar-container">
                   <div v-for="(item, i) in el.chartData" :key="'h'+i" class="hbar-row">
                     <span v-if="el.showLegend" class="chart-label hbar-lbl" :style="{ color: el.color }">{{ item.label }}</span>
                     <div class="hbar-track"><div class="hbar-fill" :style="{ width: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }"></div></div>
                     <span v-if="el.showValues" class="chart-value hbar-val" :style="{ color: el.color }">{{ item.value }}</span>
                   </div>
                 </div>
-                <div v-if="el.chartType === 'pie' || el.chartType === 'donut'" class="chart-pie-container">
+                <div v-else-if="el.chartType === 'pie' || el.chartType === 'donut'" class="chart-pie-container">
                   <div class="pie-circle" :style="{ width: Math.min(el.width, el.height)*0.5 + 'px', height: Math.min(el.width, el.height)*0.5 + 'px', background: getPieGradient(el.chartData) }">
                     <div v-if="el.chartType === 'donut'" class="donut-hole" :style="{ backgroundColor: el.bgColor }"></div>
                   </div>
@@ -10719,6 +12661,84 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                     <div v-for="(item, i) in el.chartData" :key="'l'+i" class="pie-legend-item">
                       <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
                       <span :style="{ color: el.color }">{{ item.label }} <span v-if="el.showValues">({{ item.value }})</span></span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="el.chartType === 'line' || el.chartType === 'area'" class="chart-line-container">
+                  <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <polygon
+                      v-if="el.chartType === 'area'"
+                      :points="getAreaPoints(el.chartData)"
+                      :fill="(el.chartData?.[0]?.color || '#2563eb') + '33'"
+                    />
+                    <polyline :points="getLinePoints(el.chartData)" fill="none" :stroke="el.chartData?.[0]?.color || '#2563eb'" stroke-width="2.2" />
+                    <circle
+                      v-for="(point, pIdx) in getScatterPoints(el.chartData)"
+                      :key="'pl-' + pIdx"
+                      :cx="point.x"
+                      :cy="point.y"
+                      r="1.9"
+                      :fill="el.chartData?.[0]?.color || '#2563eb'"
+                    />
+                  </svg>
+                  <div v-if="el.showLegend" class="line-legend">
+                    <span v-for="(item, i) in el.chartData" :key="'plg-' + i" :style="{ color: el.color }">{{ item.label }}</span>
+                  </div>
+                </div>
+                <div v-else-if="el.chartType === 'scatter'" class="chart-scatter-container">
+                  <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <line x1="0" y1="100" x2="100" y2="100" stroke="#cbd5e1" stroke-width="0.6" />
+                    <line x1="0" y1="0" x2="0" y2="100" stroke="#cbd5e1" stroke-width="0.6" />
+                    <circle v-for="(point, pIdx) in getScatterPoints(el.chartData)" :key="'psc-' + pIdx" :cx="point.x" :cy="point.y" r="2.6" :fill="point.color" />
+                  </svg>
+                </div>
+                <div v-else-if="el.chartType === 'combo'" class="chart-combo-container">
+                  <div class="chart-bar-container combo-bars">
+                    <div v-for="(item, i) in el.chartData" :key="'pcb-' + i" class="bar-col">
+                      <div class="bar-fill" :style="{ height: Math.min(100, (item.value / getChartMax(el.chartData)) * 100) + '%', backgroundColor: item.color }"></div>
+                    </div>
+                  </div>
+                  <svg class="chart-svg combo-line" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <polyline :points="getLinePoints(el.chartData)" fill="none" stroke="#0f172a" stroke-width="2" />
+                  </svg>
+                </div>
+                <div v-else-if="el.chartType === 'funnel'" class="chart-funnel-container">
+                  <div v-for="(item, i) in el.chartData" :key="'pfu-' + i" class="funnel-stage" :style="{ width: getFunnelWidth(item.value, getChartMax(el.chartData)), backgroundColor: item.color }">
+                    <span class="funnel-label">{{ item.label }}</span>
+                    <span v-if="el.showValues" class="funnel-value">{{ item.value }}</span>
+                  </div>
+                </div>
+                <div v-else-if="el.chartType === 'treemap'" class="chart-treemap-container">
+                  <div
+                    v-for="(item, i) in el.chartData"
+                    :key="'ptm-' + i"
+                    class="treemap-node"
+                    :style="{ flexBasis: getTreemapPercent(item.value, getChartValues(el.chartData).reduce((s, n) => s + n, 0)), backgroundColor: item.color }"
+                  >
+                    <strong>{{ item.label }}</strong>
+                    <span v-if="el.showValues">{{ item.value }}</span>
+                  </div>
+                </div>
+                <div v-else-if="el.chartType === 'stat'" class="chart-stat-container">
+                  <div v-for="(item, i) in el.chartData" :key="'pst-' + i" class="stat-row">
+                    <span class="chart-label hbar-lbl" :style="{ color: el.color }">{{ item.label }}</span>
+                    <div class="stat-track">
+                      <div class="stat-whisker" :style="{ left: getStatRange(item.value, getChartMax(el.chartData)).lowPct + '%', width: (getStatRange(item.value, getChartMax(el.chartData)).highPct - getStatRange(item.value, getChartMax(el.chartData)).lowPct) + '%' }"></div>
+                      <div class="stat-box" :style="{ left: getStatRange(item.value, getChartMax(el.chartData)).q1Pct + '%', width: (getStatRange(item.value, getChartMax(el.chartData)).q3Pct - getStatRange(item.value, getChartMax(el.chartData)).q1Pct) + '%', backgroundColor: item.color }"></div>
+                      <div class="stat-median" :style="{ left: getStatRange(item.value, getChartMax(el.chartData)).medianPct + '%' }"></div>
+                    </div>
+                    <span v-if="el.showValues" class="chart-value hbar-val" :style="{ color: el.color }">{{ item.value }}</span>
+                  </div>
+                </div>
+                <div v-else-if="el.chartType === 'radar'" class="chart-radar-container">
+                  <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                    <polygon v-for="(grid, gIdx) in getRadarGrid(el.chartData)" :key="'prg-' + gIdx" :points="grid" fill="none" stroke="#cbd5e1" stroke-width="0.5" />
+                    <polygon :points="getRadarPoints(el.chartData)" :fill="(el.chartData?.[0]?.color || '#2563eb') + '33'" :stroke="el.chartData?.[0]?.color || '#2563eb'" stroke-width="1.4" />
+                  </svg>
+                  <div v-if="el.showLegend" class="pie-legend">
+                    <div v-for="(item, i) in el.chartData" :key="'prl-' + i" class="pie-legend-item">
+                      <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
+                      <span :style="{ color: el.color }">{{ item.label }}</span>
                     </div>
                   </div>
                 </div>
@@ -11654,6 +13674,362 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     color: var(--accent-primary);
   }
 
+  .shape-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .shape-tool-wrap.open .shape-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .shape-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .shape-tool-icon,
+  .shape-chip {
+    width: 16px;
+    height: 16px;
+    background: currentColor;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .shape-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 220px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .shape-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .shape-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .shape-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+
+  .arrow-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .arrow-tool-wrap.open .arrow-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .arrow-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .arrow-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 220px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .arrow-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .arrow-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .arrow-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+
+  .icon-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .icon-tool-wrap.open .icon-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .icon-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .icon-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 220px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .icon-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .icon-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .icon-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+  .icon-dropdown-item.more {
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 4px;
+    padding-top: 10px;
+  }
+
+  .mindmap-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .mindmap-tool-wrap.open .mindmap-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .mindmap-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .mindmap-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 250px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .mindmap-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .mindmap-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .mindmap-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+
+  .table-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .table-tool-wrap.open .table-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .table-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .table-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 250px;
+    max-height: 340px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .table-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .table-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .table-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+
+  .qr-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .qr-tool-wrap.open .qr-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .qr-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .qr-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 250px;
+    max-height: 340px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .qr-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .qr-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .qr-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+
+  .chart-tool-wrap {
+    position: relative;
+    display: block;
+  }
+  .chart-tool-wrap.open .chart-dropdown-btn {
+    color: var(--accent-primary);
+  }
+  .chart-dropdown-btn {
+    width: 52px;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+  .chart-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 240px;
+    max-height: 340px;
+    overflow-y: auto;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    z-index: 60;
+  }
+  .chart-dropdown-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .chart-dropdown-item:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .chart-dropdown-item.active {
+    background: var(--surface-soft-strong);
+    color: var(--accent-primary);
+  }
+
   /* ÁREA DEL LIENZO */
   .pro-canvas-area {
   background-color: var(--surface-base);
@@ -12384,19 +14760,37 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .chart-inner-area { flex: 1; position: relative; width: 100%; height: calc(100% - 25px); }
   .chart-bar-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: 100%; gap: 6px; }
   .bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; height: 100%; }
-  .bar-fill { width: 100%; border-radius: 3px 3px 0 0; transition: height 0.4s ease-out; box-shadow: inset 0 -10px 20px rgba(0, 0, 0, 0.1); }
+  .bar-fill { width: 100%; border-radius: 2px 2px 0 0; transition: height 0.35s ease-out; box-shadow: none; }
   .chart-hbar-container { display: flex; flex-direction: column; justify-content: space-around; width: 100%; height: 100%; gap: 4px; }
   .hbar-row { display: flex; align-items: center; width: 100%; height: 100%; gap: 8px; }
-  .hbar-track { flex: 1; height: 100%; min-height: 8px; background: rgba(0, 0, 0, 0.05); border-radius: 0 3px 3px 0; display: flex; align-items: center; }
-  .hbar-fill { height: 100%; border-radius: 0 3px 3px 0; transition: width 0.4s ease-out; box-shadow: inset -10px 0 20px rgba(0, 0, 0, 0.1); }
+  .hbar-track { flex: 1; height: 100%; min-height: 8px; background: rgba(100, 116, 139, 0.18); border-radius: 2px; display: flex; align-items: center; }
+  .hbar-fill { height: 100%; border-radius: 2px; transition: width 0.35s ease-out; box-shadow: none; }
   .chart-pie-container { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: relative; }
-  .pie-circle { border-radius: 50%; width: 100%; height: 100%; max-width: 250px; max-height: 250px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); }
-  .donut-hole { width: 55%; height: 55%; border-radius: 50%; box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1); }
+  .pie-circle { border-radius: 50%; width: 100%; height: 100%; max-width: 250px; max-height: 250px; display: flex; align-items: center; justify-content: center; box-shadow: none; }
+  .donut-hole { width: 55%; height: 55%; border-radius: 50%; box-shadow: none; border: 1px solid rgba(148, 163, 184, 0.2); }
   .chart-label { font-size: 10px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-weight: 500; }
   .chart-value { font-size: 10px; margin-bottom: 2px; font-weight: 800; }
   .pie-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
   .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 500; }
   .legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .chart-line-container, .chart-scatter-container, .chart-radar-container { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .chart-svg { width: 100%; height: 100%; display: block; }
+  .line-legend { display: flex; justify-content: center; gap: 10px; font-size: 10px; font-weight: 600; flex-wrap: wrap; }
+  .chart-combo-container { position: relative; width: 100%; height: 100%; }
+  .combo-bars { opacity: 0.8; }
+  .combo-line { position: absolute; inset: 0; pointer-events: none; }
+  .chart-funnel-container { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+  .funnel-stage { min-height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; color: #ffffff; font-size: 10px; font-weight: 700; }
+  .funnel-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; }
+  .funnel-value { font-variant-numeric: tabular-nums; }
+  .chart-treemap-container { width: 100%; height: 100%; display: flex; gap: 4px; }
+  .treemap-node { min-width: 0; border-radius: 6px; padding: 8px 6px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; font-size: 10px; font-weight: 600; }
+  .chart-stat-container { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px; }
+  .stat-row { display: flex; align-items: center; gap: 8px; }
+  .stat-track { position: relative; flex: 1; height: 14px; border-radius: 999px; background: rgba(148, 163, 184, 0.18); }
+  .stat-whisker { position: absolute; top: 50%; height: 2px; transform: translateY(-50%); background: #475569; }
+  .stat-box { position: absolute; top: 2px; height: 10px; border-radius: 3px; opacity: 0.85; }
+  .stat-median { position: absolute; top: 1px; width: 2px; height: 12px; background: #0f172a; }
 
   .el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
   .hotspot-pulse { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; animation: pulse 2s infinite; }
@@ -13242,6 +15636,77 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .status-card-copy {
     color: var(--text-primary);
+  }
+
+  /* --- INGENIERIA ESTRUCTURAL: ORGANIGRAMA VERTICAL --- */
+  .layout-vertical.mm-wrapper {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .layout-vertical .mm-level-0 {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .layout-vertical .mm-children {
+    flex-direction: row;
+    padding-left: 0;
+    padding-top: 30px;
+    gap: 20px;
+    justify-content: center;
+  }
+
+  .layout-vertical .mm-child-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .layout-vertical .mm-child-wrapper::before {
+    left: 50%;
+    top: -15px;
+    width: 1px;
+    height: 15px;
+    border-top: none;
+    border-left: var(--mm-line-width) solid var(--mm-line-color);
+  }
+
+  .layout-vertical .mm-child-wrapper::after {
+    left: 0;
+    top: -15px;
+    border-left: none;
+    border-top: var(--mm-line-width) solid var(--mm-line-color);
+    width: 100%;
+  }
+
+  .layout-vertical .mm-child-wrapper:first-child::after {
+    left: 50%;
+    width: 50%;
+  }
+
+  .layout-vertical .mm-child-wrapper:last-child::after {
+    left: 0;
+    width: 50%;
+  }
+
+  .layout-vertical .mm-child-wrapper:not(:first-child):not(:last-child)::after {
+    left: 0;
+    width: 100%;
+  }
+
+  .layout-vertical .mm-child-wrapper:first-child:last-child::after {
+    display: none;
+  }
+
+  .layout-vertical .mm-connector-right {
+    right: auto;
+    left: 50%;
+    top: 100%;
+    width: 1px;
+    height: 15px;
+    border-top: none;
+    border-left: var(--mm-line-width) solid var(--mm-line-color);
   }
 
 
