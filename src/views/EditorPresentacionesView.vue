@@ -1502,25 +1502,72 @@
 
                     <div
                       v-else-if="el.type === 'imagecomparator'"
-                      style="width: 100%; height: 100%; position: relative; overflow: hidden;"
-                      :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }"
+                      class="pro-image-comparator"
+                      :style="{
+                        '--slider-pos': (el.sliderPosition ?? 50) + '%',
+                        width: '100%',
+                        height: '100%',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        aspectRatio: el.aspectRatio || '16 / 9',
+                        borderRadius: (el.borderRadius || 0) + 'px',
+                        border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+                        boxShadow: el.boxShadow || 'none',
+                        backgroundColor: '#f0f0f0'
+                      }"
                     >
-                      <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-                      <div v-else style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;">
+                      <img
+                        v-if="el.imageAfter && el.imageAfter.trim() !== ''"
+                        :src="el.imageAfter"
+                        class="compare-img compare-img-background"
+                        :style="{
+                          objectFit: el.afterFit || 'cover',
+                          objectPosition: (el.afterPosX ?? 50) + '% ' + (el.afterPosY ?? 50) + '%',
+                          transform: 'translate(' + (Number(el.afterOffsetX ?? 0)) + '%, ' + (Number(el.afterOffsetY ?? 0)) + '%) scale(' + (Math.max(10, Number(el.afterScale ?? 100)) / 100) + ') rotate(' + (Number(el.afterRotation ?? 0)) + 'deg)'
+                        }"
+                      />
+                      <div v-else style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;">
                         <i class="ph ph-image" style="font-size: 2rem;"></i>
                       </div>
-                      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;">
-                        <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition ?? 50)) + '% 0 0)' }" />
-                      </div>
+
+                      <img
+                        v-if="el.imageBefore && el.imageBefore.trim() !== ''"
+                        :src="el.imageBefore"
+                        class="compare-img compare-img-foreground"
+                        :style="{
+                          objectFit: el.beforeFit || 'cover',
+                          objectPosition: (el.beforePosX ?? 50) + '% ' + (el.beforePosY ?? 50) + '%',
+                          transform: 'translate(' + (Number(el.beforeOffsetX ?? 0)) + '%, ' + (Number(el.beforeOffsetY ?? 0)) + '%) scale(' + (Math.max(10, Number(el.beforeScale ?? 100)) / 100) + ') rotate(' + (Number(el.beforeRotation ?? 0)) + 'deg)'
+                        }"
+                      />
+
+                      <input
+                        v-if="playMode"
+                        type="range"
+                        min="0"
+                        max="100"
+                        :value="el.sliderPosition ?? 50"
+                        @input="el.sliderPosition = Number($event.target.value)"
+                        @mousedown.stop
+                        @pointerdown.stop
+                        @click.stop
+                        class="compare-slider"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; cursor: ew-resize;"
+                      />
+
                       <div
-                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: ew-resize; z-index: 10;"
+                        v-else
+                        class="comparator-editor-hit"
+                        :style="{ left: (el.sliderPosition ?? 50) + '%' }"
                         @mousedown.stop.prevent="startComparatorDrag($event, el)"
                       ></div>
-                      <div
-                        style="position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.95); box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 0 8px rgba(0,0,0,0.25); pointer-events: none; z-index: 11;"
-                        :style="{ left: (el.sliderPosition ?? 50) + '%' }"
-                      ></div>
-                      <div v-if="!playMode" class="drag-protector"></div>
+
+                      <div class="compare-divider">
+                        <div class="compare-handle">
+                          <i class="ph ph-caret-left"></i>
+                          <i class="ph ph-caret-right"></i>
+                        </div>
+                      </div>
                     </div>
 
                     <div
@@ -4442,8 +4489,124 @@
                   <div class="prop-group">
                     <label>Posición del Deslizador (%)</label>
                     <input type="range" min="0" max="100" v-model.number="selectedElement.sliderPosition" class="pro-input" />
-                    <div class="metric-value">{{ selectedElement.sliderPosition }}%</div>
+                    <div class="metric-value">{{ selectedElement.sliderPosition ?? 50 }}%</div>
                   </div>
+
+                  <div class="prop-group">
+                    <label>Proporción de Aspecto</label>
+                    <select v-model="selectedElement.aspectRatio" class="pro-input" @change="applyComparatorAspectRatio(selectedElement)">
+                      <option value="16 / 9">16:9 (Pantalla)</option>
+                      <option value="4 / 3">4:3 (Clasico)</option>
+                      <option value="1 / 1">1:1 (Cuadrado)</option>
+                      <option value="3 / 2">3:2 (Fotografía)</option>
+                      <option value="21 / 9">21:9 (Ultrawide)</option>
+                      <option value="9 / 16">9:16 (Vertical)</option>
+                    </select>
+                  </div>
+
+                  <div class="prop-group">
+                    <label class="toggle-label">
+                      <input type="checkbox" v-model="selectedElement.lockAspectRatio" />
+                      Mantener proporción al redimensionar
+                    </label>
+                  </div>
+
+                  <div class="prop-group section-divider">Ajuste Imagen Antes</div>
+                  <div class="prop-group">
+                    <label>Relleno</label>
+                    <select v-model="selectedElement.beforeFit" class="pro-input">
+                      <option value="cover">Rellenar (cover)</option>
+                      <option value="contain">Encajar (contain)</option>
+                      <option value="fill">Estirar (fill)</option>
+                      <option value="none">Original (none)</option>
+                      <option value="scale-down">Reducir (scale-down)</option>
+                    </select>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Zoom</label>
+                      <input type="range" min="10" max="300" step="1" v-model.number="selectedElement.beforeScale" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.beforeScale ?? 100 }}%</div>
+                    </div>
+                    <div class="prop-group half">
+                      <label>Rotación</label>
+                      <input type="range" min="-180" max="180" step="1" v-model.number="selectedElement.beforeRotation" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.beforeRotation ?? 0 }}°</div>
+                    </div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Posición X</label>
+                      <input type="range" min="0" max="100" v-model.number="selectedElement.beforePosX" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.beforePosX ?? 50 }}%</div>
+                    </div>
+                    <div class="prop-group half">
+                      <label>Posición Y</label>
+                      <input type="range" min="0" max="100" v-model.number="selectedElement.beforePosY" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.beforePosY ?? 50 }}%</div>
+                    </div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Offset X</label>
+                      <input type="range" min="-100" max="100" step="1" v-model.number="selectedElement.beforeOffsetX" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.beforeOffsetX ?? 0 }}%</div>
+                    </div>
+                    <div class="prop-group half">
+                      <label>Offset Y</label>
+                      <input type="range" min="-100" max="100" step="1" v-model.number="selectedElement.beforeOffsetY" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.beforeOffsetY ?? 0 }}%</div>
+                    </div>
+                  </div>
+
+                  <div class="prop-group section-divider">Ajuste Imagen Después</div>
+                  <div class="prop-group">
+                    <label>Relleno</label>
+                    <select v-model="selectedElement.afterFit" class="pro-input">
+                      <option value="cover">Rellenar (cover)</option>
+                      <option value="contain">Encajar (contain)</option>
+                      <option value="fill">Estirar (fill)</option>
+                      <option value="none">Original (none)</option>
+                      <option value="scale-down">Reducir (scale-down)</option>
+                    </select>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Zoom</label>
+                      <input type="range" min="10" max="300" step="1" v-model.number="selectedElement.afterScale" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.afterScale ?? 100 }}%</div>
+                    </div>
+                    <div class="prop-group half">
+                      <label>Rotación</label>
+                      <input type="range" min="-180" max="180" step="1" v-model.number="selectedElement.afterRotation" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.afterRotation ?? 0 }}°</div>
+                    </div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Posición X</label>
+                      <input type="range" min="0" max="100" v-model.number="selectedElement.afterPosX" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.afterPosX ?? 50 }}%</div>
+                    </div>
+                    <div class="prop-group half">
+                      <label>Posición Y</label>
+                      <input type="range" min="0" max="100" v-model.number="selectedElement.afterPosY" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.afterPosY ?? 50 }}%</div>
+                    </div>
+                  </div>
+                  <div class="prop-row">
+                    <div class="prop-group half">
+                      <label>Offset X</label>
+                      <input type="range" min="-100" max="100" step="1" v-model.number="selectedElement.afterOffsetX" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.afterOffsetX ?? 0 }}%</div>
+                    </div>
+                    <div class="prop-group half">
+                      <label>Offset Y</label>
+                      <input type="range" min="-100" max="100" step="1" v-model.number="selectedElement.afterOffsetY" class="pro-input" />
+                      <div class="metric-value">{{ selectedElement.afterOffsetY ?? 0 }}%</div>
+                    </div>
+                  </div>
+
                   <div class="prop-row">
                     <div class="prop-group half">
                       <label>Borde</label>
@@ -4525,8 +4688,23 @@
                   </div>
                   <div class="prop-group">
                     <label>Velocidad de Escritura (ms)</label>
-                    <input type="range" min="10" max="500" step="10" v-model.number="selectedElement.typingSpeed" class="pro-input" />
-                    <div class="metric-value">{{ selectedElement.typingSpeed }}ms por carácter</div>
+                    <input type="range" min="1" max="500" step="1" v-model.number="selectedElement.typingSpeed" class="pro-input" />
+                    <div class="metric-value">{{ selectedElement.typingSpeed }}ms por carácter (~{{ Math.max(1, Math.round(1000 / Math.max(1, selectedElement.typingSpeed || 1))) }} cps)</div>
+                  </div>
+                  <div class="prop-group">
+                    <label>Presets Rápidos</label>
+                    <div class="speed-presets-row">
+                      <button
+                        v-for="speed in TYPEWRITER_SPEED_PRESETS"
+                        :key="`tw-speed-${speed}`"
+                        type="button"
+                        class="btn-ghost speed-preset-btn"
+                        :class="{ 'is-active': Number(selectedElement.typingSpeed) === speed }"
+                        @click="selectedElement.typingSpeed = speed"
+                      >
+                        {{ speed }}ms
+                      </button>
+                    </div>
                   </div>
                   <div class="prop-group">
                     <label>Color Texto</label>
@@ -4763,13 +4941,7 @@
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
   import pako from 'pako';
   import Cropper from 'cropperjs';
-  import html2canvas from 'html2canvas';
   import JSZip from 'jszip';
-
-const isSafariBrowser = (() => {
-  const ua = navigator.userAgent;
-  return /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
-})();
 
 // --- REFAC: Lazy load de PdfViewer y pdfjs-dist ---
 const PdfViewer = defineAsyncComponent(() => import('@/components/PdfViewer.vue'));
@@ -4895,6 +5067,28 @@ const getElementMemo = (el: any, index: number) => {
     el?.rotation,
     el?.opacity,
     el?.content,
+    el?.displayedText,
+    el?.typingSpeed,
+    el?.isTyping,
+    el?.sliderPosition,
+    el?.imageBefore,
+    el?.imageAfter,
+    el?.aspectRatio,
+    el?.lockAspectRatio,
+    el?.beforeFit,
+    el?.beforePosX,
+    el?.beforePosY,
+    el?.beforeScale,
+    el?.beforeRotation,
+    el?.beforeOffsetX,
+    el?.beforeOffsetY,
+    el?.afterFit,
+    el?.afterPosX,
+    el?.afterPosY,
+    el?.afterScale,
+    el?.afterRotation,
+    el?.afterOffsetX,
+    el?.afterOffsetY,
     el?.isHidden,
     el?.animationType,
     el?.animation,
@@ -4963,8 +5157,11 @@ const thumbDragSource = ref<number | null>(null)
 const thumbDragTarget = ref<number | null>(null)
 const thumbEditingPage = ref<number | null>(null)
 const thumbPosInputRef = ref<HTMLInputElement | null>(null)
+const TYPEWRITER_SPEED_PRESETS = [1, 5, 10, 20, 35, 50, 80, 120]
 const thumbnailCaptureVersion = ref<Record<number, number>>({})
 const thumbnailLastSignature = ref<Record<number, string>>({})
+const isComparatorDragging = ref(false)
+const isPlayModeTransitioning = ref(false)
 
 const getThumbnailSignature = (page: number) => {
   const elements = documentState.value[page] || []
@@ -4992,7 +5189,7 @@ const captureThumbnail = async (
   targetPage: number = pageNum.value,
   options: { onlyIfChanged?: boolean } = { onlyIfChanged: true }
 ) => {
-  if (playMode.value || isConverting.value || isLoadingProject.value) return;
+  if (playMode.value || isConverting.value || isLoadingProject.value || isPlayModeTransitioning.value) return;
 
   const signature = getThumbnailSignature(targetPage)
   if (options.onlyIfChanged !== false && thumbnailLastSignature.value[targetPage] === signature) return
@@ -5014,67 +5211,27 @@ const captureThumbnail = async (
     const THUMBNAIL_WIDTH = 320;
 
     // 2. Calculamos la escala pura basada SÓLO en la resolución original de tu diapositiva.
-    // Al forzar esta escala en html2canvas, anulamos por completo el window.devicePixelRatio (Zoom de Windows).
     const exactScale = THUMBNAIL_WIDTH / baseWidth.value;
-
-    // Safari rompe en html2canvas al clonar el documento (document.write) por scripts inyectados de extensiones.
-    // Aquí usamos una ruta alternativa que no usa ese flujo interno.
-    if (isSafariBrowser) {
-      const { toJpeg } = await import('html-to-image');
-      const dataUrl = await toJpeg(slideNode, {
-        cacheBust: true,
-        skipFonts: true,
-        quality: 0.8,
-        pixelRatio: 1,
-        width: baseWidth.value,
-        height: baseHeight.value,
-        canvasWidth: Math.round(baseWidth.value * exactScale * 2.0),
-        canvasHeight: Math.round(baseHeight.value * exactScale * 2.0),
-        backgroundColor: slideConfigs.value[targetPage]?.bgColor || currentBgColor.value || '#ffffff'
-      });
-      // Preview inmediato en sidebar (tiempo real), aunque falle subida remota.
-      commitIfLatest(dataUrl)
-
-      const thumbBlob = await fetch(dataUrl).then((res) => res.blob())
-      try {
-        const upload = await cloudinaryService.uploadFile(thumbBlob, {
-          resourceType: 'image',
-          folder: 'presentaciones/thumbnails',
-          fileName: `thumb_page_${targetPage}.jpg`,
-        })
-        commitIfLatest(upload.secureUrl)
-      } catch (error) {
-        console.warn('No se pudo subir miniatura Safari. Se mantiene preview local.', error)
-      }
-      return;
-    }
-
-    const canvas = await html2canvas(slideNode, {
-      scale: exactScale * 2.0, // Aumentamos la calidad de las miniaturas
+    const { toJpeg } = await import('html-to-image');
+    const dataUrl = await toJpeg(slideNode, {
+      cacheBust: true,
+      skipFonts: true,
+      quality: 0.8,
+      pixelRatio: 1,
       width: baseWidth.value,
       height: baseHeight.value,
-      useCORS: true,
-      logging: false,
+      canvasWidth: Math.round(baseWidth.value * exactScale * 2.0),
+      canvasHeight: Math.round(baseHeight.value * exactScale * 2.0),
       backgroundColor: slideConfigs.value[targetPage]?.bgColor || currentBgColor.value || '#ffffff',
-      allowTaint: true,
-      ignoreElements: (el) => el.tagName === 'SCRIPT',
-
-      // ✨ EL TRUCO MAESTRO: Interceptar el clon antes de la foto
-      onclone: (clonedDoc) => {
-        // Encontramos el contenedor que tiene el zoom y el paneo de tu editor
-        const wrapper = clonedDoc.querySelector('.canvas-wrapper');
-        if (wrapper) {
-          // Le borramos TODO el transform (zoom, panX, panY) en esta copia invisible.
-          // De esta forma, html2canvas procesa la diapositiva en su estado nativo y perfecto.
-          wrapper.style.transform = 'none';
-        }
-      }
+      style: {
+        transform: 'none',
+      },
+      filter: (node) => node.nodeName !== 'SCRIPT'
     });
 
-    const localPreview = canvas.toDataURL('image/jpeg', 0.76)
-    commitIfLatest(localPreview)
+    commitIfLatest(dataUrl)
 
-    const thumbBlob = await canvasToBlob(canvas, 'image/jpeg', 0.8)
+    const thumbBlob = await fetch(dataUrl).then((res) => res.blob())
     try {
       const upload = await cloudinaryService.uploadFile(thumbBlob, {
         resourceType: 'image',
@@ -8341,6 +8498,22 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       imageBefore: '',
       imageAfter: '',
       sliderPosition: 50,
+      aspectRatio: '16 / 9',
+      lockAspectRatio: true,
+      beforeFit: 'cover',
+      beforePosX: 50,
+      beforePosY: 50,
+      beforeScale: 100,
+      beforeRotation: 0,
+      beforeOffsetX: 0,
+      beforeOffsetY: 0,
+      afterFit: 'cover',
+      afterPosX: 50,
+      afterPosY: 50,
+      afterScale: 100,
+      afterRotation: 0,
+      afterOffsetX: 0,
+      afterOffsetY: 0,
       borderRadius: 0,
       borderWidth: 0,
       borderColor: '#000000',
@@ -8722,6 +8895,8 @@ let thumbnailTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const scheduleThumbnailCapture = (delayMs = 700, targetPage: number = pageNum.value) => {
   if (playMode.value || !hasDoc.value) return
+  if (isPlayModeTransitioning.value) return
+  if (isComparatorDragging.value) return
   if (thumbnailTimeout) clearTimeout(thumbnailTimeout)
   thumbnailTimeout = setTimeout(() => {
     captureThumbnail(targetPage, { onlyIfChanged: true })
@@ -8731,6 +8906,8 @@ const scheduleThumbnailCapture = (delayMs = 700, targetPage: number = pageNum.va
 watch(
   [() => documentState.value, () => slideConfigs.value],
   () => {
+    if (isPlayModeTransitioning.value) return
+    if (isComparatorDragging.value) return
     // Solo captura si hay cambios reales en la firma de la diapositiva.
     scheduleThumbnailCapture(700)
   },
@@ -11643,6 +11820,25 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     return Math.max(0, Math.min(100, Math.round(raw)));
   };
 
+  const parseAspectRatioValue = (value: any): number | null => {
+    if (!value || typeof value !== 'string') return null;
+    const normalized = value.replace(':', '/').trim();
+    const parts = normalized.split('/').map((part) => Number(part.trim()));
+    if (parts.length !== 2) return null;
+    const [w, h] = parts;
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
+    return w / h;
+  };
+
+  const applyComparatorAspectRatio = (el: any) => {
+    if (!el || el.type !== 'imagecomparator') return;
+    const ratio = parseAspectRatioValue(el.aspectRatio || '16 / 9');
+    const width = Number(el.width);
+    if (!ratio || !Number.isFinite(width) || width <= 0) return;
+    el.height = Math.max(40, Math.round(width / ratio));
+    saveHistory();
+  };
+
   const onComparatorDragMove = (event: MouseEvent) => {
     const state = comparatorDragState.value;
     if (!state) return;
@@ -11658,16 +11854,26 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const state = comparatorDragState.value;
     if (!state) return;
     const didChange = Number(state.el.sliderPosition ?? 50) !== state.initialSlider;
+    isComparatorDragging.value = false;
     comparatorDragState.value = null;
     clearComparatorDragListeners();
     if (didChange) saveHistory();
   };
 
   const startComparatorDrag = (event: MouseEvent, el: any) => {
-    const container = event.currentTarget as HTMLElement | null;
+    const handleNode = event.currentTarget as HTMLElement | null;
+    const container =
+      (handleNode?.closest('.pro-image-comparator') as HTMLElement | null) ||
+      (handleNode?.closest('.image-comparator-root') as HTMLElement | null) ||
+      handleNode;
     if (!el || !container) return;
 
+    if (!playMode.value) {
+      selectElement(el.id);
+    }
+
     clearComparatorDragListeners();
+    isComparatorDragging.value = true;
     comparatorDragState.value = {
       el,
       container,
@@ -11680,6 +11886,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   };
 
   onUnmounted(() => {
+    isComparatorDragging.value = false;
     comparatorDragState.value = null;
     clearComparatorDragListeners();
   });
@@ -11982,8 +12189,22 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         deltaY = localDy;
       }
 
-      // Mantener proporciones si se pulsa Shift
-      if (moveEvent.shiftKey) {
+      // Mantener proporción del comparador cuando esté activado su bloqueo.
+      // Shift sigue forzando proporción para otros elementos.
+      const comparatorRatio =
+        el.type === 'imagecomparator' && el.lockAspectRatio
+          ? parseAspectRatioValue(el.aspectRatio || '16 / 9')
+          : null;
+
+      if (comparatorRatio) {
+        if (Math.abs(localDx) > Math.abs(localDy)) {
+          newH = newW / comparatorRatio;
+          if (corner.includes('n')) deltaY = initialHeight - newH;
+        } else {
+          newW = newH * comparatorRatio;
+          if (corner.includes('w')) deltaX = initialWidth - newW;
+        }
+      } else if (moveEvent.shiftKey) {
         const ratio = initialWidth / initialHeight;
         if (Math.abs(localDx) > Math.abs(localDy)) {
           newH = newW / ratio;
@@ -12087,63 +12308,77 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   // 1. Lógica de estado puro (lo que antes hacía togglePlayMode)
   const setPlayModeState = async (isActive: boolean) => {
-    playMode.value = isActive
-    currentAnimationStep.value = 0
-    selectedElementIds.value = []
-    renderTrigger.value++
+    isPlayModeTransitioning.value = true
+    try {
+      playMode.value = isActive
+      currentAnimationStep.value = 0
+      selectedElementIds.value = []
+      renderTrigger.value++
 
-    if (timerInterval) clearInterval(timerInterval)
+      if (timerInterval) clearInterval(timerInterval)
 
-    Object.values(documentState.value).forEach((pageItems) => {
-      pageItems.forEach((el) => {
-        if (el.type === 'interactive') el.isOpen = false
-        if (el.type === 'accordion') el.items.forEach((item: any) => (item.isOpen = false))
-        if (el.type === 'typewriter') {
-          el.displayedText = ''
-          el.isTyping = isActive
-        }
-        if (el.type === 'timer') {
-          el.timeLeft = el.duration * 60
-          el.isRunning = isActive
-        }
-        if (el.type === 'audio') {
-          el.isPlaying = false
-          const a = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement
-          if (a) {
-            a.pause()
-            if (isActive && el.autoplay)
-              a.play()
-                .then(() => (el.isPlaying = true))
-                .catch(() => {})
+      Object.values(documentState.value).forEach((pageItems) => {
+        pageItems.forEach((el) => {
+          if (el.type === 'interactive') el.isOpen = false
+          if (el.type === 'accordion') el.items.forEach((item: any) => (item.isOpen = false))
+          if (el.type === 'typewriter') {
+            el.displayedText = ''
+            el.isTyping = isActive
+            el.lastTypewriterTime = 0
           }
-        }
-      })
-    })
-
-    if (isActive) {
-      activeTransition.value = slideConfigs.value[pageNum.value]?.transition || 'none'
-      timerInterval = setInterval(() => {
-        Object.values(documentState.value).forEach((pageItems) => {
-          pageItems.forEach((el) => {
-            if (el.type === 'timer' && el.isRunning && el.timeLeft > 0) el.timeLeft--
-            if (el.type === 'typewriter' && el.isTyping && el.displayedText.length < el.content.length) {
-              const speed = el.typingSpeed || 100
-              if (!el.lastTypewriterTime) el.lastTypewriterTime = Date.now()
-              const elapsed = Date.now() - el.lastTypewriterTime
-              if (elapsed >= speed) {
-                el.displayedText += el.content[el.displayedText.length]
-                el.lastTypewriterTime = Date.now()
-              }
+          if (el.type === 'timer') {
+            el.timeLeft = el.duration * 60
+            el.isRunning = isActive
+          }
+          if (el.type === 'audio') {
+            el.isPlaying = false
+            const a = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement
+            if (a) {
+              a.pause()
+              if (isActive && el.autoplay)
+                a.play()
+                  .then(() => (el.isPlaying = true))
+                  .catch(() => {})
             }
-          })
+          }
         })
-      }, 50)
-    } else {
-      activeTransition.value = 'none'
-    }
+      })
 
-    await nextTick()
-    fitToScreen()
+      if (isActive) {
+        activeTransition.value = slideConfigs.value[pageNum.value]?.transition || 'none'
+        timerInterval = setInterval(() => {
+          Object.values(documentState.value).forEach((pageItems) => {
+            pageItems.forEach((el) => {
+              if (el.type === 'timer' && el.isRunning && el.timeLeft > 0) el.timeLeft--
+              if (el.type === 'typewriter' && el.isTyping) {
+                const content = String(el.content ?? '')
+                if (typeof el.displayedText !== 'string') el.displayedText = ''
+                if (el.displayedText.length >= content.length) return
+
+                const speedRaw = Number(el.typingSpeed ?? 100)
+                const speed = Math.max(1, Math.round(speedRaw))
+                const now = Date.now()
+                if (!el.lastTypewriterTime) el.lastTypewriterTime = now
+                const elapsed = now - el.lastTypewriterTime
+                if (elapsed >= speed) {
+                  const charsToAdd = Math.max(1, Math.floor(elapsed / speed))
+                  const nextLength = Math.min(content.length, el.displayedText.length + charsToAdd)
+                  el.displayedText = content.slice(0, nextLength)
+                  el.lastTypewriterTime = now
+                }
+              }
+            })
+          })
+        }, 50)
+      } else {
+        activeTransition.value = 'none'
+      }
+
+      await nextTick()
+      fitToScreen()
+    } finally {
+      isPlayModeTransitioning.value = false
+    }
   }
 
   // 2. Función que interactúa con la API del Navegador
@@ -12380,6 +12615,75 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       .el-shape { width: 100%; height: 100%; }
       .el-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
       .el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
+
+      /* COMPARADOR DE IMAGENES (EXPORT) */
+      .pro-image-comparator { --slider-pos: 50%; }
+      .compare-img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform-origin: 50% 50%;
+        pointer-events: none;
+      }
+      .compare-img-foreground {
+        clip-path: polygon(0 0, var(--slider-pos) 0, var(--slider-pos) 100%, 0 100%);
+      }
+      .compare-slider {
+        background: transparent;
+        appearance: none;
+        -webkit-appearance: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+      }
+      .compare-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 40px;
+        height: 100vh;
+        background: transparent;
+        cursor: ew-resize;
+      }
+      .compare-slider::-moz-range-thumb {
+        width: 40px;
+        height: 100vh;
+        background: transparent;
+        cursor: ew-resize;
+        border: none;
+      }
+      .compare-divider {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--slider-pos);
+        width: 2px;
+        background-color: white;
+        transform: translateX(-50%);
+        pointer-events: none;
+        z-index: 5;
+        box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      }
+      .compare-handle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 36px;
+        height: 36px;
+        background-color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        font-size: 14px;
+        gap: 2px;
+      }
+
       .el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; padding: 0 10px; box-sizing: border-box; }
       .el-link:active { transform: scale(0.95); }
       .el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -12929,13 +13233,66 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 </div>
               </div>
 
-              <div v-else-if="el.type === 'imagecomparator'" style="width: 100%; height: 100%; position: relative; overflow: hidden;" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
-                <img v-if="el.imageAfter && el.imageAfter.trim() !== ''" :src="el.imageAfter" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-                <div v-else style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;"><i class="ph ph-image" style="font-size: 2rem;"></i></div>
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;">
-                  <img v-if="el.imageBefore && el.imageBefore.trim() !== ''" :src="el.imageBefore" style="width: 100%; height: 100%; object-fit: cover; display: block;" :style="{ clipPath: 'inset(0 ' + (100 - (el.sliderPosition ?? 50)) + '% 0 0)' }" />
+              <div
+                v-else-if="el.type === 'imagecomparator'"
+                class="pro-image-comparator"
+                :style="{
+                  '--slider-pos': (el.sliderPosition ?? 50) + '%',
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  aspectRatio: el.aspectRatio || '16 / 9',
+                  borderRadius: (el.borderRadius || 0) + 'px',
+                  border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+                  boxShadow: el.boxShadow || 'none',
+                  backgroundColor: '#f0f0f0'
+                }"
+              >
+                <img
+                  v-if="el.imageAfter && el.imageAfter.trim() !== ''"
+                  :src="el.imageAfter"
+                  class="compare-img compare-img-background"
+                  :style="{
+                    objectFit: el.afterFit || 'cover',
+                    objectPosition: (el.afterPosX ?? 50) + '% ' + (el.afterPosY ?? 50) + '%',
+                    transform: 'translate(' + (Number(el.afterOffsetX ?? 0)) + '%, ' + (Number(el.afterOffsetY ?? 0)) + '%) scale(' + (Math.max(10, Number(el.afterScale ?? 100)) / 100) + ') rotate(' + (Number(el.afterRotation ?? 0)) + 'deg)'
+                  }"
+                />
+                <div v-else style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #999;"><i class="ph ph-image" style="font-size: 2rem;"></i></div>
+
+                <img
+                  v-if="el.imageBefore && el.imageBefore.trim() !== ''"
+                  :src="el.imageBefore"
+                  class="compare-img compare-img-foreground"
+                  :style="{
+                    objectFit: el.beforeFit || 'cover',
+                    objectPosition: (el.beforePosX ?? 50) + '% ' + (el.beforePosY ?? 50) + '%',
+                    transform: 'translate(' + (Number(el.beforeOffsetX ?? 0)) + '%, ' + (Number(el.beforeOffsetY ?? 0)) + '%) scale(' + (Math.max(10, Number(el.beforeScale ?? 100)) / 100) + ') rotate(' + (Number(el.beforeRotation ?? 0)) + 'deg)'
+                  }"
+                />
+
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  :value="el.sliderPosition ?? 50"
+                  @input="el.sliderPosition = Number($event.target.value)"
+                  @mousedown.stop
+                  @pointerdown.stop
+                  @touchstart.stop
+                  @touchmove.stop
+                  @click.stop
+                  class="compare-slider"
+                  style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; cursor: ew-resize;"
+                />
+
+                <div class="compare-divider">
+                  <div class="compare-handle">
+                    <i class="ph ph-caret-left"></i>
+                    <i class="ph ph-caret-right"></i>
+                  </div>
                 </div>
-                <input type="range" min="0" max="100" :value="el.sliderPosition" @input="el.sliderPosition = $event.target.value" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; cursor: ew-resize; opacity: 0; z-index: 10;" />
               </div>
 
               <div v-else-if="el.type === 'marquee'" style="width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; position: relative;" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), boxShadow: el.boxShadow || 'none' }">
@@ -14995,6 +15352,112 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   .drag-protector {
     z-index: 1 !important;
+  }
+
+  .comparator-editor-hit {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    transform: translateX(-50%);
+    cursor: ew-resize;
+    z-index: 12;
+  }
+
+  .speed-presets-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .speed-preset-btn {
+    min-height: 30px;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  .speed-preset-btn.is-active {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  }
+
+  /* IMAGEN COMPARADOR - Estilos Limpios */
+  .pro-image-comparator {
+    --slider-pos: 50%;
+  }
+
+  .compare-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform-origin: 50% 50%;
+    pointer-events: none;
+  }
+
+  .compare-img-foreground {
+    clip-path: polygon(0 0, var(--slider-pos) 0, var(--slider-pos) 100%, 0 100%);
+  }
+
+  .compare-slider {
+    background: transparent;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .compare-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 40px;
+    height: 100vh;
+    background: transparent;
+    cursor: ew-resize;
+  }
+
+  .compare-slider::-moz-range-thumb {
+    width: 40px;
+    height: 100vh;
+    background: transparent;
+    cursor: ew-resize;
+    border: none;
+  }
+
+  .compare-divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--slider-pos);
+    width: 2px;
+    background-color: white;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  }
+
+  .compare-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 36px;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    font-size: 14px;
+    gap: 2px;
   }
 
   .ipm-trigger-btn {
