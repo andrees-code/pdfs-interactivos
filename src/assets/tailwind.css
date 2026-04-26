@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 font-body;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply border border-surface-line/70 bg-surface-raised/70 shadow-panel;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .gradient-text {
+    background: linear-gradient(120deg, #dbe8ff 0%, #8cb0ff 40%, #5d86ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-glow {
+    position: absolute;
+    inset: auto auto 10% 50%;
+    width: min(48vw, 760px);
+    height: min(48vw, 760px);
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(63, 103, 255, 0.35) 0%, rgba(8, 11, 20, 0) 68%);
+    filter: blur(16px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .reveal-up {
+    animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .float-soft {
+    animation: floatSoft 6s ease-in-out infinite;
+  }
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatSoft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}

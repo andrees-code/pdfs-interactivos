@@ -675,12 +675,12 @@
                     }"
                   ></div>
 
-                  <Suspense v-if="docType === 'pdf'">
+                  <Suspense v-if="docType === 'pdf' && (!hasExtractedTextOnCurrentPage || currentBgImage === 'none')">
                     <template #default>
                       <PdfViewer
                         v-if="_PDF_BASE64_STORE"
                         :pdfBase64="_PDF_BASE64_STORE"
-                        :pageNum="pageNum"
+                        :pageNum="pdfPageMap[pageNum] || pageNum"
                         @document-loaded="(doc) => { _RAW_PDF_DOC = doc; numPages = doc.numPages; }"
                       />
                     </template>
@@ -741,8 +741,8 @@
                         zIndex: index + 10,
                         opacity: el.opacity ?? 1,
                         transform: `rotate(${el.rotation || 0}deg)`,
-                        animationDelay: playMode && (getElementAnimationTrigger(el) === 'withPrevious' || getElementAnimationTrigger(el) === 'afterPrevious') ? `${index * 0.05}s` : '0s',
                         mixBlendMode: el.mixBlendMode || 'normal',
+                        ...getElementAnimationStyle(el, index),
                       }"
                       @mousedown.stop="startDrag($event, el)"
                       @click.stop="playMode ? executeEvents(el, 'click') : null"
@@ -2421,28 +2421,77 @@
               </div>
 
               <div class="prop-section" v-if="selectedElement.type !== 'draw'" v-show="activeInspectorTab === 'animations'">
-                <div class="section-title">Animación (Entrada)</div>
+                <div class="section-title">Motor de animacion</div>
                 <div class="prop-group mb-0">
+                  <label>Categoria</label>
+                  <select v-model="selectedElement.animationCategory" class="pro-input" @change="updateSelectedAnimationCategory">
+                    <option v-for="option in animationCategoryOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </div>
+                <div class="prop-group mb-0 mt-2">
                   <label>Efecto</label>
-                  <select v-model="selectedElement.animationType" class="pro-input">
+                  <select v-model="selectedElement.animationType" class="pro-input" @change="updateSelectedAnimationEffect">
                     <option value="none">Ninguna</option>
-                    <option value="fade-in">Desvanecer (Fade In)</option>
-                    <option value="slide-up">Deslizar Arriba</option>
-                    <option value="zoom-in">Acercar (Zoom In)</option>
-                    <option value="bounce">Rebote</option>
+                    <option v-for="option in selectedAnimationEffectOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                   </select>
                 </div>
                 <div class="prop-group mb-0 mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
                   <label>Desencadenador</label>
                   <select v-model="selectedElement.animationTrigger" class="pro-input">
-                    <option value="onReveal">Aparecer (Oculto a Visible)</option>
-                    <option value="withPrevious">Con la anterior</option>
-                    <option value="afterPrevious">Después de la anterior</option>
+                    <option v-for="option in animationTriggerOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </div>
+                <div class="prop-row mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
+                  <div class="prop-group half mb-0">
+                    <label>Duracion (s)</label>
+                    <input type="number" v-model="selectedElement.animationDuration" class="pro-input" min="0.05" max="12" step="0.05" />
+                  </div>
+                  <div class="prop-group half mb-0">
+                    <label>Delay (s)</label>
+                    <input type="number" v-model="selectedElement.animationDelay" class="pro-input" min="0" max="12" step="0.05" />
+                  </div>
+                </div>
+                <div class="prop-group mb-0 mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
+                  <label>Easing</label>
+                  <select v-model="selectedElement.animationEasing" class="pro-input">
+                    <option v-for="option in animationEasingOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                   </select>
                 </div>
                 <div class="prop-group mb-0 mt-2" v-if="selectedElement.animationType && selectedElement.animationType !== 'none'">
                   <label>Paso en el Timeline (Orden)</label>
                   <input type="number" v-model="selectedElement.animationOrder" class="pro-input" min="0" />
+                </div>
+                <div class="animation-timeline-panel mt-3" v-if="animationTimelineTracks.length">
+                  <div class="animation-timeline-header">
+                    <div>
+                      <strong>Timeline visual</strong>
+                      <small>{{ animationTimelineTracks.length }} elementos animados</small>
+                    </div>
+                    <div class="animation-timeline-ruler">
+                      <span v-for="second in timelineSecondMarkers" :key="second">{{ second }}s</span>
+                    </div>
+                  </div>
+                  <div class="animation-timeline-body">
+                    <button
+                      v-for="track in animationTimelineTracks"
+                      :key="track.elementId"
+                      type="button"
+                      class="animation-track-row"
+                      :class="{ selected: selectedElementIds.includes(track.elementId) }"
+                      @click="selectAnimationTrack(track.elementId)"
+                    >
+                      <span class="animation-track-label">{{ track.elementName }}</span>
+                      <span class="animation-track-lane">
+                        <span
+                          class="animation-track-block"
+                          :class="[`category-${track.category}`]"
+                          :style="getAnimationTimelineBlockStyle(track)"
+                        >
+                          {{ track.effect }}
+                        </span>
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -4958,36 +5007,116 @@ const getPdfjsLib = async () => {
 };
 
 // --- NUEVO: TIMELINE ANIMATOR PARA EL PLAYMODE ---
-const currentAnimationStep = ref(0);
+type AnimationCategory = 'entrance' | 'emphasis' | 'exit'
+
+type AnimationPreset = {
+  label: string
+  category: AnimationCategory
+  defaultDuration: number
+  defaultEasing: string
+  iterations?: number
+}
+
+const currentAnimationStep = ref(0)
+const hiddenExitAnimationIds = ref<string[]>([])
+const exitAnimationTimers = new Map<string, number>()
+
+const animationCategoryOptions: Array<{ value: AnimationCategory; label: string }> = [
+  { value: 'entrance', label: 'Entrada' },
+  { value: 'emphasis', label: 'Enfasis' },
+  { value: 'exit', label: 'Salida' },
+]
+
+const animationTriggerOptions = [
+  { value: 'onReveal', label: 'Aparecer' },
+  { value: 'withPrevious', label: 'Con la anterior' },
+  { value: 'afterPrevious', label: 'Despues de la anterior' },
+]
+
+const animationEasingOptions = [
+  { value: 'ease-out', label: 'Ease Out' },
+  { value: 'ease-in', label: 'Ease In' },
+  { value: 'ease-in-out', label: 'Ease In Out' },
+  { value: 'linear', label: 'Lineal' },
+  { value: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)', label: 'Bounce' },
+  { value: 'cubic-bezier(0.34, 1.56, 0.64, 1)', label: 'Elastic' },
+]
+
+const animationPresetMap: Record<string, AnimationPreset> = {
+  appear: { label: 'Aparecer', category: 'entrance', defaultDuration: 0.05, defaultEasing: 'linear' },
+  'fade-in': { label: 'Desvanecer', category: 'entrance', defaultDuration: 0.8, defaultEasing: 'ease-out' },
+  'slide-up': { label: 'Deslizar arriba', category: 'entrance', defaultDuration: 0.8, defaultEasing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+  'fly-in-left': { label: 'Volar desde izquierda', category: 'entrance', defaultDuration: 0.85, defaultEasing: 'ease-out' },
+  'fly-in-right': { label: 'Volar desde derecha', category: 'entrance', defaultDuration: 0.85, defaultEasing: 'ease-out' },
+  'fly-in-top': { label: 'Volar desde arriba', category: 'entrance', defaultDuration: 0.85, defaultEasing: 'ease-out' },
+  'fly-in-bottom': { label: 'Volar desde abajo', category: 'entrance', defaultDuration: 0.85, defaultEasing: 'ease-out' },
+  'zoom-in': { label: 'Zoom in', category: 'entrance', defaultDuration: 0.8, defaultEasing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+  bounce: { label: 'Rebote', category: 'entrance', defaultDuration: 0.8, defaultEasing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
+  'flip-in-x': { label: 'Flip X', category: 'entrance', defaultDuration: 0.9, defaultEasing: 'ease-out' },
+  'flip-in-y': { label: 'Flip Y', category: 'entrance', defaultDuration: 0.9, defaultEasing: 'ease-out' },
+  'rotate-in': { label: 'Rotar entrada', category: 'entrance', defaultDuration: 0.8, defaultEasing: 'ease-out' },
+  'wipe-left': { label: 'Wipe izquierda', category: 'entrance', defaultDuration: 0.85, defaultEasing: 'ease-out' },
+  'wipe-right': { label: 'Wipe derecha', category: 'entrance', defaultDuration: 0.85, defaultEasing: 'ease-out' },
+  'rise-up': { label: 'Rise up', category: 'entrance', defaultDuration: 0.8, defaultEasing: 'ease-out' },
+  pulse: { label: 'Pulse', category: 'emphasis', defaultDuration: 1.1, defaultEasing: 'ease-in-out', iterations: 2 },
+  spin: { label: 'Spin', category: 'emphasis', defaultDuration: 0.9, defaultEasing: 'linear' },
+  wobble: { label: 'Wobble', category: 'emphasis', defaultDuration: 0.9, defaultEasing: 'ease-in-out' },
+  shake: { label: 'Shake', category: 'emphasis', defaultDuration: 0.6, defaultEasing: 'ease-in-out' },
+  flash: { label: 'Flash', category: 'emphasis', defaultDuration: 0.75, defaultEasing: 'ease-in-out' },
+  tada: { label: 'Tada', category: 'emphasis', defaultDuration: 0.9, defaultEasing: 'ease-in-out' },
+  grow: { label: 'Grow', category: 'emphasis', defaultDuration: 0.6, defaultEasing: 'ease-out' },
+  shrink: { label: 'Shrink', category: 'emphasis', defaultDuration: 0.6, defaultEasing: 'ease-out' },
+  glow: { label: 'Glow', category: 'emphasis', defaultDuration: 1.2, defaultEasing: 'ease-in-out', iterations: 2 },
+  'fade-out': { label: 'Fade out', category: 'exit', defaultDuration: 0.7, defaultEasing: 'ease-in' },
+  'fly-out-left': { label: 'Salir a izquierda', category: 'exit', defaultDuration: 0.75, defaultEasing: 'ease-in' },
+  'zoom-out': { label: 'Zoom out', category: 'exit', defaultDuration: 0.7, defaultEasing: 'ease-in' },
+  'sink-down': { label: 'Sink down', category: 'exit', defaultDuration: 0.75, defaultEasing: 'ease-in' },
+}
+
+const animationTypeAliases: Record<string, string> = {
+  fade: 'fade-in',
+  fadein: 'fade-in',
+  appear: 'appear',
+  'fade-in': 'fade-in',
+  'slide-in': 'slide-up',
+  slideup: 'slide-up',
+  'slide-up': 'slide-up',
+  zoom: 'zoom-in',
+  zoomin: 'zoom-in',
+  'zoom-in': 'zoom-in',
+  pop: 'bounce',
+  popin: 'bounce',
+  bouncein: 'bounce',
+  bounce: 'bounce',
+  none: 'none',
+}
+
+const animationEffectOptionsByCategory = animationCategoryOptions.reduce((acc, category) => {
+  acc[category.value] = Object.entries(animationPresetMap)
+    .filter(([, preset]) => preset.category === category.value)
+    .map(([value, preset]) => ({ value, label: preset.label }))
+  return acc
+}, {} as Record<AnimationCategory, Array<{ value: string; label: string }>>)
 
 const normalizeAnimationType = (value: any): string => {
-  if (!value || typeof value !== 'string') return 'none';
+  if (!value || typeof value !== 'string') return 'none'
 
-  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, '-');
-  const aliases: Record<string, string> = {
-    fade: 'fade-in',
-    fadein: 'fade-in',
-    appear: 'fade-in',
-    'fade-in': 'fade-in',
-    'slide-in': 'slide-up',
-    slideup: 'slide-up',
-    'slide-up': 'slide-up',
-    zoom: 'zoom-in',
-    zoomin: 'zoom-in',
-    'zoom-in': 'zoom-in',
-    pop: 'bounce',
-    popin: 'bounce',
-    bouncein: 'bounce',
-    bounce: 'bounce',
-    none: 'none',
-  };
+  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, '-')
+  return animationTypeAliases[normalized] || normalized
+}
 
-  return aliases[normalized] || normalized;
-};
+const normalizeAnimationCategory = (value: any, fallback: AnimationCategory = 'entrance'): AnimationCategory => {
+  if (value === 'entrance' || value === 'emphasis' || value === 'exit') return value
+  return fallback
+}
 
-const getElementAnimationType = (el: any): string => {
-  return normalizeAnimationType(el?.animationType || el?.animation);
-};
+const getAnimationPreset = (type: string): AnimationPreset | null => {
+  return animationPresetMap[type] || null
+}
+
+const getDefaultAnimationTypeForCategory = (category: AnimationCategory): string => {
+  return animationEffectOptionsByCategory[category]?.[0]?.value || 'fade-in'
+}
 
 const normalizeAnimationTrigger = (value: any): string => {
   if (!value || typeof value !== 'string') return 'onReveal';
@@ -5006,6 +5135,15 @@ const normalizeAnimationTrigger = (value: any): string => {
   return 'onReveal';
 };
 
+const getElementAnimationType = (el: any): string => {
+  return normalizeAnimationType(el?.animationType || el?.animation)
+}
+
+const getElementAnimationCategory = (el: any): AnimationCategory => {
+  const presetCategory = getAnimationPreset(getElementAnimationType(el))?.category || 'entrance'
+  return normalizeAnimationCategory(el?.animationCategory, presetCategory)
+}
+
 const getElementAnimationTrigger = (el: any): string => {
   return normalizeAnimationTrigger(el?.animationTrigger);
 };
@@ -5022,10 +5160,90 @@ const getElementAnimationOrder = (el: any): number => {
   return rawOrder <= 0 ? 1 : rawOrder;
 };
 
+const getElementAnimationDuration = (el: any): number => {
+  const preset = getAnimationPreset(getElementAnimationType(el))
+  const rawValue = Number(el?.animationDuration)
+  if (!Number.isFinite(rawValue) || rawValue <= 0) return preset?.defaultDuration || 0.8
+  return Math.min(Math.max(rawValue, 0.05), 12)
+}
+
+const getElementAnimationDelay = (el: any): number => {
+  const rawValue = Number(el?.animationDelay ?? 0)
+  if (!Number.isFinite(rawValue) || rawValue < 0) return 0
+  return Math.min(rawValue, 12)
+}
+
+const getElementAnimationEasing = (el: any): string => {
+  const preset = getAnimationPreset(getElementAnimationType(el))
+  const easing = typeof el?.animationEasing === 'string' ? el.animationEasing.trim() : ''
+  return easing || preset?.defaultEasing || 'ease-out'
+}
+
+const getElementAnimationIterationCount = (el: any): string => {
+  const preset = getAnimationPreset(getElementAnimationType(el))
+  const rawValue = Number(el?.animationIterations)
+  if (Number.isFinite(rawValue) && rawValue > 0) return String(Math.round(rawValue))
+  return String(preset?.iterations || 1)
+}
+
+const syncElementAnimationConfig = (el: any) => {
+  if (!el) return
+
+  const animationType = getElementAnimationType(el)
+  if (animationType === 'none') {
+    el.animationType = 'none'
+    el.animation = 'none'
+    el.animationCategory = 'entrance'
+    el.animationTrigger = normalizeAnimationTrigger(el.animationTrigger)
+    el.animationDuration = 0.8
+    el.animationDelay = 0
+    el.animationEasing = 'ease-out'
+    el.animationOrder = 0
+    return
+  }
+
+  const preset = getAnimationPreset(animationType)
+  const category = normalizeAnimationCategory(el.animationCategory, preset?.category || 'entrance')
+  const categoryAllowsEffect = animationEffectOptionsByCategory[category].some((option) => option.value === animationType)
+  const nextAnimationType = categoryAllowsEffect ? animationType : getDefaultAnimationTypeForCategory(category)
+
+  el.animationCategory = category
+  el.animationType = nextAnimationType
+  el.animation = nextAnimationType
+  el.animationTrigger = normalizeAnimationTrigger(el.animationTrigger)
+  el.animationDuration = getElementAnimationDuration({ ...el, animationType: nextAnimationType })
+  el.animationDelay = getElementAnimationDelay(el)
+  el.animationEasing = getElementAnimationEasing({ ...el, animationType: nextAnimationType })
+  el.animationOrder = getElementAnimationOrder({ ...el, animationType: nextAnimationType })
+}
+
+const clearExitAnimationTimers = () => {
+  exitAnimationTimers.forEach((timerId) => window.clearTimeout(timerId))
+  exitAnimationTimers.clear()
+}
+
+const scheduleExitAnimationsForStep = (step: number) => {
+  currentPageElements.value
+    .filter((el) => getElementAnimationType(el) !== 'none')
+    .filter((el) => getElementAnimationCategory(el) === 'exit')
+    .filter((el) => getElementAnimationOrder(el) === step)
+    .forEach((el) => {
+      const totalDelay = (getElementAnimationDelay(el) + getElementAnimationDuration(el)) * 1000
+      const timerId = window.setTimeout(() => {
+        if (!hiddenExitAnimationIds.value.includes(el.id)) {
+          hiddenExitAnimationIds.value = [...hiddenExitAnimationIds.value, el.id]
+        }
+        exitAnimationTimers.delete(el.id)
+      }, totalDelay)
+      exitAnimationTimers.set(el.id, timerId)
+    })
+}
+
 const isElementWaitingForAnimation = (el: any): boolean => {
   return (
     playMode.value &&
     !el?.isHidden &&
+    getElementAnimationCategory(el) === 'entrance' &&
     getElementAnimationType(el) !== 'none' &&
     getElementAnimationOrder(el) > currentAnimationStep.value
   );
@@ -5037,13 +5255,30 @@ const getElementAnimationClass = (el: any): string => {
   const animationType = getElementAnimationType(el);
   if (animationType === 'none') return '';
 
+  const category = getElementAnimationCategory(el)
+  if (category === 'exit' && hiddenExitAnimationIds.value.includes(el.id)) return ''
+
   return getElementAnimationOrder(el) <= currentAnimationStep.value ? `anim-${animationType}` : '';
 };
 
 const shouldShowElementOnCanvas = (el: any): boolean => {
   if (!playMode.value) return true;
-  return !el?.isHidden && isInsideCanvas(el) && !isElementWaitingForAnimation(el);
+  return !el?.isHidden && isInsideCanvas(el) && !isElementWaitingForAnimation(el) && !hiddenExitAnimationIds.value.includes(el.id);
 };
+
+const getElementAnimationStyle = (el: any, index: number) => {
+  const trigger = getElementAnimationTrigger(el)
+  const sequenceOffset = playMode.value && (trigger === 'withPrevious' || trigger === 'afterPrevious') ? index * 0.05 : 0
+  const totalDelay = getElementAnimationDelay(el) + sequenceOffset
+
+  return {
+    animationDelay: playMode.value ? `${totalDelay}s` : '0s',
+    '--anim-duration': `${getElementAnimationDuration(el)}s`,
+    '--anim-easing': getElementAnimationEasing(el),
+    '--anim-iteration-count': getElementAnimationIterationCount(el),
+    '--anim-distance': `${Math.max(48, Math.round(Math.min(baseWidth.value, baseHeight.value) * 0.08))}px`,
+  }
+}
 
 const getElementMemo = (el: any, index: number) => {
   // Si el elemento está seleccionado, incluir un JSON completo para que cualquier
@@ -5090,14 +5325,21 @@ const getElementMemo = (el: any, index: number) => {
     el?.afterOffsetX,
     el?.afterOffsetY,
     el?.isHidden,
+    el?.animationCategory,
     el?.animationType,
     el?.animation,
+    el?.animationDuration,
+    el?.animationDelay,
+    el?.animationEasing,
     el?.animationOrder,
     editingElementId.value === el?.id,
     selectedElementIds.value.includes(el?.id),
     playMode.value,
     currentAnimationStep.value,
     index,
+    el?.isOpen,
+    el?.rating,
+    el?.items ? JSON.stringify(el.items) : null
   ];
 };
 
@@ -5105,6 +5347,90 @@ const maxAnimationStep = computed(() => {
   if (!currentPageElements.value) return 0;
   return Math.max(0, ...currentPageElements.value.map((el) => getElementAnimationOrder(el)));
 });
+
+const animatedPageElements = computed(() => {
+  return currentPageElements.value.filter((el) => getElementAnimationType(el) !== 'none')
+})
+
+const animationTimelineTotalDuration = computed(() => {
+  const maxDuration = animatedPageElements.value.reduce((longest, el) => {
+    return Math.max(longest, getElementAnimationDelay(el) + getElementAnimationDuration(el))
+  }, 0)
+  return Math.max(maxDuration, 2)
+})
+
+const animationTimelineTracks = computed(() => {
+  return [...animatedPageElements.value]
+    .sort((left, right) => {
+      const orderDiff = getElementAnimationOrder(left) - getElementAnimationOrder(right)
+      if (orderDiff !== 0) return orderDiff
+      return getElementDisplayName(left).localeCompare(getElementDisplayName(right))
+    })
+    .map((el) => ({
+      elementId: el.id,
+      elementName: getElementDisplayName(el),
+      effect: getElementAnimationType(el),
+      category: getElementAnimationCategory(el),
+      trigger: getElementAnimationTrigger(el),
+      order: getElementAnimationOrder(el),
+      delay: getElementAnimationDelay(el),
+      duration: getElementAnimationDuration(el),
+    }))
+})
+
+const timelineSecondMarkers = computed(() => {
+  const maxSeconds = Math.ceil(animationTimelineTotalDuration.value)
+  return Array.from({ length: maxSeconds + 1 }, (_, index) => index)
+})
+
+const selectedAnimationEffectOptions = computed(() => {
+  if (!selectedElement.value) return animationEffectOptionsByCategory.entrance
+  return animationEffectOptionsByCategory[getElementAnimationCategory(selectedElement.value)]
+})
+
+const selectAnimationTrack = (elementId: string) => {
+  selectElement(elementId)
+  activeInspectorTab.value = 'animations'
+}
+
+const getAnimationTimelineBlockStyle = (track: {
+  delay: number
+  duration: number
+}) => {
+  const totalDuration = animationTimelineTotalDuration.value || 1
+  return {
+    left: `${(track.delay / totalDuration) * 100}%`,
+    width: `${Math.max((track.duration / totalDuration) * 100, 6)}%`,
+  }
+}
+
+const updateSelectedAnimationCategory = () => {
+  if (!selectedElement.value) return
+  const category = normalizeAnimationCategory(selectedElement.value.animationCategory)
+  const currentType = getElementAnimationType(selectedElement.value)
+  if (currentType === 'none' || getAnimationPreset(currentType)?.category !== category) {
+    selectedElement.value.animationType = getDefaultAnimationTypeForCategory(category)
+  }
+  syncElementAnimationConfig(selectedElement.value)
+}
+
+const updateSelectedAnimationEffect = () => {
+  if (!selectedElement.value) return
+  syncElementAnimationConfig(selectedElement.value)
+}
+
+watch(currentAnimationStep, (step, previousStep) => {
+  if (!playMode.value) return
+
+  if (step <= previousStep) {
+    clearExitAnimationTimers()
+    hiddenExitAnimationIds.value = []
+    for (let order = 1; order <= step; order += 1) scheduleExitAnimationsForStep(order)
+    return
+  }
+
+  scheduleExitAnimationsForStep(step)
+})
 
 const advancePresentation = () => {
   if (currentAnimationStep.value < maxAnimationStep.value) {
@@ -5816,6 +6142,7 @@ const moveSlideToPosition = (fromPage: number, toPage: number) => {
   const srcDocState = JSON.parse(JSON.stringify(documentState.value[fromPage] || []))
   const srcSlideConfig = JSON.parse(JSON.stringify(slideConfigs.value[fromPage] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
   const srcPdfPage = pdfPageMap.value[fromPage]
+  const srcThumbnail = generatedThumbnails.value[fromPage]
 
   const direction = fromPage < toPage ? 1 : -1
   const start = fromPage
@@ -5824,22 +6151,35 @@ const moveSlideToPosition = (fromPage: number, toPage: number) => {
   // Desplazamos todas las páginas intermedias
   if (direction === 1) {
     for (let i = start; i < end; i++) {
-      documentState.value[i] = documentState.value[i + 1] || []
-      slideConfigs.value[i] = slideConfigs.value[i + 1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+          documentState.value[i] = JSON.parse(JSON.stringify(documentState.value[i + 1] || []))
+          slideConfigs.value[i] = JSON.parse(JSON.stringify(slideConfigs.value[i + 1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
       pdfPageMap.value[i] = pdfPageMap.value[i + 1] || 0
+      const shiftedThumb = generatedThumbnails.value[i + 1]
+      if (shiftedThumb !== undefined) generatedThumbnails.value[i] = shiftedThumb
+      else delete generatedThumbnails.value[i]
     }
   } else {
     for (let i = start; i > end; i--) {
-      documentState.value[i] = documentState.value[i - 1] || []
-      slideConfigs.value[i] = slideConfigs.value[i - 1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+          documentState.value[i] = JSON.parse(JSON.stringify(documentState.value[i - 1] || []))
+          slideConfigs.value[i] = JSON.parse(JSON.stringify(slideConfigs.value[i - 1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
       pdfPageMap.value[i] = pdfPageMap.value[i - 1] || 0
+      const shiftedThumb = generatedThumbnails.value[i - 1]
+      if (shiftedThumb !== undefined) generatedThumbnails.value[i] = shiftedThumb
+      else delete generatedThumbnails.value[i]
     }
   }
 
   // Colocamos la página origen en su nueva posición
   documentState.value[toPage] = srcDocState
   slideConfigs.value[toPage] = srcSlideConfig
-  pdfPageMap.value[toPage] = srcPdfPage
+  pdfPageMap.value[toPage] = srcPdfPage ?? 0
+  if (srcThumbnail !== undefined) generatedThumbnails.value[toPage] = srcThumbnail
+  else delete generatedThumbnails.value[toPage]
+
+  documentState.value = { ...documentState.value }
+  slideConfigs.value = { ...slideConfigs.value }
+  pdfPageMap.value = { ...pdfPageMap.value }
+  generatedThumbnails.value = { ...generatedThumbnails.value }
 
   // Actualizamos la página activa
   if (pageNum.value === fromPage) {
@@ -6091,6 +6431,11 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const docType = ref<'pdf' | 'blank' | 'template' | 'pptx'>('blank')
   const hasDoc = ref(false)
   const playMode = ref(false)
+
+  watch(playMode, () => {
+    hiddenExitAnimationIds.value = []
+    clearExitAnimationTimers()
+  })
 
   // --- LÓGICA DE AUTO-OCULTADO DEL MENÚ DE PRESENTACIÓN ---
 const showPlayNav = ref(true);
@@ -7626,6 +7971,11 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   const clipboardElements = ref<any[]>([])
 
   const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
+  const hasExtractedTextOnCurrentPage = computed(() =>
+    currentPageElements.value.some(
+      (el: any) => typeof el?.id === 'string' && el.id.startsWith('el_pdf_'),
+    ),
+  )
   const selectedElement = computed(() =>
     selectedElementIds.value.length === 1
       ? currentPageElements.value.find((el) => el.id === selectedElementIds.value[0])
@@ -7636,6 +7986,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     selectedElement,
     (el) => {
       if (!el) return
+      syncElementAnimationConfig(el)
       el.animationTrigger = normalizeAnimationTrigger(el.animationTrigger)
       if (el.type === 'shape') {
         if (!el.shapePreset) {
@@ -11025,48 +11376,64 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       if (!confirm(`¿Estás seguro de eliminar la Diapositiva ${page}?`)) return
 
     for (let i = page; i < numPages.value; i++) {
-      documentState.value[i] = documentState.value[i + 1] || []
-      slideConfigs.value[i] = slideConfigs.value[i + 1] || {
+      documentState.value[i] = JSON.parse(JSON.stringify(documentState.value[i + 1] || []))
+      slideConfigs.value[i] = JSON.parse(JSON.stringify(slideConfigs.value[i + 1] || {
         bgColor: '#ffffff',
         bgImage: null,
         transition: 'none',
-      }
+      }))
       pdfPageMap.value[i] = pdfPageMap.value[i + 1] || 0
     }
     delete documentState.value[numPages.value]
     delete slideConfigs.value[numPages.value]
     delete pdfPageMap.value[numPages.value]
     numPages.value -= 1
+
+    documentState.value = { ...documentState.value }
+    slideConfigs.value = { ...slideConfigs.value }
+    pdfPageMap.value = { ...pdfPageMap.value }
+
     changePageTo(Math.min(pageNum.value, numPages.value))
   }
 
   const duplicateSlide = (page: number) => {
     if (isTemplateCreatorMode.value) return
     for (let i = numPages.value; i > page; i--) {
-      documentState.value[i + 1] = documentState.value[i]
-      slideConfigs.value[i + 1] = slideConfigs.value[i]
-      pdfPageMap.value[i + 1] = pdfPageMap.value[i]
+      documentState.value[i + 1] = JSON.parse(JSON.stringify(documentState.value[i] || []))
+      slideConfigs.value[i + 1] = JSON.parse(JSON.stringify(slideConfigs.value[i] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
+      pdfPageMap.value[i + 1] = pdfPageMap.value[i] || 0
     }
-    documentState.value[page + 1] = (documentState.value[page] || []).map((el) => ({
+    documentState.value[page + 1] = JSON.parse(JSON.stringify(documentState.value[page] || [])).map((el: any) => ({
       ...el,
       id: `el_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     }))
-    slideConfigs.value[page + 1] = { ...slideConfigs.value[page] }
-    pdfPageMap.value[page + 1] = pdfPageMap.value[page]
+    slideConfigs.value[page + 1] = JSON.parse(JSON.stringify(slideConfigs.value[page] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
+    pdfPageMap.value[page + 1] = pdfPageMap.value[page] || 0
     numPages.value += 1
+
+    documentState.value = { ...documentState.value }
+    slideConfigs.value = { ...slideConfigs.value }
+    pdfPageMap.value = { ...pdfPageMap.value }
+
     changePageTo(page + 1)
   }
 
   const swapSlides = (p1: number, p2: number) => {
-    ;[documentState.value[p1], documentState.value[p2]] = [
-      documentState.value[p2],
-      documentState.value[p1],
-    ]
-    ;[slideConfigs.value[p1], slideConfigs.value[p2]] = [
-      slideConfigs.value[p2],
-      slideConfigs.value[p1],
-    ]
-    ;[pdfPageMap.value[p1], pdfPageMap.value[p2]] = [pdfPageMap.value[p2], pdfPageMap.value[p1]]
+    const tempDoc = JSON.parse(JSON.stringify(documentState.value[p1] || []))
+    const tempConfig = JSON.parse(JSON.stringify(slideConfigs.value[p1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
+    const tempPdf = pdfPageMap.value[p1] || 0
+
+    documentState.value[p1] = JSON.parse(JSON.stringify(documentState.value[p2] || []))
+    slideConfigs.value[p1] = JSON.parse(JSON.stringify(slideConfigs.value[p2] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
+    pdfPageMap.value[p1] = pdfPageMap.value[p2] || 0
+
+    documentState.value[p2] = tempDoc
+    slideConfigs.value[p2] = tempConfig
+    pdfPageMap.value[p2] = tempPdf
+
+    documentState.value = { ...documentState.value }
+    slideConfigs.value = { ...slideConfigs.value }
+    pdfPageMap.value = { ...pdfPageMap.value }
   }
 
   const moveSlide = (page: number, direction: 'up' | 'down') => {
@@ -11093,9 +11460,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       if (hasTemplateClosingSlide.value && numPages.value >= 3) {
         const insertAt = numPages.value
         for (let i = numPages.value; i >= insertAt; i--) {
-          documentState.value[i + 1] = documentState.value[i]
-          slideConfigs.value[i + 1] = slideConfigs.value[i]
-          pdfPageMap.value[i + 1] = pdfPageMap.value[i]
+          documentState.value[i + 1] = JSON.parse(JSON.stringify(documentState.value[i] || []))
+          slideConfigs.value[i + 1] = JSON.parse(JSON.stringify(slideConfigs.value[i] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
+          pdfPageMap.value[i + 1] = pdfPageMap.value[i] || 0
         }
         newPage = insertAt
       }
@@ -12510,6 +12877,19 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank')
       return alert('El proyecto está vacío.')
 
+    // Asegura que el contenido editable en curso (contenteditable) se persista antes de exportar.
+    closeActiveTextEditor()
+
+    // Snapshot estable: exportar exactamente lo que el usuario tiene editado en este momento.
+    const snapshotDocumentState: Record<number, any[]> = JSON.parse(JSON.stringify(documentState.value || {}))
+    const snapshotSlideConfigs: Record<number, any> = JSON.parse(JSON.stringify(slideConfigs.value || {}))
+    const snapshotPdfPageMap: Record<number, number> = JSON.parse(JSON.stringify(pdfPageMap.value || {}))
+    const snapshotPdfThumbnails: Record<number, string> = JSON.parse(JSON.stringify(pdfThumbnails.value || {}))
+    const snapshotDocType = docType.value
+    const snapshotBaseWidth = baseWidth.value
+    const snapshotBaseHeight = baseHeight.value
+    const snapshotNumPages = Math.max(numPages.value || 1, 1)
+
     showToast('Preparando exportación y optimizando recursos...', 'info');
 
     // 🚀 FORZAMOS GUARDADO: Convierte PDFs gigantes y Base64 en URLs de Vercel/Mongo antes de exportar
@@ -12538,7 +12918,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     // Filtrar elementos fuera del canvas y empaquetar imágenes/audios en Base64
     const filteredDocumentState: Record<number, any[]> = {};
-    for (const [page, elements] of Object.entries(documentState.value)) {
+    for (let pageNumKey = 1; pageNumKey <= snapshotNumPages; pageNumKey++) {
+      const elements = snapshotDocumentState[pageNumKey] || [];
+      const config = snapshotSlideConfigs[pageNumKey] || { bgColor: '#ffffff', bgImage: null, transition: 'none' };
+      const hasCustomBgColor = config && config.bgColor && config.bgColor !== '#ffffff' && config.bgColor !== 'transparent';
+      const usesOriginalPdfBg =
+        (snapshotDocType === 'pdf' || snapshotDocType === 'pptx') &&
+        (!config || !config.bgImage || config.bgImage === 'none') &&
+        !hasCustomBgColor;
+
       const processedElements = [];
       for (const el of (elements as any[])) {
         const elWidth = typeof el.width === 'number' ? el.width : 150;
@@ -12550,6 +12938,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           el.y + elHeight > 0
         ) {
           const newEl = { ...el };
+
+          // Evitar superposición: si usamos el fondo original del PDF, el texto ya está impreso en la imagen.
+          // Hacemos transparente el texto nativo HTML para evitar el efecto doble/borroso.
+          if (newEl.type === 'text' && typeof newEl.id === 'string' && newEl.id.startsWith('el_pdf_') && usesOriginalPdfBg) {
+            newEl.color = 'transparent';
+            newEl.textShadow = 'none';
+          }
+
           if (newEl.type === 'map') {
             const staticMapUrl = getMapStaticImageUrl(newEl, 2);
             const embeddedMapImage = await urlToBase64(staticMapUrl);
@@ -12576,15 +12972,32 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           processedElements.push(newEl);
         }
       }
-      filteredDocumentState[Number(page)] = processedElements;
+      filteredDocumentState[pageNumKey] = processedElements;
     }
 
-    // Asegurar que los fondos se incrusten (Embed) en el archivo HTML para uso local
-    const exportConfigs = JSON.parse(JSON.stringify(slideConfigs.value));
-    for (const page in exportConfigs) {
-      if (exportConfigs[page].bgImage) {
-        const absolute = absolutizeUrl(exportConfigs[page].bgImage);
-        exportConfigs[page].bgImage = await urlToBase64(absolute);
+    // Asegurar que los fondos se incrusten (Embed) en el archivo HTML para uso local.
+    // Para PDFs y PPTX, usamos siempre la miniatura en alta resolución como fondo si
+    // no se ha asignado una imagen personalizada, asegurando que se exporte correctamente.
+    const exportConfigs: Record<number, { bgColor: string; bgImage: string | null; transition: string }> = {};
+    for (let pageNumKey = 1; pageNumKey <= snapshotNumPages; pageNumKey++) {
+      exportConfigs[pageNumKey] = JSON.parse(
+        JSON.stringify(snapshotSlideConfigs[pageNumKey] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }),
+      );
+      const pageConfig = exportConfigs[pageNumKey];
+      if (!pageConfig) continue;
+
+      const hasCustomBgColor = pageConfig.bgColor && pageConfig.bgColor !== '#ffffff' && pageConfig.bgColor !== 'transparent';
+
+      if ((snapshotDocType === 'pdf' || snapshotDocType === 'pptx') && (!pageConfig.bgImage || pageConfig.bgImage === 'none') && !hasCustomBgColor) {
+        const mappedPdfPage = snapshotPdfPageMap[pageNumKey];
+        if (mappedPdfPage && snapshotPdfThumbnails[mappedPdfPage]) {
+          pageConfig.bgImage = snapshotPdfThumbnails[mappedPdfPage];
+        }
+      }
+
+      if (pageConfig.bgImage) {
+        const absolute = absolutizeUrl(pageConfig.bgImage);
+        pageConfig.bgImage = (await urlToBase64(absolute)) as string;
       }
     }
 
@@ -12832,7 +13245,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 </style>
   </head>
   <body>
-    <script type="application/json" id="app-meta-data">{"baseWidth": ${baseWidth.value}, "baseHeight": ${baseHeight.value}, "docType": "${docType.value}"}<\/script>
+    <script type="application/json" id="app-meta-data">{"baseWidth": ${snapshotBaseWidth}, "baseHeight": ${snapshotBaseHeight}, "docType": "${snapshotDocType}"}<\/script>
     <script type="application/json" id="app-state-data">${safeJson(filteredDocumentState)}<\/script>
     <script type="application/json" id="app-configs-data">${safeJson(exportConfigs)}<\/script>
 
@@ -15772,12 +16185,147 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   @keyframes transSlide { from { translate: 100px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
   @keyframes transZoom { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
 
-  .anim-fade-in { animation: animFadeIn 0.8s ease-out both; }
-  .anim-slide-in { animation: animSlideIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
-  .anim-bounce { animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
+  .anim-appear { animation: animAppear var(--anim-duration, 0.05s) linear both; }
+  .anim-fade-in { animation: animFadeIn var(--anim-duration, 0.8s) var(--anim-easing, ease-out) both; }
+  .anim-slide-in,
+  .anim-slide-up,
+  .anim-rise-up { animation: animSlideUp var(--anim-duration, 0.8s) var(--anim-easing, cubic-bezier(0.25, 1, 0.5, 1)) both; }
+  .anim-fly-in-left { animation: animFlyInLeft var(--anim-duration, 0.85s) var(--anim-easing, ease-out) both; }
+  .anim-fly-in-right { animation: animFlyInRight var(--anim-duration, 0.85s) var(--anim-easing, ease-out) both; }
+  .anim-fly-in-top { animation: animFlyInTop var(--anim-duration, 0.85s) var(--anim-easing, ease-out) both; }
+  .anim-fly-in-bottom { animation: animFlyInBottom var(--anim-duration, 0.85s) var(--anim-easing, ease-out) both; }
+  .anim-zoom-in { animation: animZoomIn var(--anim-duration, 0.8s) var(--anim-easing, cubic-bezier(0.25, 1, 0.5, 1)) both; }
+  .anim-bounce { animation: animBounce var(--anim-duration, 0.8s) var(--anim-easing, cubic-bezier(0.175, 0.885, 0.32, 1.275)) both; }
+  .anim-flip-in-x { animation: animFlipInX var(--anim-duration, 0.9s) var(--anim-easing, ease-out) both; backface-visibility: hidden; transform-style: preserve-3d; }
+  .anim-flip-in-y { animation: animFlipInY var(--anim-duration, 0.9s) var(--anim-easing, ease-out) both; backface-visibility: hidden; transform-style: preserve-3d; }
+  .anim-rotate-in { animation: animRotateIn var(--anim-duration, 0.8s) var(--anim-easing, ease-out) both; transform-origin: center center; }
+  .anim-wipe-left { animation: animWipeLeft var(--anim-duration, 0.85s) var(--anim-easing, ease-out) both; overflow: hidden; }
+  .anim-wipe-right { animation: animWipeRight var(--anim-duration, 0.85s) var(--anim-easing, ease-out) both; overflow: hidden; }
+  .anim-pulse { animation: animPulse var(--anim-duration, 1.1s) var(--anim-easing, ease-in-out) var(--anim-iteration-count, 2) both; }
+  .anim-spin { animation: animSpin var(--anim-duration, 0.9s) linear var(--anim-iteration-count, 1) both; }
+  .anim-wobble { animation: animWobble var(--anim-duration, 0.9s) var(--anim-easing, ease-in-out) both; }
+  .anim-shake { animation: animShake var(--anim-duration, 0.6s) var(--anim-easing, ease-in-out) both; }
+  .anim-flash { animation: animFlash var(--anim-duration, 0.75s) var(--anim-easing, ease-in-out) both; }
+  .anim-tada { animation: animTada var(--anim-duration, 0.9s) var(--anim-easing, ease-in-out) both; }
+  .anim-grow { animation: animGrow var(--anim-duration, 0.6s) var(--anim-easing, ease-out) both; }
+  .anim-shrink { animation: animShrink var(--anim-duration, 0.6s) var(--anim-easing, ease-out) both; }
+  .anim-glow { animation: animGlow var(--anim-duration, 1.2s) var(--anim-easing, ease-in-out) var(--anim-iteration-count, 2) both; }
+  .anim-fade-out { animation: animFadeOut var(--anim-duration, 0.7s) var(--anim-easing, ease-in) both; }
+  .anim-fly-out-left { animation: animFlyOutLeft var(--anim-duration, 0.75s) var(--anim-easing, ease-in) both; }
+  .anim-zoom-out { animation: animZoomOut var(--anim-duration, 0.7s) var(--anim-easing, ease-in) both; }
+  .anim-sink-down { animation: animSinkDown var(--anim-duration, 0.75s) var(--anim-easing, ease-in) both; }
+  @keyframes animAppear { from { opacity: 0.01; } to { opacity: 1; } }
   @keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes animSlideIn { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
-  @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
+  @keyframes animSlideUp { from { translate: 0 var(--anim-distance, 56px); opacity: 0; } to { translate: 0 0; opacity: 1; } }
+  @keyframes animFlyInLeft { from { translate: calc(var(--anim-distance, 56px) * -1) 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+  @keyframes animFlyInRight { from { translate: var(--anim-distance, 56px) 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+  @keyframes animFlyInTop { from { translate: 0 calc(var(--anim-distance, 56px) * -1); opacity: 0; } to { translate: 0 0; opacity: 1; } }
+  @keyframes animFlyInBottom { from { translate: 0 var(--anim-distance, 56px); opacity: 0; } to { translate: 0 0; opacity: 1; } }
+  @keyframes animZoomIn { from { scale: 0.82; opacity: 0; } to { scale: 1; opacity: 1; } }
+  @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 55% { scale: 1.06; opacity: 1; } 75% { scale: 0.97; } 100% { scale: 1; opacity: 1; } }
+  @keyframes animFlipInX { from { transform: perspective(900px) rotateX(-90deg); opacity: 0; } to { transform: perspective(900px) rotateX(0deg); opacity: 1; } }
+  @keyframes animFlipInY { from { transform: perspective(900px) rotateY(-90deg); opacity: 0; } to { transform: perspective(900px) rotateY(0deg); opacity: 1; } }
+  @keyframes animRotateIn { from { transform: rotate(-18deg) scale(0.92); opacity: 0; } to { transform: rotate(0deg) scale(1); opacity: 1; } }
+  @keyframes animWipeLeft { from { clip-path: inset(0 100% 0 0); opacity: 0.2; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+  @keyframes animWipeRight { from { clip-path: inset(0 0 0 100%); opacity: 0.2; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+  @keyframes animPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  @keyframes animSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes animWobble { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px) rotate(-2deg); } 40% { transform: translateX(7px) rotate(2deg); } 60% { transform: translateX(-4px) rotate(-1deg); } 80% { transform: translateX(3px) rotate(1deg); } }
+  @keyframes animShake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+  @keyframes animFlash { 0%, 100% { opacity: 1; } 25%, 75% { opacity: 0.2; } 50% { opacity: 1; } }
+  @keyframes animTada { 0% { transform: scale3d(1, 1, 1); } 10%, 20% { transform: scale3d(0.95, 0.95, 0.95) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale3d(1.04, 1.04, 1.04) rotate(3deg); } 40%, 60%, 80% { transform: scale3d(1.04, 1.04, 1.04) rotate(-3deg); } 100% { transform: scale3d(1, 1, 1); } }
+  @keyframes animGrow { from { transform: scale(1); } to { transform: scale(1.14); } }
+  @keyframes animShrink { from { transform: scale(1); } to { transform: scale(0.88); } }
+  @keyframes animGlow { 0%, 100% { box-shadow: 0 0 0 rgba(255, 255, 255, 0); filter: brightness(1); } 50% { box-shadow: 0 0 28px rgba(255, 255, 255, 0.45); filter: brightness(1.12); } }
+  @keyframes animFadeOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes animFlyOutLeft { from { translate: 0 0; opacity: 1; } to { translate: calc(var(--anim-distance, 56px) * -1) 0; opacity: 0; } }
+  @keyframes animZoomOut { from { scale: 1; opacity: 1; } to { scale: 0.85; opacity: 0; } }
+  @keyframes animSinkDown { from { translate: 0 0; opacity: 1; } to { translate: 0 calc(var(--anim-distance, 56px) * 0.7); opacity: 0; } }
+
+  .animation-timeline-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  }
+  .animation-timeline-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .animation-timeline-header small {
+    display: block;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .animation-timeline-ruler {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+  }
+  .animation-timeline-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .animation-track-row {
+    display: grid;
+    grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .animation-track-row.selected {
+    border-color: var(--accent-primary);
+    box-shadow: var(--ring-accent);
+  }
+  .animation-track-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+  }
+  .animation-track-lane {
+    position: relative;
+    display: block;
+    height: 30px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    overflow: hidden;
+  }
+  .animation-track-block {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    color: #ffffff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .animation-track-block.category-entrance { background: linear-gradient(135deg, #00a86b, #0f766e); }
+  .animation-track-block.category-emphasis { background: linear-gradient(135deg, #ea580c, #f59e0b); }
+  .animation-track-block.category-exit { background: linear-gradient(135deg, #dc2626, #b91c1c); }
 
   /* RECTÁNGULO DE SELECCIÓN MÚLTIPLE */
   .marquee-selection {

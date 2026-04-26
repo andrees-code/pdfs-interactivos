@@ -3,6 +3,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 import EditorPresentaciones from '@/views/EditorPresentacionesView.vue'
 import LoginView from '@/views/LoginView.vue'
 import BibliotecaView from '@/views/BibliotecaView.vue'
+import DevPresentLandingView from '@/views/DevPresentLandingView.vue'
+import DevPresentAuthView from '@/views/DevPresentAuthView.vue'
+import DevPresentProjectsView from '@/views/DevPresentProjectsView.vue'
+import DevPresentTemplatesView from '@/views/DevPresentTemplatesView.vue'
+import DevPresentEditorView from '@/views/DevPresentEditorView.vue'
+import DevPresentMarketplaceView from '@/views/DevPresentMarketplaceView.vue'
 import { useAuthStore } from '@/stores/auth' // Importamos el store
 
 const router = createRouter({
@@ -39,6 +45,36 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: { requiresGuest: true } // 🚫 Solo para usuarios NO logueados
+    },
+    {
+      path: '/devpresent',
+      name: 'devpresent-landing',
+      component: DevPresentLandingView
+    },
+    {
+      path: '/devpresent/auth',
+      name: 'devpresent-auth',
+      component: DevPresentAuthView
+    },
+    {
+      path: '/devpresent/projects',
+      name: 'devpresent-projects',
+      component: DevPresentProjectsView
+    },
+    {
+      path: '/devpresent/templates',
+      name: 'devpresent-templates',
+      component: DevPresentTemplatesView
+    },
+    {
+      path: '/devpresent/editor/:id?',
+      name: 'devpresent-editor',
+      component: DevPresentEditorView
+    },
+    {
+      path: '/devpresent/marketplace',
+      name: 'devpresent-marketplace',
+      component: DevPresentMarketplaceView
     }
   ],
 })
