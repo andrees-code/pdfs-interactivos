@@ -72,6 +72,14 @@ const props = defineProps({
   numPages: {
     type: Number,
     default: 1
+  },
+  baseWidth: {
+    type: Number,
+    default: 1280
+  },
+  baseHeight: {
+    type: Number,
+    default: 720
   }
 })
 
@@ -126,10 +134,12 @@ const sendMessage = async () => {
       body: JSON.stringify({
         messages: messages.value,
         userId: userId,
-        currentPage: props.currentPage, // Pasamos la página actual a la IA
+        currentPage: props.currentPage,
         documentState: props.documentState,
         slideConfigs: props.slideConfigs,
-        numPages: props.numPages
+        numPages: props.numPages,
+        baseWidth: props.baseWidth,
+        baseHeight: props.baseHeight
       })
     })
 
@@ -139,11 +149,11 @@ const sendMessage = async () => {
 
     const data = await response.json()
 
-    console.log("📥 [AIChatBot] Respuesta del servidor:", { 
-      hasActions: !!data.actions, 
-      actionsCount: data.actions?.length || 0, 
+    console.log("📥 [AIChatBot] Respuesta del servidor:", {
+      hasActions: !!data.actions,
+      actionsCount: data.actions?.length || 0,
       actions: data.actions,
-      hasMessage: !!data.message 
+      hasMessage: !!data.message
     });
 
     // 3. ¡AQUÍ EMITIMOS LAS ÓRDENES AL EDITOR!

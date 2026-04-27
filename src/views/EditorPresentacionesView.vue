@@ -4971,6 +4971,8 @@
     :documentState="documentState"
     :slideConfigs="slideConfigs"
     :numPages="numPages"
+    :baseWidth="baseWidth"
+    :baseHeight="baseHeight"
     @ai-action="handleAiAction"
   />
 </div>
@@ -6066,6 +6068,49 @@ const handleAiAction = async (actionsData: any) => {
           showToast('✨ Último elemento eliminado por la IA', 'success');
         } else {
           showToast('No hay elementos para eliminar', 'warning');
+        }
+      }
+
+      // ==========================================
+      // 🧭 ACCIÓN: NAVEGAR A DIAPOSITIVA
+      // ==========================================
+      else if (actionType === 'navigateToSlide') {
+        const destPage = Number(action.page || targetPage);
+        if (destPage >= 1 && destPage <= numPages.value) {
+          changePageTo(destPage);
+          hasMadeChanges = false; // solo navegación, no modifica estado
+        }
+      }
+
+      // ==========================================
+      // 🧹 ACCIÓN: LIMPIAR DIAPOSITIVA
+      // ==========================================
+      else if (actionType === 'clearSlide') {
+        documentState.value[targetPage] = [];
+        selectedElementIds.value = [];
+        hasMadeChanges = true;
+        showToast('✨ Diapositiva limpiada por la IA', 'success');
+      }
+
+      // ==========================================
+      // 📋 ACCIÓN: DUPLICAR DIAPOSITIVA
+      // ==========================================
+      else if (actionType === 'duplicateSlide') {
+        const fromPage = Number(action.fromPage || targetPage);
+        if (documentState.value[fromPage]) {
+          addNewSlide();
+          const newPage = numPages.value;
+          // Deep copy elements with new IDs
+          const copiedElements = (documentState.value[fromPage] || []).map((el: any) => ({
+            ...el,
+            id: `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          }));
+          documentState.value[newPage] = copiedElements;
+          if (slideConfigs.value[fromPage]) {
+            slideConfigs.value[newPage] = { ...slideConfigs.value[fromPage] };
+          }
+          hasMadeChanges = true;
+          showToast(`✨ Diapositiva ${fromPage} duplicada`, 'success');
         }
       }
 
@@ -16718,6 +16763,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     height: 15px;
     border-top: none;
     border-left: var(--mm-line-width) solid var(--mm-line-color);
+
   }
 
 
