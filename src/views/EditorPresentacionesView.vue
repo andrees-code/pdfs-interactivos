@@ -2286,11 +2286,11 @@
           <aside class="pro-sidebar right-sidebar" v-show="isRightSidebarOpen" v-if="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
             <div class="panel-header">Propiedades</div>
 
-            <div class="inspector-tabs" v-if="selectedElement || canBulkEditText">
+            <div class="inspector-tabs" v-if="selectedElement">
               <button class="inspector-tab" :class="{ active: activeInspectorTab === 'design' }" @click="activeInspectorTab = 'design'" title="Diseño y Estilos">
                 <i class="ph ph-paint-brush"></i>
               </button>
-              <button v-if="selectedElement && ['chart', 'poll', 'table', 'list', 'checkbox', 'calendar', 'mindmap', 'finance'].includes(selectedElement.type)" class="inspector-tab" :class="{ active: activeInspectorTab === 'data' }" @click="activeInspectorTab = 'data'" title="Datos y Contenido">
+              <button v-if="['chart', 'poll', 'table', 'list', 'checkbox', 'calendar', 'mindmap', 'finance'].includes(selectedElement.type)" class="inspector-tab" :class="{ active: activeInspectorTab === 'data' }" @click="activeInspectorTab = 'data'" title="Datos y Contenido">
                 <i class="ph ph-database"></i>
               </button>
               <button class="inspector-tab" :class="{ active: activeInspectorTab === 'interactivity' }" @click="activeInspectorTab = 'interactivity'" title="Interactividad y Eventos">
@@ -3263,7 +3263,7 @@
                 </div>
               </template>
 
-              <template v-if="['text', 'sticky'].includes(selectedElement?.type) && activeInspectorTab === 'design' && !canBulkEditText">
+              <template v-if="['text', 'sticky'].includes(selectedElement.type) && activeInspectorTab === 'design'">
                 <div class="prop-section">
                   <div class="section-title">Tipografía</div>
                   <div class="prop-group">
@@ -3429,164 +3429,6 @@
                       <option value="2px 2px 4px rgba(0,0,0,0.8)">Sombra Básica</option>
                       <option :value="`0 0 10px ${selectedElement.color}`">Resplandor Neón</option>
                     </select>
-                  </div>
-                </div>
-              </template>
-
-              <!-- BULK TEXT EDITING: Single or multiple text elements -->
-              <template v-if="canBulkEditText && activeInspectorTab === 'design'">
-                <div class="prop-section">
-                  <div class="section-title">📝 {{ selectedElements.length === 1 ? 'Estilos de Texto' : 'Editar ' + selectedElements.length + ' Textos' }}</div>
-                  <div class="prop-group">
-                    <label>Fuente</label>
-                    <select
-                      :value="bulkTextStyles?.fontFamily || ''"
-                      @change="applyBulkTextStyle('fontFamily', ($event.target as HTMLSelectElement).value)"
-                      class="pro-input"
-                    >
-                      <option value="">— Sin cambios —</option>
-                      <option value="Arial, sans-serif">Arial</option>
-                      <option value="Helvetica, Arial, sans-serif">Helvetica</option>
-                      <option value="'Times New Roman', serif">Times New Roman</option>
-                      <option value="Georgia, serif">Georgia</option>
-                      <option value="'Courier New', monospace">Courier New</option>
-                      <option value="'Verdana', sans-serif">Verdana</option>
-                      <option value="'Comic Sans MS', cursive, sans-serif">Handwriting / Cómic</option>
-                    </select>
-                  </div>
-                  <div class="prop-row">
-                    <div class="prop-group half">
-                      <label>Tamaño</label>
-                      <input
-                        type="number"
-                        :value="bulkTextStyles?.fontSize || ''"
-                        @change="applyBulkTextStyle('fontSize', Number(($event.target as HTMLInputElement).value))"
-                        placeholder="—"
-                        class="pro-input"
-                      />
-                    </div>
-                    <div class="prop-group half">
-                      <label>Color</label>
-                      <div class="color-picker-wrapper">
-                        <input
-                          type="color"
-                          :value="bulkTextStyles?.color || '#000000'"
-                          @input="updateBulkColorDebounced('color', $event)"
-                          class="pro-color-picker"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="prop-row">
-                    <div class="prop-group half">
-                      <label>Grosor</label>
-                      <select
-                        :value="bulkTextStyles?.fontWeight || ''"
-                        @change="applyBulkTextStyle('fontWeight', ($event.target as HTMLSelectElement).value)"
-                        class="pro-input"
-                      >
-                        <option value="">— Sin cambios —</option>
-                        <option value="400">Normal</option>
-                        <option value="600">Semibold</option>
-                        <option value="800">Bold</option>
-                      </select>
-                    </div>
-                    <div class="prop-group half">
-                      <label>Estilo</label>
-                      <select
-                        :value="bulkTextStyles?.fontStyle || ''"
-                        @change="applyBulkTextStyle('fontStyle', ($event.target as HTMLSelectElement).value)"
-                        class="pro-input"
-                      >
-                        <option value="">— Sin cambios —</option>
-                        <option value="normal">Normal</option>
-                        <option value="italic">Cursiva</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="prop-row">
-                    <div class="prop-group half">
-                      <label>Formato</label>
-                      <select
-                        :value="bulkTextStyles?.textTransform || ''"
-                        @change="applyBulkTextStyle('textTransform', ($event.target as HTMLSelectElement).value)"
-                        class="pro-input"
-                      >
-                        <option value="">— Sin cambios —</option>
-                        <option value="none">Normal</option>
-                        <option value="uppercase">MAYÚSCULAS</option>
-                        <option value="lowercase">minúsculas</option>
-                      </select>
-                    </div>
-                    <div class="prop-group half">
-                      <label>Decoración</label>
-                      <select
-                        :value="bulkTextStyles?.textDecoration || ''"
-                        @change="applyBulkTextStyle('textDecoration', ($event.target as HTMLSelectElement).value)"
-                        class="pro-input"
-                      >
-                        <option value="">— Sin cambios —</option>
-                        <option value="none">Ninguna</option>
-                        <option value="underline">Subrayado</option>
-                        <option value="line-through">Tachado</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="prop-row">
-                    <div class="prop-group half">
-                      <label>Interlineado</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        :value="bulkTextStyles?.lineHeight || ''"
-                        @change="applyBulkTextStyle('lineHeight', Number(($event.target as HTMLInputElement).value))"
-                        placeholder="—"
-                        class="pro-input"
-                      />
-                    </div>
-                    <div class="prop-group half">
-                      <label>Espaciado (px)</label>
-                      <input
-                        type="number"
-                        :value="bulkTextStyles?.letterSpacing || ''"
-                        @change="applyBulkTextStyle('letterSpacing', Number(($event.target as HTMLInputElement).value))"
-                        placeholder="—"
-                        class="pro-input"
-                      />
-                    </div>
-                  </div>
-                  <div class="prop-group">
-                    <label>Alineación</label>
-                    <div class="align-buttons">
-                      <button
-                        class="tool-btn"
-                        :class="{ active: bulkTextStyles?.textAlign === 'left' }"
-                        @click="applyBulkTextStyle('textAlign', 'left')"
-                      >
-                        <i class="ph ph-text-align-left"></i>
-                      </button>
-                      <button
-                        class="tool-btn"
-                        :class="{ active: bulkTextStyles?.textAlign === 'center' }"
-                        @click="applyBulkTextStyle('textAlign', 'center')"
-                      >
-                        <i class="ph ph-text-align-center"></i>
-                      </button>
-                      <button
-                        class="tool-btn"
-                        :class="{ active: bulkTextStyles?.textAlign === 'right' }"
-                        @click="applyBulkTextStyle('textAlign', 'right')"
-                      >
-                        <i class="ph ph-text-align-right"></i>
-                      </button>
-                      <button
-                        class="tool-btn"
-                        :class="{ active: bulkTextStyles?.textAlign === 'justify' }"
-                        @click="applyBulkTextStyle('textAlign', 'justify')"
-                      >
-                        <i class="ph ph-text-align-justify"></i>
-                      </button>
-                    </div>
                   </div>
                 </div>
               </template>
@@ -6558,25 +6400,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     }, 100);
   };
 
-  // Bulk update text style for all selected text elements
-  const applyBulkTextStyle = (key: string, value: any) => {
-    const els = selectedElements.value as any[];
-    if (els.length === 0) return;
-    els.forEach((el) => {
-      if (el && ['text', 'sticky'].includes(el.type)) {
-        el[key] = value;
-      }
-    });
-  };
-
-  const updateBulkColorDebounced = (key: string, event: Event) => {
-    const val = (event.target as HTMLInputElement).value;
-    if (colorDebounceTimer) clearTimeout(colorDebounceTimer);
-    colorDebounceTimer = setTimeout(() => {
-      applyBulkTextStyle(key, val);
-    }, 100);
-  };
-
   // --- FUNCIÓN PARA GUARDAR EN BASE DE DATOS ---
   const savePresentation = async (isAutosave = false) => {
     if (!hasDoc.value) return;
@@ -8325,36 +8148,6 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       ? currentPageElements.value.find((el) => el.id === selectedElementIds.value[0])
       : null,
   )
-
-  // Bulk editing: get all selected elements
-  const selectedElements = computed(() =>
-    selectedElementIds.value.map((id) => currentPageElements.value.find((el) => el.id === id)).filter(Boolean),
-  )
-
-  // Check if all selected elements are text or sticky (editable text)
-  const canBulkEditText = computed(() => {
-    if (selectedElements.value.length === 0) return false
-    return selectedElements.value.every((el: any) => ['text', 'sticky'].includes(el?.type))
-  })
-
-  // Get common text style values (for bulk edit display)
-  const bulkTextStyles = computed(() => {
-    const els = selectedElements.value as any[];
-    if (els.length === 0) return null
-    const first = els[0]
-    return {
-      fontFamily: els.every((e) => e.fontFamily === first.fontFamily) ? first.fontFamily : '',
-      fontSize: els.every((e) => e.fontSize === first.fontSize) ? first.fontSize : null,
-      color: els.every((e) => e.color === first.color) ? first.color : '',
-      fontWeight: els.every((e) => e.fontWeight === first.fontWeight) ? first.fontWeight : '',
-      fontStyle: els.every((e) => e.fontStyle === first.fontStyle) ? first.fontStyle : '',
-      textTransform: els.every((e) => e.textTransform === first.textTransform) ? first.textTransform : '',
-      textDecoration: els.every((e) => e.textDecoration === first.textDecoration) ? first.textDecoration : '',
-      textAlign: els.every((e) => e.textAlign === first.textAlign) ? first.textAlign : '',
-      lineHeight: els.every((e) => e.lineHeight === first.lineHeight) ? first.lineHeight : null,
-      letterSpacing: els.every((e) => e.letterSpacing === first.letterSpacing) ? first.letterSpacing : null,
-    }
-  })
 
   watch(
     selectedElement,
@@ -12626,8 +12419,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     if (el.type !== 'mindmap') activeMapNodeId.value = null
 
-    // Multi-select with Shift or Ctrl (Cmd on Mac)
-    if (e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+    if (e && e.shiftKey) {
       if (selectedElementIds.value.includes(id)) {
         selectedElementIds.value = selectedElementIds.value.filter((i) => i !== id)
       } else {
