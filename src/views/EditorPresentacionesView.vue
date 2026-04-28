@@ -19,6 +19,7 @@
           :is-autosaving="isAutosaving"
           @file-upload="handleFileUpload"
           @export="exportPresentation"
+          @share="sharePresentation"
           @change-zoom="changeZoom"
           @fit-screen="fitToScreen"
           @toggle-play="togglePlayMode"
@@ -949,14 +950,14 @@
                           transition: opacity 0.2s;
                         "
                         :style="{ opacity: item.checked ? 0.6 : 1 }"
-                        @click.stop="playMode ? (executeEvents(el, 'click', idx), item.checked = !item.checked) : null"
+                        @click.stop="playMode ? (executeEvents(el, 'click', Number(idx)), item.checked = !item.checked) : null"
                       >
                         <i
                           class="ph"
                           :class="item.checked ? 'ph-check-square' : 'ph-square'"
                           :style="{
                             color: item.checked ? el.checkedColor : el.color,
-                            fontSize: el.fontSize * 1.2 + 'px',
+                            fontSize: Number(el.fontSize) * 1.2 + 'px',
                             marginTop: '2px',
                           }"
                         ></i>
@@ -1012,7 +1013,7 @@
                             v-for="(row, rIdx) in el.rows"
                             :key="'tr' + rIdx"
                             :style="{
-                              backgroundColor: rIdx % 2 === 0 ? el.rowBgColor1 : el.rowBgColor2,
+                              backgroundColor: Number(rIdx) % 2 === 0 ? el.rowBgColor1 : el.rowBgColor2,
                             }"
                           >
                             <td
@@ -1114,7 +1115,7 @@
                         <polyline
                           v-for="(line, idx) in el.lines"
                           :key="idx"
-                          :points="line.points.map((p) => `${p.x},${p.y}`).join(' ')"
+                          :points="line.points.map((p: { x: number; y: number }) => `${p.x},${p.y}`).join(' ')"
                           :stroke="line.color"
                           :stroke-width="line.size"
                           fill="none"
@@ -1547,7 +1548,7 @@
                         min="0"
                         max="100"
                         :value="el.sliderPosition ?? 50"
-                        @input="el.sliderPosition = Number($event.target.value)"
+                        @input="el.sliderPosition = Number(($event.target as HTMLInputElement).value)"
                         @mousedown.stop
                         @pointerdown.stop
                         @click.stop
@@ -1693,7 +1694,6 @@
               <template v-if="el.src && el.src.trim() !== ''">
                         <iframe
                           v-if="isYouTube(el.src)"
-                          src="about:blank"
                           :src="getYouTubeEmbedUrl(el.src)"
                           class="el-content-fitted"
                           frameborder="0"
@@ -1733,7 +1733,7 @@
                         <div v-if="isIframeBlocked(el.src)" class="placeholder-box" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:16px;">
                           <i class="ph ph-shield-warning" style="font-size: 2rem"></i>
                           <div>Esta web no permite ser incrustada por seguridad</div>
-                          <button type="button" class="btn-primary" @click.stop="window.open(formatIframeUrl(el.src), '_blank')">
+                          <button type="button" class="btn-primary" @click.stop="openUrl(formatIframeUrl(el.src))">
                             Abrir enlace original
                           </button>
                         </div>
@@ -1852,7 +1852,7 @@
                         <div
                           v-for="(d, index) in getCalendarDays(el.month, el.year)"
                           :key="`cal-${index}-${d.day || 0}`"
-                          @click="playMode && !d.empty && getDayEvents(el, d.day).length ? (el.activeAgendaDay = d.day) : null"
+                          @click="playMode && !d.empty && getDayEvents(el, d.day!).length ? (el.activeAgendaDay = d.day!) : null"
                           :style="{
                             aspectRatio: '1 / 1',
                             minHeight: '48px',
@@ -1863,14 +1863,14 @@
                             borderRadius: '8px',
                             padding: d.empty ? '0' : '6px 4px',
                             backgroundColor: d.empty ? 'transparent' : 'rgba(255,255,255,0.08)',
-                            cursor: playMode && !d.empty && getDayEvents(el, d.day).length ? 'pointer' : 'default',
+                            cursor: playMode && !d.empty && getDayEvents(el, d.day!).length ? 'pointer' : 'default',
                           }"
                         >
                           <template v-if="!d.empty">
                             <span>{{ d.day }}</span>
                             <div :style="{ display: 'flex', gap: '3px', flexWrap: 'wrap', justifyContent: 'center', minHeight: '8px' }">
                               <span
-                                v-for="(ev, evIndex) in getDayEvents(el, d.day)"
+                                v-for="(ev, evIndex) in getDayEvents(el, d.day!)"
                                 :key="ev.id || evIndex"
                                 :style="{
                                   width: '6px',
@@ -2101,7 +2101,7 @@
                       >
                         <div
                           class="accordion-header"
-                          @click.stop="playMode ? (executeEvents(el, 'click', idx), item.isOpen = !item.isOpen) : null"
+                          @click.stop="playMode ? (executeEvents(el, 'click', Number(idx)), item.isOpen = !item.isOpen) : null"
                         >
                           <span>{{ item.title }}</span>
                           <i class="ph" :class="item.isOpen ? 'ph-caret-up' : 'ph-caret-down'"></i>
@@ -2182,6 +2182,12 @@
                     />
                     <i class="ph ph-upload-simple"></i> Subir PDF / PPTX / HTML
                   </label>
+                  <!-- Modo edición completa PPTX desactivado temporalmente (fix rendimiento pendiente)
+                  <label class="full-edit-toggle" title="Importar PPTX con todos los elementos como editables (texto, imágenes, shapes)">
+                    <input type="checkbox" v-model="fullEditMode" />
+                    <span>Modo edición completa (PPTX)</span>
+                  </label>
+                  -->
                 </template>
               </div>
             </div>
@@ -2371,7 +2377,7 @@
                     <select v-model="ev.sourceSubId" class="pro-input">
                       <option :value="undefined">Todo el componente</option>
                       <option v-for="(item, iIdx) in selectedElement.items" :key="iIdx" :value="iIdx">
-                         Ítem {{ iIdx + 1 }}: "{{ item.text || item.title || item }}"
+                         Ítem {{ Number(iIdx) + 1 }}: "{{ item.text || item.title || item }}"
                       </option>
                     </select>
                   </div>
@@ -2874,7 +2880,7 @@
                       ></textarea>
                     </div>
 
-                    <button class="btn-danger w-100" @click="removeCalendarEvent(selectedElement, index)">
+                    <button class="btn-danger w-100" @click="removeCalendarEvent(selectedElement, Number(index))">
                       <i class="ph ph-trash"></i> Eliminar Evento
                     </button>
                   </div>
@@ -3075,7 +3081,7 @@
                             <button
                               class="btn-text-danger"
                               style="display: block; width: 100%; margin-top: 2px"
-                              @click="removeTableColumn(selectedElement, cIdx)"
+                              @click="removeTableColumn(selectedElement, Number(cIdx))"
                               v-if="selectedElement.headers.length > 1"
                             >
                               <i class="ph ph-trash"></i>
@@ -3097,7 +3103,7 @@
                           <td>
                             <button
                               class="btn-text-danger"
-                              @click="removeTableRow(selectedElement, rIdx)"
+                              @click="removeTableRow(selectedElement, Number(rIdx))"
                               v-if="selectedElement.rows.length > 1"
                             >
                               <i class="ph ph-trash"></i>
@@ -4805,7 +4811,7 @@
                 <div class="section-title">Fondo Base y Transición</div>
                 <div class="prop-group mt-2">
                   <label>Transición de Entrada</label>
-                  <select v-model="slideConfigs[pageNum].transition" class="pro-input">
+                  <select v-model="slideConfigs[pageNum]!.transition" class="pro-input">
                     <option value="none">Ninguna</option>
                     <option value="dissolve">Desvanecer (Dissolve / Fade)</option>
                     <option value="slide-up">Deslizar Arriba</option>
@@ -4820,11 +4826,11 @@
                 <div class="color-picker-wrapper">
                   <input
                     type="color"
-                    :value="slideConfigs[pageNum].bgColor"
-                    @input="updateColorDebounced(slideConfigs[pageNum], 'bgColor', $event, () => renderPage(pageNum))"
+                    :value="slideConfigs[pageNum]!.bgColor"
+                    @input="updateColorDebounced(slideConfigs[pageNum]!, 'bgColor', $event, () => renderPage(pageNum))"
                     class="pro-color-picker"
                   />
-                  <span class="color-hex">{{ slideConfigs[pageNum].bgColor.toUpperCase() }}</span>
+                  <span class="color-hex">{{ slideConfigs[pageNum]!.bgColor.toUpperCase() }}</span>
                 </div>
                 </div>
                 <div class="prop-group mt-2">
@@ -4832,10 +4838,10 @@
                   <label class="btn-ghost w-100 text-center block">
                     <input type="file" @change="setSlideBackgroundImage" accept="image/*" hidden />
                     <i class="ph ph-image"></i>
-                    {{ slideConfigs[pageNum].bgImage ? 'Cambiar Imagen' : 'Subir Imagen' }}
+                    {{ slideConfigs[pageNum]!.bgImage ? 'Cambiar Imagen' : 'Subir Imagen' }}
                   </label>
                   <button
-                    v-if="slideConfigs[pageNum].bgImage"
+                    v-if="slideConfigs[pageNum]!.bgImage"
                     class="btn-text-danger w-100 mt-1"
                     @click="removeBackgroundImage"
                   >
@@ -4978,10 +4984,11 @@
 </div>
 </template>
   <script setup lang="ts">
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   import IconPickerModal from '@/components/IconPickerModal.vue'
   import Chatbot from '@/components/AIChatBot.vue'
   const showIconPicker = ref(false)
-  import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, shallowRef, defineAsyncComponent } from 'vue'
+  import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import EditorHeader from '@/components/EditorHeader.vue'
   import LeafletMapElement from '@/components/LeafletMapElement.vue'
@@ -4993,15 +5000,18 @@
   import pako from 'pako';
   import Cropper from 'cropperjs';
   import JSZip from 'jszip';
+  import { importPptxFull } from '@/composables/editor/usePptxFullImport'
 
 // --- REFAC: Lazy load de PdfViewer y pdfjs-dist ---
 const PdfViewer = defineAsyncComponent(() => import('@/components/PdfViewer.vue'));
 
-let pdfjsLibInstance: any = null;
-const getPdfjsLib = async () => {
+type PdfjsLib = Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist')>>>
+let pdfjsLibInstance: PdfjsLib | null = null;
+const getPdfjsLib = async (): Promise<PdfjsLib> => {
   if (pdfjsLibInstance) return pdfjsLibInstance;
   const pdfLib = await import('pdfjs-dist');
-  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore -- pdfjs worker bundled as Vite ?worker import has no TS declaration
   const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.js?worker');
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker();
   pdfjsLibInstance = pdfLib;
@@ -5494,7 +5504,11 @@ const isPlayModeTransitioning = ref(false)
 const getThumbnailSignature = (page: number) => {
   const elements = documentState.value[page] || []
   const config = slideConfigs.value[page] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
-  return JSON.stringify({ elements, config })
+  // Firma ligera: evita JSON.stringify del documentState completo (freeze con docs grandes)
+  const elemSig = elements.map((e: any) =>
+    `${e.id}:${e.x},${e.y},${e.width},${e.height},${e.content ?? ''},${e.src ?? ''},${e.fillColor ?? ''}`
+  ).join('|')
+  return `${config.bgColor}|${config.bgImage ?? ''}|${config.transition ?? ''}|${elemSig}`
 }
 
 const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/jpeg', quality = 0.82): Promise<Blob> => {
@@ -5624,6 +5638,7 @@ const handleAiAction = async (actionsData: any) => {
     const actionTypeNormalized = actionType.replace(/[_\s]/g, '').toLowerCase();
     const isSpecialAction = ['addtext', 'addshape', 'addicon', 'changebackground', 'addslide', 'deleteelement', 'modifyelement', 'addimage', 'addvideo', 'addtable', 'addchart', 'addqrcode', 'addlist', 'addcodeblock', 'addlink', 'deletelastelement', 'add3d', 'addiframe'].includes(actionTypeNormalized);
     const handledExplicitly = false;
+    void handledExplicitly;
 
     if (!actionType) {
       console.warn("Acción sin tipo:", action);
@@ -6257,7 +6272,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
 }
 
   // --- ESTADO GENERAL ---
-  const pdfCanvas = ref<HTMLCanvasElement | null>(null)
+  const _pdfCanvas = ref<HTMLCanvasElement | null>(null)
   const workspaceRef = ref<HTMLElement | null>(null)
   const appContainerRef = ref<HTMLElement | null>(null) // NUEVO REF
   // --- ESTADO DE NAVEGACIÓN (PAN Y ZOOM) ---
@@ -6335,10 +6350,14 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     }
 
     try {
-      let payload: any = {
+      const payload: Record<string, unknown> = {
         userId: authStore.user?._id || authStore.user?.id,
         title: presentationTitle.value,
         docType: docType.value,
+        importMode: importMode.value,
+        cleanBackgroundVerified: cleanBackgroundVerified.value,
+        cleanSourceEndpoint: cleanSourceEndpoint.value,
+        cleanFallbackReason: cleanFallbackReason.value,
         baseWidth: baseWidth.value,
         baseHeight: baseHeight.value,
         documentState: documentState.value,
@@ -6469,6 +6488,37 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     }
   };
 
+  const sharePresentation = async () => {
+    if (!hasDoc.value) return;
+
+    try {
+      await savePresentation(true);
+
+      if (!presentationId.value) {
+        showToast('Primero guarda la presentación para compartir.', 'warning');
+        return;
+      }
+
+      const published = await presentationService.publishPresentation(presentationId.value);
+      const slug = published?.slug;
+      if (!slug) {
+        throw new Error('No se pudo generar el enlace público');
+      }
+
+      const publicUrl = `${window.location.origin}/v/${slug}`;
+
+      try {
+        await navigator.clipboard.writeText(publicUrl);
+        showToast('Enlace público copiado al portapapeles.', 'success');
+      } catch {
+        window.prompt('Copia este enlace público:', publicUrl);
+      }
+    } catch (error) {
+      console.error('Error al compartir presentación:', error);
+      showToast('No se pudo generar el enlace público.', 'error');
+    }
+  };
+
   let _RAW_PDF_DOC: any = null
   let _PDF_BASE64_STORE: string = ''
   let timerInterval: ReturnType<typeof setInterval> | null = null
@@ -6503,6 +6553,14 @@ const wakeUpPlayNav = () => {
   const zoom = ref(1.0)
   const isConverting = ref(false)
   const isCustomTemplateMode = ref(false)
+  /** Cuando true, importar PPTX extrae todos los elementos como editables (modo edición completa) */
+  const fullEditMode = ref(true)
+
+  // Metadatos de diagnóstico para fondo limpio PPTX
+  const cleanBackgroundVerified = ref(false)
+  const cleanSourceEndpoint = ref<'none' | 'convert-bg-only' | 'legacy-convert'>('none')
+  const cleanFallbackReason = ref<string | null>(null)
+  const importMode = ref<'unknown' | 'full-clean' | 'legacy'>('unknown')
 
   const renderTrigger = ref(0)
   const activeTransition = ref('none')
@@ -8308,7 +8366,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     el.markers = el.markers.filter((marker: any) => marker.id !== markerId)
   }
 
-  const addMapRoutePoint = (el: any) => {
+  const _addMapRoutePoint = (el: any) => {
     if (!el.routePoints) el.routePoints = []
     el.routePoints.push({
       id: 'route_' + Date.now(),
@@ -8317,7 +8375,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     })
   }
 
-  const removeMapRoutePoint = (el: any, pointId: string) => {
+  const _removeMapRoutePoint = (el: any, pointId: string) => {
     if (!el.routePoints) return
     el.routePoints = el.routePoints.filter((point: any) => point.id !== pointId)
   }
@@ -8346,9 +8404,11 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     dragTargetIndex.value = null
     if (draggedIndex !== null && draggedIndex !== dropIndex) {
       const list = documentState.value[pageNum.value]
-      const item = list.splice(draggedIndex, 1)[0]
-      list.splice(dropIndex, 0, item)
-      documentState.value[pageNum.value] = [...list]
+      if (list) {
+        const item = list.splice(draggedIndex, 1)[0]
+        list.splice(dropIndex, 0, item)
+        documentState.value[pageNum.value] = [...list]
+      }
     }
     draggedIndex = null
   }
@@ -9011,7 +9071,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
     // 🚀 Limpieza del motor PDF en RAM para prevenir Memory Leaks
     if (_RAW_PDF_DOC) {
-      try { _RAW_PDF_DOC.destroy(); } catch (e) {}
+      try { _RAW_PDF_DOC.destroy(); } catch (_e) {}
       _RAW_PDF_DOC = null;
     }
   })
@@ -9050,7 +9110,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       }
 
       if (!documentState.value[pageNum.value]) documentState.value[pageNum.value] = []
-      documentState.value[pageNum.value].push(newElement)
+      documentState.value[pageNum.value]!.push(newElement)
       selectedElementIds.value.push(newElement.id)
     })
 
@@ -9378,7 +9438,11 @@ watch(
 
       if (['ArrowRight', ' ', 'ArrowLeft'].includes(e.key)) {
         e.preventDefault()
-        e.key === 'ArrowLeft' ? changePageTo(pageNum.value - 1) : advancePresentation();
+        if (e.key === 'ArrowLeft') {
+          changePageTo(pageNum.value - 1)
+        } else {
+          advancePresentation()
+        }
       }
       return; // Si estamos en Play Mode, no procesar atajos del editor
     }
@@ -10076,7 +10140,7 @@ watch(
         (el: any) => !(typeof el?.id === 'string' && el.id.startsWith('el_pdf_')),
       )
 
-      documentState.value[page] = [...withoutPdfText, ...parsed.slides[index]]
+      documentState.value[page] = [...withoutPdfText, ...(parsed.slides[index] ?? [])]
 
       const extractedBg = parsed.backgrounds?.[index] || null
       if (extractedBg) {
@@ -10187,15 +10251,147 @@ watch(
     const fileExtension = file.name.split('.').pop()?.toLowerCase()
 
     if (fileExtension === 'pdf') await processPdfFile(file)
-    else if (['pptx', 'ppsx', 'potx'].includes(fileExtension || ''))
-      await convertPptxToPdfViaAPI(file)
+    else if (['pptx', 'ppsx', 'potx'].includes(fileExtension || '')) {
+      if (!fullEditMode.value) {
+        showToast('Modo legacy activo: usando importación antigua de PPTX.', 'warning')
+        cleanBackgroundVerified.value = false
+        cleanSourceEndpoint.value = 'legacy-convert'
+        cleanFallbackReason.value = 'legacy mode forced by user'
+        importMode.value = 'legacy'
+        await convertPptxToPdfViaAPI(file)
+      } else {
+        await convertPptxFullEdit(file)
+      }
+    }
     else if (fileExtension === 'html') await processHtmlFile(file)
+  }
+
+  /**
+   * Importación completa del PPTX: extrae TODOS los elementos como editables.
+   * Usa /forms/pptx/full-extract + /forms/pptx/convert-bg-only en paralelo.
+   */
+  const convertPptxFullEdit = async (file: File) => {
+    const maxSize = 50 * 1024 * 1024
+    if (file.size > maxSize) {
+      showToast(`El archivo supera ${maxSize / 1024 / 1024}MB`, 'error')
+      return
+    }
+
+    isConverting.value = true
+    showToast('Importando PowerPoint en modo edición completa...', 'info')
+
+    try {
+      // Bug 1 fix: llamar sin canvas dims — las coords llegan normalizadas (0-1)
+      const result = await importPptxFull(file)
+
+      importMode.value = 'full-clean'
+      cleanSourceEndpoint.value = result.hasBgPdf ? 'convert-bg-only' : 'none'
+      cleanBackgroundVerified.value = result.cleanBackgroundVerified
+      cleanFallbackReason.value = result.cleanFallbackReason
+
+      if (result.hasBgPdf) {
+        // Cargar el PDF de fondo puro (sin extractText para no duplicar elementos)
+        await processPdfFile(result.backgroundPdfBlob, { extractText: false, successMessage: null })
+      } else {
+        cleanBackgroundVerified.value = false
+        cleanFallbackReason.value = 'bg-only endpoint did not return valid PDF'
+
+        // Sin PDF de fondo — reset de estado, canvas a proporción del PPTX
+        documentState.value = {}
+        slideConfigs.value  = {}
+        pdfPageMap.value    = {}
+        docType.value       = 'pptx'
+        hasDoc.value        = true
+        resetHistory()
+        if (result.slideCx && result.slideCy) {
+          const ratio = result.slideCx / result.slideCy
+          baseWidth.value  = 1280
+          baseHeight.value = Math.round(1280 / ratio)
+        }
+        initializeConfigs()
+      }
+
+      // Bug 1 fix: escalar UNA VEZ con el canvas real (ya actualizado por processPdfFile)
+      const cw = baseWidth.value  || 1280
+      const ch = baseHeight.value || 720
+      // slideCy en EMU para calcular font size relativo al canvas real
+      const slideCyEmu = result.slideCy || 6858000
+      const EMU_PER_PT = 12700
+      let totalElements = 0
+
+      for (const [pageStr, elements] of Object.entries(result.slides)) {
+        const page = parseInt(pageStr)
+        if (!documentState.value[page]) documentState.value[page] = []
+
+        const existingIds = new Set(documentState.value[page].map((e: any) => e.id))
+        for (const el of elements) {
+          if (existingIds.has(el.id)) continue
+
+          // Escalar coordenadas normalizadas al canvas real
+          const x      = Math.round(el.xNorm * cw)
+          const y      = Math.round(el.yNorm * ch)
+          const width  = Math.max(10, Math.round(el.wNorm * cw))
+          const height = el.hIsAuto ? 'auto' : Math.max(10, Math.round(el.hNorm * ch))
+
+          // Bug 3 fix: re-calcular font size a partir de PT original × escala real del canvas
+          // fontSizePt (del backend) × EMU_PER_PT × (ch_px / slideCy_emu) = px reales
+          let fontSize = el.fontSize ?? 18
+          if (el.fontSizePt) {
+            fontSize = Math.max(10, Math.round(el.fontSizePt * EMU_PER_PT * (ch / slideCyEmu)))
+          }
+
+          // Diagnóstico: verificar propiedades antes de pushear
+          if (totalElements === 0 && el.type === 'text') {
+            console.log('[convertPptxFullEdit] First text element before push:', {
+              id: el.id,
+              type: el.type,
+              content: el.content,
+              fontSize,
+              fontSizePt: el.fontSizePt,
+              color: el.color,
+              fontWeight: el.fontWeight,
+              fontFamily: el.fontFamily,
+            })
+          }
+
+          documentState.value[page].push({
+            ...el,
+            x, y, width, height,
+            fontSize,
+            // Campos auxiliares que no pertenecen al schema del editor
+            paragraphs:  undefined,
+            xNorm: undefined, yNorm: undefined, wNorm: undefined, hNorm: undefined,
+            hIsAuto: undefined, fontSizePt: undefined,
+          })
+          totalElements++
+        }
+      }
+
+      documentState.value = { ...documentState.value }
+      numPages.value = Math.max(numPages.value, Object.keys(result.slides).length)
+      await nextTick()
+      renderPage(1)
+      setTimeout(() => { fitToScreen(); savePresentation(true) }, 100)
+      showToast(`✨ ${totalElements} elemento(s) importados como editables`, 'success')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[PPTX full-edit] Error:', err)
+      importMode.value = 'legacy'
+      cleanBackgroundVerified.value = false
+      cleanSourceEndpoint.value = 'legacy-convert'
+      cleanFallbackReason.value = `full-clean failed: ${msg.slice(0, 180)}`
+
+      showToast(`Modo limpio falló. Reintentando en modo legacy...`, 'warning')
+      await convertPptxToPdfViaAPI(file)
+    } finally {
+      isConverting.value = false
+    }
   }
 
   const toBase64 = (u8: Uint8Array): string => {
     let binary = ''
     for (let i = 0; i < u8.length; i++) {
-      binary += String.fromCharCode(u8[i])
+      binary += String.fromCharCode(u8[i]!)
     }
     return btoa(binary)
   }
@@ -10226,7 +10422,7 @@ watch(
     }
   }
 
-  const tryCompressProjectState = (payload: any) => {
+  const _tryCompressProjectState = (payload: any) => {
     const rawState = {
       documentState: payload.documentState || {},
       slideConfigs: payload.slideConfigs || {},
@@ -10284,14 +10480,14 @@ watch(
 
       mime = mime || matches[1]
       const rawBase64 = matches[2]
-      const bytes = atob(rawBase64)
+      const bytes = atob(rawBase64 ?? '')
       const array = new Uint8Array(bytes.length)
       for (let i = 0; i < bytes.length; i++) {
         array[i] = bytes.charCodeAt(i)
       }
 
-      const extension = (mime.split('/')[1] || 'bin').split(';')[0]
-      const blob = new Blob([array], { type: mime })
+      const extension = ((mime ?? 'application/octet-stream').split('/')[1] || 'bin').split(';')[0]
+      const blob = new Blob([array], { type: mime ?? 'application/octet-stream' })
       const formData = new FormData()
       formData.append('file', blob, `${suggestedName}.${extension}`)
 
@@ -10321,7 +10517,7 @@ watch(
     }
   }
 
-  const normalizePayloadMedia = async (payload: any) => {
+  const _normalizePayloadMedia = async (payload: any) => {
     if (payload.pdfBase64 && (isDataURL(payload.pdfBase64) || isLikelyBase64(payload.pdfBase64))) {
       payload.pdfBase64 = await uploadDataURL(payload.pdfBase64, 'presentation_pdf', 'application/pdf')
       // Evita re-subir los ~30MB de PDF si el usuario pulsa Guardar varias veces
@@ -10366,6 +10562,10 @@ watch(
       presentationId.value = data._id;
       presentationTitle.value = data.title || 'Sin título';
       docType.value = data.docType || 'blank';
+      importMode.value = data.importMode || 'unknown';
+      cleanBackgroundVerified.value = !!data.cleanBackgroundVerified;
+      cleanSourceEndpoint.value = (data.cleanSourceEndpoint || 'none') as 'none' | 'convert-bg-only' | 'legacy-convert';
+      cleanFallbackReason.value = data.cleanFallbackReason || null;
       baseWidth.value = data.baseWidth || 1280;
       baseHeight.value = data.baseHeight || 720;
 
@@ -10415,8 +10615,9 @@ watch(
 
         // Si el string guardado empieza por http, es nuestro nuevo sistema optimizado (URL)
         if (_PDF_BASE64_STORE.startsWith('http')) {
+          let pdfjsLib: Awaited<ReturnType<typeof getPdfjsLib>> | null = null;
           try {
-            const pdfjsLib = await getPdfjsLib();
+            pdfjsLib = await getPdfjsLib();
             loadingTask = pdfjsLib.getDocument(_PDF_BASE64_STORE);
             _RAW_PDF_DOC = markRaw(await loadingTask.promise);
           } catch (pdfError) {
@@ -10428,7 +10629,8 @@ watch(
               for (let i = 0; i < pdfData.length; i++) {
                 uint8Array[i] = pdfData.charCodeAt(i);
               }
-              loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+              const lib = pdfjsLib ?? await getPdfjsLib();
+              loadingTask = lib.getDocument({ data: uint8Array });
               _RAW_PDF_DOC = markRaw(await loadingTask.promise);
             } else {
               throw pdfError;
@@ -10776,6 +10978,11 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 };
 
   const convertPptxToPdfViaAPI = async (file: File) => {
+    importMode.value = 'legacy'
+    cleanBackgroundVerified.value = false
+    cleanSourceEndpoint.value = 'legacy-convert'
+    cleanFallbackReason.value = 'legacy conversion pipeline (/forms/libreoffice/convert)'
+
     // Validar tamaño (máximo 50MB para compatibilidad con API)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
@@ -11024,9 +11231,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           const widthMatch = htmlText.match(/const baseWidth = ref\((.*?)\);/)
           const heightMatch = htmlText.match(/const baseHeight = ref\((.*?)\);/)
           const docTypeMatch = htmlText.match(/const docType = ref\('(.*?)'\);/)
-          baseWidth.value = widthMatch ? parseInt(widthMatch[1]) : 1280
-          baseHeight.value = heightMatch ? parseInt(heightMatch[1]) : 720
-          docType.value = (docTypeMatch ? docTypeMatch[1] : 'blank') as 'pdf' | 'blank' | 'template' | 'pptx'
+          baseWidth.value = widthMatch ? parseInt(widthMatch[1] ?? '1280') : 1280
+          baseHeight.value = heightMatch ? parseInt(heightMatch[1] ?? '720') : 720
+          docType.value = (docTypeMatch ? docTypeMatch[1] ?? 'blank' : 'blank') as 'pdf' | 'blank' | 'template' | 'pptx'
         }
 
         const pdfDataNode = doc.getElementById('app-pdf-data')
@@ -11046,7 +11253,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           } else {
             let rawBase64 = pdfStr.replace(/\\s+/g, '');
             if (rawBase64.includes('base64,')) {
-              rawBase64 = rawBase64.split('base64,')[1];
+              rawBase64 = rawBase64.split('base64,')[1] ?? '';
             }
             const pdfData = atob(rawBase64);
             const uint8Array = new Uint8Array(pdfData.length);
@@ -11073,7 +11280,12 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     reader.readAsText(file)
   }
 
- const renderPage = async (num: number) => {
+ const migratePdfDocToNative = async (_doc: unknown, _flag: boolean): Promise<void> => {
+   // Stub: migration path has been removed; just trigger a re-render
+   await renderPage(1);
+ }
+
+ const renderPage = async (_num: number) => {
    // La renderización ha sido delegada a PdfViewer.vue
    return;
  }
@@ -11121,7 +11333,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         pdfPageMap.value[i] = i
       }
 
-      documentState.value[1].push(
+      documentState.value[1]!.push(
         createTemplateElement('text', {
           content: 'Diseña tu Portada aquí',
           fontSize: 48,
@@ -11131,7 +11343,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           color: '#111827',
         }),
       )
-      documentState.value[2].push(
+      documentState.value[2]!.push(
         createTemplateElement('text', {
           content: 'Diseña la Diapositiva Base',
           fontSize: 48,
@@ -11141,7 +11353,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           color: '#111827',
         }),
       )
-      documentState.value[3].push(
+      documentState.value[3]!.push(
         createTemplateElement('text', {
           content: 'Diseña el Cierre',
           fontSize: 48,
@@ -11481,7 +11693,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     pdfPageMap.value = { ...pdfPageMap.value }
   }
 
-  const moveSlide = (page: number, direction: 'up' | 'down') => {
+  const _moveSlide = (page: number, direction: 'up' | 'down') => {
     const targetPage = direction === 'up' ? page - 1 : page + 1
     if (targetPage >= 1 && targetPage <= numPages.value) {
       swapSlides(page, targetPage)
@@ -11538,7 +11750,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       }
       pdfPageMap.value[newPage] = 0
       const w = baseWidth.value
-      const h = baseHeight.value
       documentState.value[newPage] = [
         createTemplateElement('shape', {
           width: w, height: 180, bgColor: '#2563eb',
@@ -11559,7 +11770,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           x: 50, y: 280, borderRadius: 4, borderStyle: 'none', borderWidth: 0,
         }),
       ]
-      slideConfigs.value[newPage].bgColor = '#f8fafc'
+      slideConfigs.value[newPage]!.bgColor = '#f8fafc'
 
     } else if (template === 'dark') {
       numPages.value += 1
@@ -11584,7 +11795,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           width: w, x: 0, y: h / 2 + 20,
         }),
       ]
-      slideConfigs.value[newPage].bgColor = '#0d1117'
+      slideConfigs.value[newPage]!.bgColor = '#0d1117'
 
     } else {
       documentState.value[newPage] = []
@@ -11941,7 +12152,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     }
 
     if (!documentState.value[pageNum.value]) documentState.value[pageNum.value] = []
-    documentState.value[pageNum.value].push(newElement)
+    documentState.value[pageNum.value]!.push(newElement)
     selectedElementIds.value = [newElement.id]
     if (activeTool.value === 'mindmap') activeMapNodeId.value = newElement.nodes[0].id
     activeTool.value = 'select'
@@ -11973,7 +12184,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   const deleteSelected = () => {
     if (selectedElementIds.value.length === 0) return
-    documentState.value[pageNum.value] = documentState.value[pageNum.value].filter(
+    documentState.value[pageNum.value] = documentState.value[pageNum.value]!.filter(
       (el) => !selectedElementIds.value.includes(el.id),
     )
     selectedElementIds.value = []
@@ -12027,7 +12238,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     selectedElement.value?.items.push({ title: 'Nueva', content: '...', isOpen: false })
   const removeBackgroundImage = () => {
     if (slideConfigs.value[pageNum.value]) {
-      slideConfigs.value[pageNum.value].bgImage = null
+      slideConfigs.value[pageNum.value]!.bgImage = null
       renderPage(pageNum.value)
     }
   }
@@ -12076,7 +12287,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     });
   };
   // --- OPTIMIZAR IMÁGENES BASE64 HEREDADAS ---
-  const optimizeBase64Image = (base64Str: string, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<string> => {
+  const _optimizeBase64Image = (base64Str: string, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<string> => {
     return new Promise((resolve) => {
       // Si no es un base64 de imagen o pesa menos de ~400KB, no gastamos recursos en tocarla
       if (!base64Str.startsWith('data:image/') || base64Str.length < 500000) {
@@ -12237,7 +12448,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const normalized = value.replace(':', '/').trim();
     const parts = normalized.split('/').map((part) => Number(part.trim()));
     if (parts.length !== 2) return null;
-    const [w, h] = parts;
+    const w = parts[0] ?? NaN;
+    const h = parts[1] ?? NaN;
     if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
     return w / h;
   };
@@ -12315,7 +12527,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           folder: 'presentaciones/backgrounds',
           fileName: file.name,
         })
-        slideConfigs.value[pageNum.value].bgImage = upload.secureUrl;
+        slideConfigs.value[pageNum.value]!.bgImage = upload.secureUrl;
         renderPage(pageNum.value);
         saveHistory();
       } catch (error) {
@@ -12341,7 +12553,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     if (!el.lines) el.lines = []
     el.lines.push(currentLine)
   }
-  const doSvgDraw = (e: MouseEvent, el: any) => {
+  const doSvgDraw = (e: MouseEvent, _el: any) => {
     if (!isDrawingSVG || !currentLine || playMode.value) return
     e.preventDefault()
     const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
@@ -12366,7 +12578,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     })
     const audioEl = document.querySelector(`audio[src="${el.src}"]`) as HTMLAudioElement
     if (audioEl) {
-      el.isPlaying ? audioEl.pause() : audioEl.play()
+      if (el.isPlaying) { audioEl.pause() } else { void audioEl.play() }
       el.isPlaying = !el.isPlaying
     }
   }
@@ -12378,9 +12590,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     isResizing = false,
     startX = 0,
     startY = 0,
-    initialPositions: any[] = [],
-    initialWidth = 0,
-    initialHeight = 0;
+    initialPositions: any[] = [];
 
   const startDrag = (e: MouseEvent, el: any, isHandle: boolean = false) => {
     if (playMode.value) return;
@@ -12511,14 +12721,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
         const resX = findSnap([projX, projMidX, projMaxX], snapXPoints, [initMinX, initMinX + initWidth / 2, initMaxX]);
         if (resX.bestDelta !== null) {
-          finalDx = resX.bestDelta;
-          activeGuides.value.push({ type: 'vertical', pos: resX.snappedPos as number });
+          finalDx = resX.bestDelta!;
+          activeGuides.value.push({ type: 'vertical', pos: resX.snappedPos! as number });
         }
 
         const resY = findSnap([projY, projMidY, projMaxY], snapYPoints, [initMinY, initMinY + initHeight / 2, initMaxY]);
         if (resY.bestDelta !== null) {
-          finalDy = resY.bestDelta;
-          activeGuides.value.push({ type: 'horizontal', pos: resY.snappedPos as number });
+          finalDy = resY.bestDelta!;
+          activeGuides.value.push({ type: 'horizontal', pos: resY.snappedPos! as number });
         }
       }
 
@@ -12897,10 +13107,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       const hostname = new URL(formatIframeUrl(url)).hostname.replace(/^www\./, '').toLowerCase();
       const blockedDomains = ['google.com', 'github.com', 'twitter.com', 'facebook.com', 'linkedin.com', 'gemini.google.com', 'youtube.com'];
       return blockedDomains.some((domain) => hostname === domain || hostname.endsWith('.' + domain));
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   };
+
+  const openUrl = (url: string) => { window.open(url, '_blank') }
 
   const absolutizeUrl = (url: string) => {
     if (!url) return url;
@@ -12931,6 +13143,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const snapshotPdfPageMap: Record<number, number> = JSON.parse(JSON.stringify(pdfPageMap.value || {}))
     const snapshotPdfThumbnails: Record<number, string> = JSON.parse(JSON.stringify(pdfThumbnails.value || {}))
     const snapshotDocType = docType.value
+    const snapshotCleanBgVerified = cleanBackgroundVerified.value
     const snapshotBaseWidth = baseWidth.value
     const snapshotBaseHeight = baseHeight.value
     const snapshotNumPages = Math.max(numPages.value || 1, 1)
@@ -12965,12 +13178,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const filteredDocumentState: Record<number, any[]> = {};
     for (let pageNumKey = 1; pageNumKey <= snapshotNumPages; pageNumKey++) {
       const elements = snapshotDocumentState[pageNumKey] || [];
-      const config = snapshotSlideConfigs[pageNumKey] || { bgColor: '#ffffff', bgImage: null, transition: 'none' };
-      const hasCustomBgColor = config && config.bgColor && config.bgColor !== '#ffffff' && config.bgColor !== 'transparent';
-      const usesOriginalPdfBg =
-        (snapshotDocType === 'pdf' || snapshotDocType === 'pptx') &&
-        (!config || !config.bgImage || config.bgImage === 'none') &&
-        !hasCustomBgColor;
 
       const processedElements = [];
       for (const el of (elements as any[])) {
@@ -12983,13 +13190,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           el.y + elHeight > 0
         ) {
           const newEl = { ...el };
-
-          // Evitar superposición: si usamos el fondo original del PDF, el texto ya está impreso en la imagen.
-          // Hacemos transparente el texto nativo HTML para evitar el efecto doble/borroso.
-          if (newEl.type === 'text' && typeof newEl.id === 'string' && newEl.id.startsWith('el_pdf_') && usesOriginalPdfBg) {
-            newEl.color = 'transparent';
-            newEl.textShadow = 'none';
-          }
 
           if (newEl.type === 'map') {
             const staticMapUrl = getMapStaticImageUrl(newEl, 2);
@@ -13020,9 +13220,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       filteredDocumentState[pageNumKey] = processedElements;
     }
 
-    // Asegurar que los fondos se incrusten (Embed) en el archivo HTML para uso local.
-    // Para PDFs y PPTX, usamos siempre la miniatura en alta resolución como fondo si
-    // no se ha asignado una imagen personalizada, asegurando que se exporte correctamente.
+    // Exportar fondos tal y como los tiene configurados el usuario.
+    // Si la slide no tiene bgImage custom y viene de PDF/PPTX, usamos el fondo limpio
+    // no editable ya renderizado en memoria (pdfThumbnails + pdfPageMap).
     const exportConfigs: Record<number, { bgColor: string; bgImage: string | null; transition: string }> = {};
     for (let pageNumKey = 1; pageNumKey <= snapshotNumPages; pageNumKey++) {
       exportConfigs[pageNumKey] = JSON.parse(
@@ -13031,16 +13231,17 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       const pageConfig = exportConfigs[pageNumKey];
       if (!pageConfig) continue;
 
-      const hasCustomBgColor = pageConfig.bgColor && pageConfig.bgColor !== '#ffffff' && pageConfig.bgColor !== 'transparent';
-
-      if ((snapshotDocType === 'pdf' || snapshotDocType === 'pptx') && (!pageConfig.bgImage || pageConfig.bgImage === 'none') && !hasCustomBgColor) {
-        const mappedPdfPage = snapshotPdfPageMap[pageNumKey];
-        if (mappedPdfPage && snapshotPdfThumbnails[mappedPdfPage]) {
-          pageConfig.bgImage = snapshotPdfThumbnails[mappedPdfPage];
+      const hasCustomBg = !!(pageConfig.bgImage && pageConfig.bgImage !== 'none')
+      const canUsePdfLayerBg = snapshotDocType === 'pdf' || (snapshotDocType === 'pptx' && snapshotCleanBgVerified)
+      if (!hasCustomBg && canUsePdfLayerBg) {
+        const mappedPdfPage = snapshotPdfPageMap[pageNumKey] || pageNumKey
+        const cleanPdfBg = snapshotPdfThumbnails[mappedPdfPage]
+        if (cleanPdfBg) {
+          pageConfig.bgImage = cleanPdfBg
         }
       }
 
-      if (pageConfig.bgImage) {
+      if (pageConfig.bgImage && pageConfig.bgImage !== 'none') {
         const absolute = absolutizeUrl(pageConfig.bgImage);
         pageConfig.bgImage = (await urlToBase64(absolute)) as string;
       }
@@ -16631,6 +16832,22 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     margin: 0;
     text-align: center;
     display: flex;
+  }
+  .full-edit-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    margin-top: 6px;
+    user-select: none;
+  }
+  .full-edit-toggle input[type="checkbox"] {
+    accent-color: var(--accent-primary, #6366f1);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
   }
   .map-node-panel {
     border-color: var(--border-strong);

@@ -54,6 +54,15 @@
         <button
           type="button"
           class="menu-item menu-item-ghost"
+          :disabled="!hasDoc || isConverting || isSaving"
+          @click="$emit('share')"
+        >
+          <i class="ph ph-share-network"></i> Compartir
+        </button>
+
+        <button
+          type="button"
+          class="menu-item menu-item-ghost"
           :disabled="!hasDoc || isConverting"
           @click="$emit('publish-as-template')"
         >
@@ -219,6 +228,7 @@ defineProps<{
 defineEmits<{
   (e: 'file-upload', event: Event): void;
   (e: 'export'): void;
+  (e: 'share'): void;
   (e: 'change-zoom', delta: number): void;
   (e: 'fit-screen'): void;
   (e: 'toggle-play'): void;

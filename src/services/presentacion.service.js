@@ -1,4 +1,4 @@
-import { PRESENTATIONS_API, UPLOAD_API } from '@/config/api.js'
+import { PRESENTATIONS_API } from '@/config/api.js'
 
 const API_URL = PRESENTATIONS_API
 
@@ -74,5 +74,39 @@ export const presentationService = {
     }
 
     return data;
+  },
+
+  async publishPresentation(id) {
+    const response = await fetch(`${API_URL}/${id}/publish`, {
+      method: 'PATCH',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error al publicar la presentación: ${response.statusText}`)
+    }
+
+    return await response.json()
+  },
+
+  async unpublishPresentation(id) {
+    const response = await fetch(`${API_URL}/${id}/unpublish`, {
+      method: 'PATCH',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error al despublicar la presentación: ${response.statusText}`)
+    }
+
+    return await response.json()
+  },
+
+  async getPublicPresentationBySlug(slug) {
+    const response = await fetch(`${API_URL}/public/${slug}`)
+
+    if (!response.ok) {
+      throw new Error(`Error al obtener presentación pública: ${response.statusText}`)
+    }
+
+    return await response.json()
   }
 }

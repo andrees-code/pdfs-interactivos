@@ -47,6 +47,11 @@ const router = createRouter({
       meta: { requiresGuest: true } // 🚫 Solo para usuarios NO logueados
     },
     {
+      path: '/v/:slug',
+      name: 'public-viewer',
+      component: () => import('@/views/PublicViewerView.vue')
+    },
+    {
       path: '/devpresent',
       name: 'devpresent-landing',
       component: DevPresentLandingView
