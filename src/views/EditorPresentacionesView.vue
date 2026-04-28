@@ -3263,7 +3263,7 @@
                 </div>
               </template>
 
-              <template v-if="['text', 'sticky'].includes(selectedElement.type) && activeInspectorTab === 'design'">
+              <template v-if="['text', 'sticky'].includes(selectedElement?.type) && activeInspectorTab === 'design' && !canBulkEditText">
                 <div class="prop-section">
                   <div class="section-title">Tipografía</div>
                   <div class="prop-group">
@@ -3433,10 +3433,10 @@
                 </div>
               </template>
 
-              <!-- BULK TEXT EDITING: Multiple text elements selected -->
+              <!-- BULK TEXT EDITING: Single or multiple text elements -->
               <template v-if="canBulkEditText && activeInspectorTab === 'design'">
                 <div class="prop-section">
-                  <div class="section-title">📝 Editar {{ selectedElements.length }} Textos</div>
+                  <div class="section-title">📝 {{ selectedElements.length === 1 ? 'Estilos de Texto' : 'Editar ' + selectedElements.length + ' Textos' }}</div>
                   <div class="prop-group">
                     <label>Fuente</label>
                     <select
@@ -8333,7 +8333,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
   // Check if all selected elements are text or sticky (editable text)
   const canBulkEditText = computed(() => {
-    if (selectedElements.value.length <= 1) return false
+    if (selectedElements.value.length === 0) return false
     return selectedElements.value.every((el: any) => ['text', 'sticky'].includes(el?.type))
   })
 
