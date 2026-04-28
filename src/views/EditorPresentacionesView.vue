@@ -2290,7 +2290,7 @@
               <button class="inspector-tab" :class="{ active: activeInspectorTab === 'design' }" @click="activeInspectorTab = 'design'" title="Diseño y Estilos">
                 <i class="ph ph-paint-brush"></i>
               </button>
-              <button v-if="['chart', 'poll', 'table', 'list', 'checkbox', 'calendar', 'mindmap', 'finance'].includes(selectedElement.type)" class="inspector-tab" :class="{ active: activeInspectorTab === 'data' }" @click="activeInspectorTab = 'data'" title="Datos y Contenido">
+              <button v-if="selectedElement && ['chart', 'poll', 'table', 'list', 'checkbox', 'calendar', 'mindmap', 'finance'].includes(selectedElement.type)" class="inspector-tab" :class="{ active: activeInspectorTab === 'data' }" @click="activeInspectorTab = 'data'" title="Datos y Contenido">
                 <i class="ph ph-database"></i>
               </button>
               <button class="inspector-tab" :class="{ active: activeInspectorTab === 'interactivity' }" @click="activeInspectorTab = 'interactivity'" title="Interactividad y Eventos">
@@ -12626,7 +12626,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     if (el.type !== 'mindmap') activeMapNodeId.value = null
 
-    if (e && e.shiftKey) {
+    // Multi-select with Shift or Ctrl (Cmd on Mac)
+    if (e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
       if (selectedElementIds.value.includes(id)) {
         selectedElementIds.value = selectedElementIds.value.filter((i) => i !== id)
       } else {
