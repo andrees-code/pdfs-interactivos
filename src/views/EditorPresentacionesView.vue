@@ -630,7 +630,6 @@
             <main
               class="pro-canvas-area"
               ref="workspaceRef"
-              @wheel="handleCanvasWheel"
               @mousedown="handleCanvasPanStart"
               @click="handleCanvasClickOutside"
               :style="themeVariables"
@@ -5466,6 +5465,9 @@ const isSaveInFlight = ref(false);
 const hasTemplateClosingSlide = ref(false);
 const hasUnsavedChanges = ref(false);
 const DRAFT_STORAGE_KEY = 'docflow:editor:draft:v1';
+const DRAFT_MAX_CHARS = 4_500_000;
+const DRAFT_PERSIST_DEBOUNCE_MS = 1200;
+const REDUCED_DRAFT_MAX_PAGES = 8;
 const lastRouteLoadKey = ref('');
 
 // --- NUEVO: EDA FIGMA MODE ---
@@ -6325,6 +6327,68 @@ const commitThumbMove = (currentPage: number, e: Event) => {
     if (toastTimeout) clearTimeout(toastTimeout)
   }
 
+  let autoFieldCounter = 0
+  let accessibilitySyncRaf: number | null = null
+
+  const nextAutoFieldId = () => {
+    autoFieldCounter += 1
+    return `editor-field-${autoFieldCounter}`
+  }
+
+  const ensureFormFieldAccessibility = () => {
+    const appRoot = appContainerRef.value
+    if (!appRoot) return
+
+    const formsRoot = appRoot.querySelectorAll('.right-sidebar, .new-project-modal, .slides-preview-list')
+    formsRoot.forEach((scopeNode) => {
+      const scope = scopeNode as HTMLElement
+      const fields = scope.querySelectorAll('input, select, textarea')
+
+      fields.forEach((node) => {
+        const field = node as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+        if (field instanceof HTMLInputElement) {
+          const ignoredTypes = new Set(['hidden', 'button', 'submit', 'reset', 'image'])
+          if (ignoredTypes.has(field.type)) return
+        }
+
+        if (!field.id) field.id = nextAutoFieldId()
+        if (!field.getAttribute('name')) field.setAttribute('name', field.id)
+      })
+
+      const labels = scope.querySelectorAll('label:not([for])')
+      labels.forEach((labelNode) => {
+        const label = labelNode as HTMLLabelElement
+        if (label.querySelector('input, select, textarea')) return
+
+        const nearestGroup = label.closest('.prop-group, .event-stack, .event-row-main, .prop-row, .full-edit-toggle, .thumb-num') as HTMLElement | null
+        let targetField: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null
+
+        if (nearestGroup) {
+          targetField = nearestGroup.querySelector('input:not([type="hidden"]), select, textarea') as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
+        }
+
+        if (!targetField) {
+          const sibling = label.nextElementSibling
+          if (sibling && ['INPUT', 'SELECT', 'TEXTAREA'].includes(sibling.tagName)) {
+            targetField = sibling as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+          }
+        }
+
+        if (targetField?.id) {
+          label.htmlFor = targetField.id
+        }
+      })
+    })
+  }
+
+  const scheduleFormAccessibilitySync = () => {
+    if (accessibilitySyncRaf !== null) cancelAnimationFrame(accessibilitySyncRaf)
+    accessibilitySyncRaf = requestAnimationFrame(() => {
+      accessibilitySyncRaf = null
+      ensureFormFieldAccessibility()
+    })
+  }
+
   // --- DEBOUNCE PARA SELECTORES DE COLOR ---
   let colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   const updateColorDebounced = (obj: any, key: string, event: Event, callback?: () => void) => {
@@ -6554,7 +6618,7 @@ const wakeUpPlayNav = () => {
   const isConverting = ref(false)
   const isCustomTemplateMode = ref(false)
   /** Cuando true, importar PPTX extrae todos los elementos como editables (modo edición completa) */
-  const fullEditMode = ref(true)
+  const fullEditMode = ref(false)
 
   // Metadatos de diagnóstico para fondo limpio PPTX
   const cleanBackgroundVerified = ref(false)
@@ -9043,6 +9107,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
     window.addEventListener('beforeunload', handleBeforeUnload)
+    workspaceRef.value?.addEventListener('wheel', handleCanvasWheel, { passive: false })
 
     // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
     document.addEventListener('mousemove', wakeUpPlayNav);
@@ -9052,6 +9117,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     loadGalleryTemplates()
 
     initEditorFromRoute(true)
+    nextTick(scheduleFormAccessibilitySync)
   })
 
   onUnmounted(() => {
@@ -9061,6 +9127,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     document.removeEventListener('fullscreenchange', onFullscreenChange)
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
     window.removeEventListener('beforeunload', handleBeforeUnload)
+    workspaceRef.value?.removeEventListener('wheel', handleCanvasWheel)
 
     // 👉 NUEVO: Limpiar los eventos de movimiento al salir
     document.removeEventListener('mousemove', wakeUpPlayNav);
@@ -9068,6 +9135,12 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     if (playNavTimeout) clearTimeout(playNavTimeout);
 
     if (timerInterval) clearInterval(timerInterval)
+    if (accessibilitySyncRaf !== null) cancelAnimationFrame(accessibilitySyncRaf)
+    if (draftPersistTimeout) {
+      clearTimeout(draftPersistTimeout)
+      draftPersistTimeout = null
+      if (hasUnsavedChanges.value) writeDraftState()
+    }
 
     // 🚀 Limpieza del motor PDF en RAM para prevenir Memory Leaks
     if (_RAW_PDF_DOC) {
@@ -9211,26 +9284,116 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     editingElementId.value = null;
   };
 
-  const persistDraftState = () => {
+  let draftPersistTimeout: ReturnType<typeof setTimeout> | null = null
+  let lastReducedDraftNoticeAt = 0
+
+  const maybeNotifyReducedDraft = () => {
+    const now = Date.now()
+    if (now - lastReducedDraftNoticeAt < 12000) return
+    lastReducedDraftNoticeAt = now
+    showToast('Borrador local reducido para evitar limite de almacenamiento.', 'warning')
+  }
+
+  const buildDraftPayload = () => ({
+    title: presentationTitle.value,
+    docType: docType.value,
+    baseWidth: baseWidth.value,
+    baseHeight: baseHeight.value,
+    documentState: documentState.value,
+    slideConfigs: slideConfigs.value,
+    pdfPageMap: pdfPageMap.value,
+    updatedAt: Date.now(),
+    isReduced: false,
+  })
+
+  const buildReducedDraftPayload = (fullPayload: any) => {
+    const pageNumbers = Object.keys(fullPayload.documentState || {})
+      .map(Number)
+      .filter(n => Number.isFinite(n))
+      .sort((a, b) => b - a)
+      .slice(0, REDUCED_DRAFT_MAX_PAGES)
+      .sort((a, b) => a - b)
+
+    const reducedDocumentState: Record<number, any[]> = {}
+    const reducedSlideConfigs: Record<number, any> = {}
+    const reducedPdfPageMap: Record<number, number> = {}
+
+    pageNumbers.forEach((page) => {
+      reducedDocumentState[page] = fullPayload.documentState?.[page] || []
+      reducedSlideConfigs[page] = fullPayload.slideConfigs?.[page] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+      reducedPdfPageMap[page] = fullPayload.pdfPageMap?.[page] || 0
+    })
+
+    return {
+      ...fullPayload,
+      documentState: reducedDocumentState,
+      slideConfigs: reducedSlideConfigs,
+      pdfPageMap: reducedPdfPageMap,
+      updatedAt: Date.now(),
+      isReduced: true,
+    }
+  }
+
+  const writeDraftState = () => {
     if (!hasDoc.value) return
     if (presentationId.value) return
     if (route.params.id || route.query.templateId) return
 
     try {
-      const draftPayload = {
-        title: presentationTitle.value,
-        docType: docType.value,
-        baseWidth: baseWidth.value,
-        baseHeight: baseHeight.value,
-        documentState: documentState.value,
-        slideConfigs: slideConfigs.value,
-        pdfPageMap: pdfPageMap.value,
-        updatedAt: Date.now(),
+      const draftPayload = buildDraftPayload()
+      const serializedFull = JSON.stringify(draftPayload)
+
+      if (serializedFull.length <= DRAFT_MAX_CHARS) {
+        localStorage.setItem(DRAFT_STORAGE_KEY, serializedFull)
+        return
       }
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftPayload))
+
+      const reducedPayload = buildReducedDraftPayload(draftPayload)
+      const serializedReduced = JSON.stringify(reducedPayload)
+      if (serializedReduced.length <= DRAFT_MAX_CHARS) {
+        localStorage.setItem(DRAFT_STORAGE_KEY, serializedReduced)
+        maybeNotifyReducedDraft()
+        return
+      }
+
+      clearDraftState()
+      console.warn('Borrador demasiado grande incluso reducido. Se omite persistencia local.')
     } catch (error) {
+      const errorName = (error as any)?.name
+      if (errorName === 'QuotaExceededError') {
+        try {
+          const reducedPayload = buildReducedDraftPayload(buildDraftPayload())
+          localStorage.removeItem(DRAFT_STORAGE_KEY)
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(reducedPayload))
+          maybeNotifyReducedDraft()
+          return
+        } catch (retryError) {
+          console.warn('No se pudo persistir borrador local reducido:', retryError)
+          clearDraftState()
+          return
+        }
+      }
       console.warn('No se pudo persistir borrador local:', error)
     }
+  }
+
+  const persistDraftState = (options: { immediate?: boolean } = {}) => {
+    const { immediate = false } = options
+
+    if (immediate) {
+      if (draftPersistTimeout) {
+        clearTimeout(draftPersistTimeout)
+        draftPersistTimeout = null
+      }
+      writeDraftState()
+      return
+    }
+
+    if (draftPersistTimeout) clearTimeout(draftPersistTimeout)
+    draftPersistTimeout = setTimeout(() => {
+      draftPersistTimeout = null
+      writeDraftState()
+    }, DRAFT_PERSIST_DEBOUNCE_MS)
   }
 
   const clearDraftState = () => {
@@ -9272,6 +9435,9 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       await renderPage(1)
       setTimeout(fitToScreen, 100)
       showToast('Se recuperó tu borrador local.', 'info')
+      if (draft.isReduced) {
+        showToast('Se recupero un borrador local reducido.', 'warning')
+      }
       return true
     } catch (error) {
       console.warn('No se pudo restaurar borrador local:', error)
@@ -9281,7 +9447,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
     if (!hasUnsavedChanges.value) return
-    persistDraftState()
+    persistDraftState({ immediate: true })
     e.preventDefault()
     e.returnValue = ''
   }
@@ -9410,6 +9576,20 @@ watch(
     () => route.fullPath,
     () => {
       initEditorFromRoute()
+    }
+  )
+
+  watch(
+    [
+      () => showNewProjectModal.value,
+      () => hasDoc.value,
+      () => selectedElement.value?.id,
+      () => selectedElement.value?.type,
+      () => activeInspectorTab.value,
+      () => pageNum.value,
+    ],
+    () => {
+      nextTick(scheduleFormAccessibilitySync)
     }
   )
 
@@ -11452,7 +11632,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   }
 
   const resetEditorToHome = () => {
-    if (hasUnsavedChanges.value) persistDraftState()
+    if (hasUnsavedChanges.value) persistDraftState({ immediate: true })
 
     if (playMode.value) {
       playMode.value = false
