@@ -1,14 +1,11 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import EditorPresentaciones from '@/views/EditorPresentacionesView.vue'
-import LoginView from '@/views/LoginView.vue'
-import BibliotecaView from '@/views/BibliotecaView.vue'
 import DevPresentLandingView from '@/views/DevPresentLandingView.vue'
 import DevPresentAuthView from '@/views/DevPresentAuthView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import DevPresentProjectsView from '@/views/DevPresentProjectsView.vue'
 import DevPresentTemplatesView from '@/views/DevPresentTemplatesView.vue'
-import DevPresentEditorView from '@/views/DevPresentEditorView.vue'
-import DevPresentMarketplaceView from '@/views/DevPresentMarketplaceView.vue'
 import { useAuthStore } from '@/stores/auth' // Importamos el store
 
 const router = createRouter({
@@ -16,9 +13,8 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'visor',
-      component: EditorPresentaciones,
-      meta: { requiresAuth: true } // 🔒 Requiere estar logueado
+      name: 'landing',
+      component: DevPresentLandingView
     },
     {
       // ✨ AQUÍ ESTÁ EL CAMBIO CLAVE: agregamos /:id?
@@ -31,20 +27,17 @@ const router = createRouter({
     {
       path: '/biblioteca',
       name: 'biblioteca',
-      component: BibliotecaView,
-      meta: { requiresAuth: true }
+      redirect: '/devpresent/projects',
     },
     {
       path: '/biblioteca-plantillas',
       name: 'TemplateLibrary',
-      component: () => import('@/views/TemplateLibrary.vue'),
-      meta: { requiresAuth: true },
+      redirect: '/devpresent/templates',
     },
     {
       path: '/login',
       name: 'login',
-      component: LoginView,
-      meta: { requiresGuest: true } // 🚫 Solo para usuarios NO logueados
+      redirect: '/devpresent/auth',
     },
     {
       path: '/v/:slug',
@@ -59,27 +52,25 @@ const router = createRouter({
     {
       path: '/devpresent/auth',
       name: 'devpresent-auth',
-      component: DevPresentAuthView
+      component: DevPresentAuthView,
+      meta: { requiresGuest: true }
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordView,
     },
     {
       path: '/devpresent/projects',
       name: 'devpresent-projects',
-      component: DevPresentProjectsView
+      component: DevPresentProjectsView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/devpresent/templates',
       name: 'devpresent-templates',
-      component: DevPresentTemplatesView
-    },
-    {
-      path: '/devpresent/editor/:id?',
-      name: 'devpresent-editor',
-      component: DevPresentEditorView
-    },
-    {
-      path: '/devpresent/marketplace',
-      name: 'devpresent-marketplace',
-      component: DevPresentMarketplaceView
+      component: DevPresentTemplatesView,
+      meta: { requiresAuth: true }
     }
   ],
 })
@@ -91,11 +82,11 @@ router.beforeEach((to, from, next) => {
 
   // 1. Si intenta ir al Login pero YA está logueado -> Lo mandamos al Home (/)
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    next({ path: '/' })
+    next({ path: '/devpresent/projects' })
   }
   // 2. Si intenta ir a una ruta protegida (Home/Editor) pero NO está logueado -> Lo mandamos al Login
   else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ path: '/login' })
+    next({ path: '/devpresent/auth' })
   }
   // 3. En cualquier otro caso, dejamos que la navegación continúe
   else {

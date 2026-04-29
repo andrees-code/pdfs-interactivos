@@ -35,6 +35,18 @@ npm run dev
 
 La aplicación se ejecutará en `http://localhost:5173`
 
+### Variables de Entorno
+
+Crear archivo `.env` en frontend:
+
+```sh
+VITE_BACKEND_URL=http://localhost:3000
+```
+
+Para login social con Google debes registrar callback hacia backend:
+
+- `https://<tu-backend>/api/api/v1/users/auth/google/callback`
+
 ### Compilar para Producción
 
 ```sh

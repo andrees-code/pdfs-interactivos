@@ -8,23 +8,22 @@ const props = withDefaults(
   }>(),
   {
     active: 'none',
-    searchPlaceholder: 'Search projects, templates, creators...',
+    searchPlaceholder: 'Buscar proyectos, plantillas y creadores...',
     searchAlign: 'center',
     showSearch: true
   }
 )
 
 const links = [
-  { key: 'projects', label: 'Projects', to: '/devpresent/projects' },
-  { key: 'templates', label: 'Templates', to: '/devpresent/templates' },
-  { key: 'marketplace', label: 'Marketplace', to: '/devpresent/marketplace' }
+  { key: 'projects', label: 'Proyectos', to: '/devpresent/projects' },
+  { key: 'templates', label: 'Plantillas', to: '/devpresent/templates' }
 ] as const
 </script>
 
 <template>
   <nav class="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
     <div class="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 lg:px-8">
-      <RouterLink to="/devpresent" class="flex items-center gap-2 text-white">
+      <RouterLink to="/devpresent/projects" class="flex items-center gap-2 text-white">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary-500/20 text-primary-200">
           <span class="material-symbols-outlined text-lg">view_in_ar</span>
         </span>
@@ -53,21 +52,21 @@ const links = [
           <input
             type="search"
             :placeholder="props.searchPlaceholder"
-            aria-label="Search"
+            aria-label="Buscar"
             class="w-full rounded-pill border border-white/10 bg-surface-raised/70 py-2 pl-10 pr-4 text-sm text-white outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-primary-400"
           />
         </label>
       </div>
 
       <div class="ml-auto flex items-center gap-2">
-        <button type="button" aria-label="Notifications" title="Notifications" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-200 transition-all duration-200 hover:bg-white/10">
+        <button type="button" aria-label="Notificaciones" title="Notificaciones" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-200 transition-all duration-200 hover:bg-white/10">
           <span class="material-symbols-outlined text-lg">notifications</span>
         </button>
-        <button type="button" aria-label="Help" title="Help" class="hidden h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-200 transition-all duration-200 hover:bg-white/10 md:inline-flex">
+        <button type="button" aria-label="Ayuda" title="Ayuda" class="hidden h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-200 transition-all duration-200 hover:bg-white/10 md:inline-flex">
           <span class="material-symbols-outlined text-lg">help</span>
         </button>
         <button type="button" class="hidden rounded-pill bg-gradient-to-r from-primary-500 to-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-glow transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 md:inline-flex">
-          Create New
+          Nuevo
         </button>
         <span aria-label="User avatar" title="User avatar" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 font-semibold text-white">AP</span>
       </div>

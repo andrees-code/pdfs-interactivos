@@ -24,7 +24,6 @@
           @fit-screen="fitToScreen"
           @toggle-play="togglePlayMode"
           @save="savePresentation"
-          @publish-as-template="publishAsTemplate"
         />
   <div v-if="isLoadingProject" class="loading-overlay">
           <div class="spinner"></div>
@@ -4995,6 +4994,7 @@
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
   import { templateService } from '@/services/template.service';
   import { cloudinaryService } from '@/services/cloudinary.service';
+  import { consumePendingProjectImport } from '@/services/pending-project-import';
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
   import pako from 'pako';
   import Cropper from 'cropperjs';
@@ -5108,6 +5108,12 @@ const animationEffectOptionsByCategory = animationCategoryOptions.reduce((acc, c
     .map(([value, preset]) => ({ value, label: preset.label }))
   return acc
 }, {} as Record<AnimationCategory, Array<{ value: string; label: string }>>)
+
+const waitForNextFrame = async () => {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+}
 
 const normalizeAnimationType = (value: any): string => {
   if (!value || typeof value !== 'string') return 'none'
@@ -10403,6 +10409,7 @@ watch(
     const renderScale = 2.0
 
     for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
+      await waitForNextFrame()
       try {
         const page = await _RAW_PDF_DOC.getPage(i)
         const viewport = page.getViewport({ scale: renderScale })
@@ -10425,13 +10432,15 @@ watch(
     }
   }
 
-  const handleFileUpload = async (event: Event) => {
-    const file = (event.target as HTMLInputElement).files?.[0]
-    if (!file) return
+  const processUploadedFile = async (file: File) => {
     const fileExtension = file.name.split('.').pop()?.toLowerCase()
 
-    if (fileExtension === 'pdf') await processPdfFile(file)
-    else if (['pptx', 'ppsx', 'potx'].includes(fileExtension || '')) {
+    if (fileExtension === 'pdf') {
+      await processPdfFile(file)
+      return
+    }
+
+    if (['pptx', 'ppsx', 'potx'].includes(fileExtension || '')) {
       if (!fullEditMode.value) {
         showToast('Modo legacy activo: usando importación antigua de PPTX.', 'warning')
         cleanBackgroundVerified.value = false
@@ -10442,8 +10451,21 @@ watch(
       } else {
         await convertPptxFullEdit(file)
       }
+      return
     }
-    else if (fileExtension === 'html') await processHtmlFile(file)
+
+    if (fileExtension === 'html') {
+      await processHtmlFile(file)
+      return
+    }
+
+    showToast('Formato no compatible. Usa PDF, PPTX o HTML.', 'error')
+  }
+
+  const handleFileUpload = async (event: Event) => {
+    const file = (event.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    await processUploadedFile(file)
   }
 
   /**
@@ -10458,6 +10480,7 @@ watch(
     }
 
     isConverting.value = true
+    await waitForNextFrame()
     showToast('Importando PowerPoint en modo edición completa...', 'info')
 
     try {
@@ -10845,7 +10868,7 @@ watch(
       console.error('Error al cargar la presentación:', error);
       showToast('Error al cargar el proyecto. Puede que el archivo no esté disponible.', 'error');
       // ✨ Redirigimos a la biblioteca para sacarlo del error
-      router.push('/biblioteca');
+      router.push('/devpresent/projects');
     } finally {
       isLoadingProject.value = false;
 
@@ -11106,6 +11129,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   }
 
   isConverting.value = true;
+  await waitForNextFrame();
   showToast('Procesando documento para convertir a HTML editable...', 'info');
 
   // Subida directa cliente -> Cloudinary (sin pasar por Vercel)
@@ -11173,6 +11197,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     // 3. Extraer textos cuando aplique
     if (shouldExtractText) {
       for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
+        await waitForNextFrame()
         const page = await _RAW_PDF_DOC.getPage(i);
         const viewport = page.getViewport({ scale: 1.0 });
         await extractTextToNativeElements(page, i, viewport);
@@ -11246,6 +11271,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }
 
     isConverting.value = true;
+    await waitForNextFrame();
 
     const buildConvertPayload = () => {
       const formData = new FormData();
@@ -11636,6 +11662,38 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }, 100);
   }
 
+  const getRouteQueryValue = (key: string) => {
+    const value = route.query[key]
+    return Array.isArray(value) ? value[0] : value
+  }
+
+  const initializeProjectFromRoute = () => {
+    const preset = getRouteQueryValue('preset')
+    const template = getRouteQueryValue('template')
+    const createSource = getRouteQueryValue('createSource')
+    const width = Number(getRouteQueryValue('width'))
+    const height = Number(getRouteQueryValue('height'))
+
+    if (typeof preset === 'string') {
+      projectConfigs.value.preset = preset
+    }
+
+    if (typeof template === 'string') {
+      projectConfigs.value.template = template
+    }
+
+    if (projectConfigs.value.preset === 'custom' || projectConfigs.value.preset === 'original') {
+      if (Number.isFinite(width) && width > 0) projectConfigs.value.width = width
+      if (Number.isFinite(height) && height > 0) projectConfigs.value.height = height
+    }
+
+    if (createSource === 'upload') {
+      projectConfigs.value.template = 'blank'
+    }
+
+    confirmCreateProject()
+  }
+
   const createTemplateElement = (type: ToolType, overrides: any) => {
     return {
       id: `el_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
@@ -11739,12 +11797,13 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   }
 
   const initEditorFromRoute = async (force = false) => {
-    const routeKey = `${String(route.params.id || '')}|${String(route.query.templateId || '')}|${String(route.query.mode || '')}`
+    const routeKey = `${String(route.params.id || '')}|${String(route.query.templateId || '')}|${String(route.query.mode || '')}|${String(route.query.newProject || '')}|${String(route.query.preset || '')}|${String(route.query.template || '')}|${String(route.query.width || '')}|${String(route.query.height || '')}|${String(route.query.createSource || '')}|${String(route.query.autoImport || '')}`
     if (!force && lastRouteLoadKey.value === routeKey) return
     lastRouteLoadKey.value = routeKey
 
     const routeId = route.params.id as string | undefined
     const templateId = route.query.templateId as string | undefined
+    const createFromProjects = getRouteQueryValue('newProject') === '1'
 
     if (templateId) {
       await loadTemplateFromQuery(templateId)
@@ -11763,6 +11822,24 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       return
     }
 
+    if (createFromProjects) {
+      initializeProjectFromRoute()
+
+      const createSource = getRouteQueryValue('createSource')
+      const shouldAutoImport = getRouteQueryValue('autoImport') === '1'
+      if (createSource === 'upload' && shouldAutoImport) {
+        const pendingImport = consumePendingProjectImport()
+        if (pendingImport?.file) {
+          await processUploadedFile(pendingImport.file)
+        } else {
+          showToast('No se encontró el archivo para importar. Sube el archivo manualmente desde el header.', 'warning')
+        }
+      } else if (createSource === 'upload') {
+        showToast('Proyecto creado. Usa "Importar Archivo" en el header para subir PDF/PPTX/HTML.', 'info')
+      }
+      return
+    }
+
     const restored = await restoreDraftState()
     if (restored) return
 
@@ -11776,7 +11853,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }
   }
 
-  const publishAsTemplate = async () => {
+  const _publishAsTemplate = async () => {
     const isPublic = confirm('¿Quieres que esta plantilla sea pública en la tienda? (Aceptar = Pública, Cancelar = Privada)')
     const userId = authStore.user?._id
     if (!userId) return
@@ -14573,9 +14650,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     position: fixed;
     top: 0;
     left: 0;
-    background-color: var(--surface-base);
+    background: var(--bg-base);
     color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-main);
     overflow: hidden;
   }
   .loading-overlay {
@@ -14605,6 +14682,26 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 20px;
+  }
+  /* Keep critical loading feedback animated even if global reduced-motion is enabled. */
+  .loading-overlay .spinner {
+    animation-name: spin !important;
+    animation-duration: 1s !important;
+    animation-timing-function: linear !important;
+    animation-iteration-count: infinite !important;
+    animation-delay: 0s !important;
+    animation-play-state: running !important;
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loading-overlay .spinner {
+      animation-name: spin !important;
+      animation-duration: 1s !important;
+      animation-timing-function: linear !important;
+      animation-iteration-count: infinite !important;
+      animation-play-state: running !important;
+    }
   }
   @keyframes spin {
     to {
@@ -14862,6 +14959,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     flex: 1;
     overflow: hidden;
     min-height: 0;
+    gap: 18px;
+    padding: 14px 18px 18px;
   }
   .center-workspace {
     display: flex;
@@ -14869,80 +14968,83 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     flex: 1;
     overflow: hidden;
     min-width: 0;
-    background-color: var(--bg-base);
+    background: transparent;
     position: relative;
+    border-radius: calc(var(--radius-xl) + 4px);
     transition: all 0.3s ease;
   }
   .pro-top-toolbar {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
-    padding: 10px 20px;
-    background: var(--surface-elevated) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-subtle) !important;
-    border-radius: 0 0 20px 20px;
-    width: 100%;
-    max-width: 1100px;
-    margin: 0 auto;
+    gap: 10px;
+    padding: 10px;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-xl);
+    width: max-content;
+    max-width: min(1120px, calc(100% - 40px));
+    margin: 6px auto 14px;
     z-index: 30;
     flex-shrink: 0;
     align-items: center;
+    box-shadow: var(--shadow-float);
   }
   .toolbar-category {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    background: var(--surface-panel);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px;
-    padding: 8px 14px;
-    transition: background 0.2s;
+    gap: 7px;
+    background: rgba(255, 255, 255, 0.038);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-bounce);
   }
   .toolbar-category:hover {
-    background: var(--surface-soft);
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(var(--accent-rgb), 0.14);
+    transform: translateY(-1px);
   }
   .category-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: var(--text-secondary);
+    font-size: 0.66rem;
+    font-weight: 620;
+    color: var(--text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    opacity: 0.8;
+    letter-spacing: 0.12em;
   }
   .category-tools {
     display: flex;
-    gap: 2px;
+    gap: 4px;
   }
   .tool-btn {
-  transition: all var(--transition-bounce);
-  border-radius: var(--radius-sm);
-
-    font-size: 1.1rem;
-    width: 32px;
-    height: 32px;
+    transition: all var(--transition-bounce);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    border-radius: 4px;
-    transition: all 0.2s;
+    border-radius: 10px;
   }
   .tool-btn:hover {
-  transform: translateY(-2px);
-
-    background: var(--bg-surface-active);
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
   }
   .tool-btn.active {
-    background: var(--surface-soft-strong);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.12));
+    border-color: rgba(var(--accent-rgb), 0.18);
     color: var(--accent-primary);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 24px rgba(var(--accent-rgb), 0.12);
   }
 
   .shape-tool-wrap {
@@ -15303,8 +15405,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   /* ÁREA DEL LIENZO */
   .pro-canvas-area {
-  background-color: var(--surface-base);
-
+    background-color: var(--surface-canvas);
+    background-image: radial-gradient(circle, var(--canvas-dot) 0.95px, transparent 1px);
     flex: 1;
     position: relative;
     overflow: auto;
@@ -15312,8 +15414,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: center;
     align-items: center;
     cursor: grab !important;
-    background-image: radial-gradient(var(--canvas-dot) 0.8px, transparent 0.8px);
-    background-size: 24px 24px;
+    background-size: 22px 22px;
+    background-position: center center;
+    border-radius: calc(var(--radius-xl) + 4px);
   }
 
   .pro-canvas-area.is-panning {
@@ -15329,71 +15432,79 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   /* PANELES LATERALES MÁS COMPACTOS */
   .pro-sidebar {
     width: 260px;
-    background-color: var(--bg-panel) !important;
-    border-right: 1px solid var(--border-strong) !important;
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-xl);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow-y: auto;
+    overflow: hidden;
     z-index: 40;
+    box-shadow: var(--shadow-float);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
   }
   .right-sidebar {
-    border-right: none !important;
-    border-left: 1px solid var(--border-strong) !important;
+    border-right: 1px solid var(--glass-border) !important;
   }
   .panel-header {
-    padding: 12px 15px; /* Padding reducido */
-    font-weight: 600;
-    font-size: 0.8rem;
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 16px 18px 14px;
+    font-weight: 620;
+    font-size: 0.72rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-secondary);
+    letter-spacing: 0.14em;
+    color: var(--text-tertiary);
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .badge {
-    background: var(--border-strong);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: var(--radius-pill);
+    font-size: 0.68rem;
+    font-weight: 650;
   }
   .sidebar-footer {
-    padding: 12px 15px;
-    border-top: 1px solid var(--border-subtle);
-    background: var(--surface-panel);
+    padding: 14px 18px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
   }
   .sidebar-cta {
-    padding: 12px 15px;
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   /* THUMBNAILS Y DRAG & DROP DE CAPAS */
   .slides-preview-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 12px 15px;
+    gap: 10px;
+    padding: 14px 16px 18px;
     overflow-y: auto;
     flex: 1;
   }
   .thumb-item {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
-    border-radius: 12px;
-    padding: 8px;
-    transition: background 0.2s, box-shadow 0.2s;
+    border-radius: var(--radius-md);
+    padding: 10px;
+    border: 1px solid transparent;
+    transition: background var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal), transform var(--transition-bounce);
   }
   .thumb-item:hover {
-    background: var(--surface-soft);
+    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(255, 255, 255, 0.06);
+    transform: translateY(-1px);
   }
   .thumb-item.is-active {
-    background: var(--surface-soft-strong);
-    box-shadow: inset 0 0 0 1px var(--border-strong);
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.18), rgba(255, 255, 255, 0.03));
+    border-color: rgba(var(--accent-rgb), 0.14);
+    box-shadow: inset 3px 0 0 var(--accent-primary), 0 18px 32px rgba(0, 0, 0, 0.16);
   }
   .thumb-num {
     font-size: 0.8rem;
@@ -15412,19 +15523,20 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     gap: 5px;
   }
   .thumb-card {
-  background-size: cover !important;
-  background-position: center !important;
-  transition: background-image 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.2s;
-  will-change: background-image, transform;
+    background-size: cover !important;
+    background-position: center !important;
+    transition: background-image 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.2s, box-shadow var(--transition-normal), border-color var(--transition-normal);
+    will-change: background-image, transform;
 
     width: 100%;
     aspect-ratio: 16 / 9;
-    border-radius: 10px;
-    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     background-size: cover;
     background-position: center;
     position: relative;
     overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 26px rgba(0, 0, 0, 0.18);
   }
   .thumb-actions {
     position: absolute;
@@ -15446,22 +15558,23 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     opacity: 1;
   }
   .thumb-action-btn {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     border: none;
-    background: var(--surface-elevated);
+    background: rgba(11, 15, 23, 0.82);
     color: var(--text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: 0.2s;
+    transition: transform var(--transition-bounce), background-color var(--transition-normal), color var(--transition-normal);
     font-size: 0.8rem;
   }
   .thumb-action-btn:hover:not(:disabled) {
-    background: var(--accent-primary);
-    transform: scale(1.1);
+    background: rgba(var(--accent-rgb), 0.9);
+    color: #06111b;
+    transform: scale(1.08);
   }
   .thumb-action-btn.btn-trash:hover:not(:disabled) {
     background: var(--danger);
@@ -15482,28 +15595,31 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     gap: 2px;
   }
   .tree-child {
-    padding: 4px 6px;
+    padding: 7px 8px;
     font-size: 0.75rem;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     color: var(--text-secondary);
-    border-radius: 4px;
-    transition: 0.2s;
+    border-radius: 10px;
+    transition: background-color var(--transition-normal), color var(--transition-normal), transform var(--transition-bounce);
     border: 1px solid transparent;
   }
   .tree-child .icon {
     font-size: 0.9rem;
   }
   .tree-child:hover {
-    background: var(--border-strong);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
+    transform: translateX(2px);
   }
   .tree-child.is-selected {
-    background: var(--accent-primary);
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-rgb), 0.05));
     color: var(--text-primary);
     font-weight: 500;
+    border-color: rgba(var(--accent-rgb), 0.14);
+    box-shadow: inset 2px 0 0 var(--accent-primary);
   }
   .drag-handle {
     cursor: grab;
@@ -15547,7 +15663,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
 
   .panel-content {
-    padding: 15px; /* Reducido de 20px */
+    padding: 16px 18px 18px;
   }
   .empty-state {
     text-align: center;
@@ -15572,23 +15688,22 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     margin-bottom: 15px;
   }
   .badge-type {
-    background: var(--surface-soft);
+    background: rgba(var(--accent-rgb), 0.12);
     color: var(--accent-primary);
-    padding: 4px 10px;
-    border-radius: 20px;
+    padding: 6px 10px;
+    border-radius: var(--radius-pill);
     font-size: 0.7rem;
-    font-weight: bold;
+    font-weight: 650;
     display: flex;
     align-items: center;
     gap: 5px;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.08em;
   }
   .prop-section {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--border-strong);
-    border-radius: 0;
-    padding: 16px 0;
+    background: rgba(255, 255, 255, 0.028);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+    padding: 14px;
     margin-bottom: 0;
   }
   .section-title {
@@ -15629,23 +15744,24 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .pro-input {
     width: 100%;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
-    padding: 8px 10px;
-    border-radius: 6px;
+    padding: 10px 12px;
+    border-radius: 12px;
     box-sizing: border-box;
     font-family: inherit;
     font-size: 0.8rem;
-    transition: border-color 0.2s;
+    transition: border-color var(--transition-normal), background-color var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-bounce);
   }
   .pro-input:hover {
-    border-color: var(--border-strong);
+    border-color: rgba(255, 255, 255, 0.14);
   }
   .pro-input:focus {
-    border-color: var(--accent-primary);
-    background: var(--bg-base);
+    border-color: rgba(var(--accent-rgb), 0.24);
+    background: rgba(255, 255, 255, 0.055);
     outline: none;
+    box-shadow: var(--ring-accent);
   }
   .pro-input:disabled {
     opacity: 0.5;
@@ -15655,10 +15771,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--surface-soft-contrast);
-    border: 1px solid transparent;
-    border-radius: 10px;
-    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 4px 10px;
   }
   /* Elemento fuera del lienzo — visible en editor, oculto en presentación */
   .interactive-element.is-outside-canvas {
@@ -16887,74 +17003,85 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 24px;
-    height: 48px;
-    background: var(--surface-elevated);
-    border: 1px solid var(--border-subtle);
+    width: 34px;
+    height: 56px;
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--glass-border);
     color: var(--text-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     z-index: 50;
-    transition: all 0.2s;
-    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-bounce), background-color var(--transition-normal), color var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+    box-shadow: var(--shadow-float);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
   }
 
   .sidebar-toggle-btn:hover {
-    background: var(--accent-primary);
-    color: var(--text-primary);
+    transform: translateY(-50%) scale(1.02);
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: rgba(var(--accent-rgb), 0.22);
+    color: var(--accent-hover);
+  }
+
+  .sidebar-toggle-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--ring-accent), var(--shadow-float);
   }
 
   .toggle-left {
-    left: 0;
-    border-radius: 0 8px 8px 0;
-    border-left: none;
+    left: -4px;
+    border-radius: 0 18px 18px 0;
   }
 
   .toggle-right {
-    right: 0;
-    border-radius: 8px 0 0 8px;
-    border-right: none;
+    right: -4px;
+    border-radius: 18px 0 0 18px;
   }
 
   /* TABS DEL INSPECTOR (TIPO FIGMA) */
   .inspector-tabs {
     display: flex;
-    border-bottom: 1px solid var(--border-strong);
-    background: var(--bg-base);
+    gap: 6px;
+    padding: 10px 14px 0;
+    background: transparent;
   }
 
   .inspector-tab {
     flex: 1;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
+    min-height: 42px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     color: var(--text-secondary);
-    padding: 10px 0;
+    padding: 0;
     cursor: pointer;
-    transition: all 0.2s;
-    font-size: 1.1rem;
+    transition: all var(--transition-bounce);
+    font-size: 1rem;
     display: flex;
     justify-content: center;
     align-items: center;
+    border-radius: 12px;
   }
 
   .inspector-tab:hover {
-    background: var(--bg-surface-active);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
   }
 
   .inspector-tab.active {
     color: var(--accent-primary);
-    border-bottom-color: var(--accent-primary);
-    background: var(--surface-soft);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.08));
+    border-color: rgba(var(--accent-rgb), 0.18);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
   }
 
   .pro-sidebar .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 15px;
+    padding: 16px 18px 18px;
   }
   .divider-text {
     color: var(--text-secondary);
@@ -16962,8 +17089,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     margin: 5px 0;
   }
   .interactivity-panel {
-    border-color: var(--border-strong);
-    background: var(--surface-soft);
+    border-color: rgba(var(--accent-rgb), 0.12);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), rgba(255, 255, 255, 0.025));
   }
   .interactivity-panel-header {
     display: flex;

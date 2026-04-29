@@ -11,11 +11,11 @@ const props = withDefaults(
 )
 
 const items = [
-  { key: 'layout', label: 'Layout', icon: 'grid_view' },
-  { key: 'typography', label: 'Typography', icon: 'format_size' },
-  { key: 'assets', label: 'Assets', icon: 'inventory_2' },
-  { key: 'code', label: 'Code', icon: 'code' },
-  { key: 'settings', label: 'Settings', icon: 'settings' }
+  { key: 'layout', label: 'Diseño', icon: 'grid_view' },
+  { key: 'typography', label: 'Tipografía', icon: 'format_size' },
+  { key: 'assets', label: 'Recursos', icon: 'inventory_2' },
+  { key: 'code', label: 'Código', icon: 'code' },
+  { key: 'settings', label: 'Ajustes', icon: 'settings' }
 ] as const
 </script>
 
@@ -24,7 +24,7 @@ const items = [
     <div class="border-b border-white/10 p-4">
       <div class="aspect-video rounded-card bg-gradient-to-br from-primary-900/60 via-primary-700/30 to-slate-900"></div>
       <p class="mt-3 text-sm font-semibold text-white">{{ props.projectName }}</p>
-      <p class="text-xs text-slate-400">Last edited 6m ago</p>
+      <p class="text-xs text-slate-400">Editado hace 6 min</p>
     </div>
 
     <div class="space-y-1 p-3">
@@ -43,14 +43,14 @@ const items = [
     <div class="mt-auto border-t border-white/10 p-3">
       <button type="button" class="mb-2 flex w-full items-center gap-3 rounded-card px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
         <span class="material-symbols-outlined text-lg">help</span>
-        Help
+        Ayuda
       </button>
       <button type="button" class="mb-3 flex w-full items-center gap-3 rounded-card px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
         <span class="material-symbols-outlined text-lg">chat</span>
-        Feedback
+        Comentarios
       </button>
       <button type="button" class="w-full rounded-pill bg-gradient-to-r from-primary-500 to-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-glow">
-        Publish
+        Publicar
       </button>
     </div>
   </aside>
