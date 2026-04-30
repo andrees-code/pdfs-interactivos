@@ -129,8 +129,10 @@
           ? `url(${generatedThumbnails[page]})`
           : slideConfigs[page]?.bgImage
             ? `url(${slideConfigs[page].bgImage})`
-            : pdfPageMap[page] && pdfThumbnails[pdfPageMap[page]]
-              ? `url(${pdfThumbnails[pdfPageMap[page]]})`
+            : pdfThumbnails[page]
+              ? `url(${pdfThumbnails[page]})`
+              : pdfPageMap[page] && pdfThumbnails[pdfPageMap[page]]
+                ? `url(${pdfThumbnails[pdfPageMap[page]]})`
               : 'none',
       }"
     >
@@ -674,12 +676,12 @@
                     }"
                   ></div>
 
-                  <Suspense v-if="docType === 'pdf' && (!hasExtractedTextOnCurrentPage || currentBgImage === 'none')">
+                  <Suspense v-if="docType === 'pdf' && currentBgImage === 'none'">
                     <template #default>
                       <PdfViewer
-                        v-if="_PDF_BASE64_STORE"
+                        v-if="_PDF_BASE64_STORE && getMappedPdfPage(pageNum) > 0"
                         :pdfBase64="_PDF_BASE64_STORE"
-                        :pageNum="pdfPageMap[pageNum] || pageNum"
+                        :pageNum="getMappedPdfPage(pageNum)"
                         @document-loaded="(doc) => { _RAW_PDF_DOC = doc; numPages = doc.numPages; }"
                       />
                     </template>
@@ -8144,7 +8146,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   const clipboardElements = ref<any[]>([])
 
   const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
-  const hasExtractedTextOnCurrentPage = computed(() =>
+  const _hasExtractedTextOnCurrentPage = computed(() =>
     currentPageElements.value.some(
       (el: any) => typeof el?.id === 'string' && el.id.startsWith('el_pdf_'),
     ),
@@ -8247,6 +8249,32 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   }
 
   const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff')
+  const getMappedPdfPage = (page: number): number => {
+    const rawMapped = (pdfPageMap.value as Record<number, unknown>)[page]
+    if (rawMapped === undefined || rawMapped === null) return page
+    const mapped = Number(rawMapped)
+    if (!Number.isFinite(mapped)) return page
+    return mapped
+  }
+
+  const syncHardcodedPdfThumbnailsBySlide = () => {
+    const pagesFromMap = Object.keys(pdfPageMap.value || {}).map(Number).filter(Number.isFinite)
+    const maxPages = Math.max(numPages.value || 0, ...(pagesFromMap.length ? pagesFromMap : [0]))
+    if (maxPages <= 0) return
+
+    for (let page = 1; page <= maxPages; page++) {
+      const mapped = getMappedPdfPage(page)
+      if (mapped > 0 && pdfThumbnails.value[mapped]) {
+        // Hardcode temporal: persistir miniatura estática por índice de slide.
+        pdfThumbnails.value[page] = pdfThumbnails.value[mapped]
+      }
+    }
+  }
+
+  watch([pdfPageMap, numPages], () => {
+    syncHardcodedPdfThumbnailsBySlide()
+  }, { deep: true })
+
   const currentBgImage = computed(() => {
     const bg = slideConfigs.value[pageNum.value]?.bgImage;
     if (!bg || bg.trim() === '' || bg === 'none') return 'none';
@@ -10430,6 +10458,8 @@ watch(
         console.error('Error generando thumbnail HD:', e)
       }
     }
+
+    syncHardcodedPdfThumbnailsBySlide()
   }
 
   const processUploadedFile = async (file: File) => {
@@ -13475,7 +13505,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     const snapshotPdfPageMap: Record<number, number> = JSON.parse(JSON.stringify(pdfPageMap.value || {}))
     const snapshotPdfThumbnails: Record<number, string> = JSON.parse(JSON.stringify(pdfThumbnails.value || {}))
     const snapshotDocType = docType.value
-    const snapshotCleanBgVerified = cleanBackgroundVerified.value
+    const _snapshotImportMode = importMode.value
+    const _snapshotCleanBackgroundVerified = cleanBackgroundVerified.value
     const snapshotBaseWidth = baseWidth.value
     const snapshotBaseHeight = baseHeight.value
     const snapshotNumPages = Math.max(numPages.value || 1, 1)
@@ -13506,12 +13537,79 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       }
     };
 
+    // Replica exactamente lo que hace PdfViewer.vue: renderiza la pagina silenciando
+    // fillText/strokeText → fondo limpio identico al que se ve en el editor.
+    const getExportPdfBackground = async (targetPage: number): Promise<string | null> => {
+      const mappedRaw = (snapshotPdfPageMap as Record<number, unknown>)[targetPage];
+      const mappedPage = Number.isFinite(Number(mappedRaw)) && Number(mappedRaw) > 0 ? Number(mappedRaw) : targetPage;
+
+      if (_RAW_PDF_DOC && typeof _RAW_PDF_DOC.getPage === 'function') {
+        try {
+          const pdfPage = await _RAW_PDF_DOC.getPage(mappedPage);
+          const viewport = pdfPage.getViewport({ scale: 1.0 });
+          const qualityMultiplier = 2.0;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.floor(viewport.width * qualityMultiplier);
+          canvas.height = Math.floor(viewport.height * qualityMultiplier);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('no ctx');
+
+          ctx.scale(qualityMultiplier, qualityMultiplier);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Silencia texto igual que PdfViewer.vue — fondo identico al editor
+          const origFillText = ctx.fillText.bind(ctx);
+          const origStrokeText = ctx.strokeText.bind(ctx);
+          ctx.fillText = () => {};
+          ctx.strokeText = () => {};
+
+          try {
+            await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+          } finally {
+            ctx.fillText = origFillText;
+            ctx.strokeText = origStrokeText;
+          }
+
+          return canvas.toDataURL('image/jpeg', 0.92);
+        } catch (err) {
+          console.warn('getExportPdfBackground: fallo render sin texto, usando thumbnail precalculado.', err);
+        }
+      }
+
+      return snapshotPdfThumbnails[mappedPage] || null;
+    };
+
+    const isLikelyImportedBackgroundOverlayForExport = (el: any, finalBg: string | null) => {
+      if (!el || el.type !== 'image') return false;
+      if (finalBg && finalBg !== 'none' && el.src === finalBg) return true;
+
+      const x = Number(el.x);
+      const y = Number(el.y);
+      const width = Number(el.width);
+      const height = Number(el.height);
+      if (![x, y, width, height].every(Number.isFinite)) return false;
+
+      const xTolerance = Math.max(8, Math.round(snapshotBaseWidth * 0.03));
+      const yTolerance = Math.max(8, Math.round(snapshotBaseHeight * 0.03));
+      const coversWidth = width >= snapshotBaseWidth - Math.max(24, Math.round(snapshotBaseWidth * 0.06));
+      const coversHeight = height >= snapshotBaseHeight - Math.max(24, Math.round(snapshotBaseHeight * 0.06));
+      const nearOrigin = x <= xTolerance && y <= yTolerance;
+      const areaRatio = snapshotBaseWidth > 0 && snapshotBaseHeight > 0
+        ? (width * height) / (snapshotBaseWidth * snapshotBaseHeight)
+        : 0;
+      const fitHint = !el.fit || el.fit === 'fill' || el.fit === 'cover';
+      const importedIdHint = typeof el.id === 'string' && /pptx|pdf|background|fondo/i.test(el.id);
+
+      return nearOrigin && fitHint && ((coversWidth && coversHeight) || areaRatio >= 0.88 || importedIdHint);
+    };
+
     // Filtrar elementos fuera del canvas y empaquetar imágenes/audios en Base64
     const filteredDocumentState: Record<number, any[]> = {};
     for (let pageNumKey = 1; pageNumKey <= snapshotNumPages; pageNumKey++) {
       const elements = snapshotDocumentState[pageNumKey] || [];
-
       const processedElements = [];
+
       for (const el of (elements as any[])) {
         const elWidth = typeof el.width === 'number' ? el.width : 150;
         const elHeight = typeof el.height === 'number' ? el.height : 50;
@@ -13552,30 +13650,47 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       filteredDocumentState[pageNumKey] = processedElements;
     }
 
-    // Exportar fondos tal y como los tiene configurados el usuario.
-    // Si la slide no tiene bgImage custom y viene de PDF/PPTX, usamos el fondo limpio
-    // no editable ya renderizado en memoria (pdfThumbnails + pdfPageMap).
     const exportConfigs: Record<number, { bgColor: string; bgImage: string | null; transition: string }> = {};
+
     for (let pageNumKey = 1; pageNumKey <= snapshotNumPages; pageNumKey++) {
       exportConfigs[pageNumKey] = JSON.parse(
-        JSON.stringify(snapshotSlideConfigs[pageNumKey] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }),
+        JSON.stringify(snapshotSlideConfigs[pageNumKey] || { bgColor: '#ffffff', bgImage: null, transition: 'none' })
       );
       const pageConfig = exportConfigs[pageNumKey];
       if (!pageConfig) continue;
 
-      const hasCustomBg = !!(pageConfig.bgImage && pageConfig.bgImage !== 'none')
-      const canUsePdfLayerBg = snapshotDocType === 'pdf' || (snapshotDocType === 'pptx' && snapshotCleanBgVerified)
-      if (!hasCustomBg && canUsePdfLayerBg) {
-        const mappedPdfPage = snapshotPdfPageMap[pageNumKey] || pageNumKey
-        const cleanPdfBg = snapshotPdfThumbnails[mappedPdfPage]
-        if (cleanPdfBg) {
-          pageConfig.bgImage = cleanPdfBg
+      let finalBg = pageConfig.bgImage;
+      const userSetCustomBg = typeof finalBg === 'string' && finalBg !== 'none' && finalBg.trim() !== '';
+      if (!userSetCustomBg && (snapshotDocType === 'pdf' || snapshotDocType === 'pptx')) {
+        const cleanPdfBg = await getExportPdfBackground(pageNumKey);
+        if (cleanPdfBg && cleanPdfBg !== 'none') {
+          finalBg = cleanPdfBg;
         }
       }
 
-      if (pageConfig.bgImage && pageConfig.bgImage !== 'none') {
-        const absolute = absolutizeUrl(pageConfig.bgImage);
-        pageConfig.bgImage = (await urlToBase64(absolute)) as string;
+      // 2. FORZAR CONVERSIÓN A BASE64 PARA TODO (incluso para hardcodes de URL externa).
+      if (finalBg && finalBg !== 'none') {
+        if (!finalBg.startsWith('data:image/')) {
+          const absolute = absolutizeUrl(finalBg);
+          try {
+            finalBg = (await urlToBase64(absolute)) as string;
+          } catch (e) {
+            console.warn('CORS/Network error al convertir fondo a Base64:', e);
+            finalBg = absolute; // Fallback a la URL cruda si la red falla
+          }
+        }
+      } else {
+        finalBg = 'none';
+      }
+
+      // Aplicamos el fondo final ya procesado
+      pageConfig.bgImage = finalBg;
+
+      // 3. ELIMINADOR DE DOBLE FONDO AGRESIVO
+      if (snapshotDocType === 'pdf' || snapshotDocType === 'pptx') {
+        filteredDocumentState[pageNumKey] = (filteredDocumentState[pageNumKey] || []).filter((el: any) => {
+          return !isLikelyImportedBackgroundOverlayForExport(el, finalBg);
+        });
       }
     }
 
@@ -13832,7 +13947,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <script type="text/x-template" id="app-template">
       <div class="canvas-wrapper play-mode-active" :style="{ transform: 'scale(' + zoom + ')' }">
         <Transition :name="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" mode="out-in">
-        <div class="canvas-shadow-box layer-engine" :key="pageNum" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }">
+        <div class="canvas-shadow-box layer-engine" :key="pageNum" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor }">
+
+            <!-- Renderizamos el fondo exacto del PDF usando tu clase de alta calidad -->
+            <img v-if="currentBgImage !== 'none'" :src="currentBgImage" class="layer-pdf" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', objectFit: 'fill' }" />
 
             <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
               v-show="!el.isHidden && !isWaitingAnimation(el)"
@@ -14406,7 +14524,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           const currentBgImage = computed(() => {
             const bg = slideConfigs.value[pageNum.value]?.bgImage;
             if (!bg || bg.trim() === '' || bg === 'none') return 'none';
-            return 'url("' + bg + '")';
+            return bg; // Devolvemos la imagen limpia, sin el url("")
           });
 
           const isYouTube = (url) => url && url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))([\\w-]{11})/);
