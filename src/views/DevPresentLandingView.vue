@@ -1,214 +1,315 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 
 const primaryRoute = computed(() => (authStore.isAuthenticated ? '/devpresent/projects' : '/devpresent/auth'))
-const primaryCopy = computed(() => (authStore.isAuthenticated ? 'Abrir editor' : 'Probar gratis'))
+const primaryCopy = computed(() => (authStore.isAuthenticated ? 'Entrar al editor' : 'Solicitar acceso'))
+
+const slides = [
+  {
+    title: 'Editor visual para presentaciones interactivas',
+    description: 'Diseña escenas, ordena capas y controla cada bloque de contenido con precisión.',
+    image: '/landing/hero-slide-1.svg',
+  },
+  {
+    title: 'Flujo unificado de importación y edición',
+    description: 'Importa PDF o PPTX, ajusta estructura y aplica interactividad sin cambiar de plataforma.',
+    image: '/landing/hero-slide-2.svg',
+  },
+  {
+    title: 'Publicación web lista para producción',
+    description: 'Exporta un player optimizado para demos comerciales, formación y documentación visual.',
+    image: '/landing/hero-slide-3.svg',
+  },
+]
+
+const currentSlide = ref(0)
+const activeSlide = computed(() => slides[currentSlide.value]!)
+let carouselTimer: ReturnType<typeof setInterval> | null = null
+let observer: IntersectionObserver | null = null
+
+const nextSlide = () => {
+  currentSlide.value = (currentSlide.value + 1) % slides.length
+}
+
+const prevSlide = () => {
+  currentSlide.value = (currentSlide.value - 1 + slides.length) % slides.length
+}
+
+const goToSlide = (index: number) => {
+  currentSlide.value = index
+}
+
+const scrollToSection = (sectionId: string) => {
+  const section = document.getElementById(sectionId)
+  if (!section) {
+    return
+  }
+  const top = section.getBoundingClientRect().top + window.scrollY - 94
+  window.scrollTo({ top, behavior: 'smooth' })
+}
+
+const startCarousel = () => {
+  carouselTimer = setInterval(() => {
+    nextSlide()
+  }, 4800)
+}
+
+const stopCarousel = () => {
+  if (!carouselTimer) {
+    return
+  }
+  clearInterval(carouselTimer)
+  carouselTimer = null
+}
+
+const initScrollAnimations = () => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible')
+          // Optional: stop observing once it's visible to keep it rendered
+          // observer?.unobserve(entry.target)
+        }
+      })
+    },
+    { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+  )
+
+  document.querySelectorAll('.reveal, .reveal-stagger').forEach((el) => {
+    observer?.observe(el)
+  })
+}
+
+onMounted(() => {
+  startCarousel()
+  initScrollAnimations()
+})
+
+onUnmounted(() => {
+  stopCarousel()
+  if (observer) {
+    observer.disconnect()
+  }
+})
 </script>
 
 <template>
   <div class="landing-page">
     <header class="landing-header">
-      <RouterLink to="/devpresent/projects" class="brand-mark">
-        <span class="brand-icon">D</span>
+      <RouterLink to="/devpresent/projects" class="brand">
+        <!-- ¡El cohete ahora tiene clase para temblar en hover! -->
+        <img src="/landing/rocket-logo.svg" alt="DocFlow Rocket" class="brand-logo" />
         <span class="brand-copy">
           <strong>DocFlow</strong>
-          <small>Presentaciones interactivas</small>
+          <small>Interactive Presentation Platform</small>
         </span>
       </RouterLink>
 
       <nav class="landing-nav">
-        <a href="#producto">Producto</a>
-        <a href="#casos">Casos</a>
-        <a href="#features">Funciones</a>
-        <RouterLink to="/devpresent/templates">Plantillas</RouterLink>
+        <a href="#producto" class="hover-underline" @click.prevent="scrollToSection('producto')">Producto</a>
+        <a href="#secciones" class="hover-underline" @click.prevent="scrollToSection('secciones')">Capacidades</a>
+        <a href="#casos" class="hover-underline" @click.prevent="scrollToSection('casos')">Casos de uso</a>
+        <a href="#proceso" class="hover-underline" @click.prevent="scrollToSection('proceso')">Proceso</a>
+        <a href="#plantillas" class="hover-underline" @click.prevent="scrollToSection('plantillas')">Plantillas</a>
       </nav>
 
-      <div class="landing-actions">
-        <RouterLink to="/devpresent/auth" class="nav-link nav-link-muted">Acceder</RouterLink>
-        <RouterLink :to="primaryRoute" class="nav-link nav-link-primary">{{ primaryCopy }}</RouterLink>
+      <div class="header-actions">
+        <RouterLink to="/devpresent/auth" class="btn btn-ghost">Acceder</RouterLink>
+        <RouterLink :to="primaryRoute" class="btn btn-dark">{{ primaryCopy }}</RouterLink>
       </div>
     </header>
 
-    <main>
-      <section class="hero-shell" id="producto">
+    <main class="main-shell">
+      <section class="hero reveal" id="producto">
         <div class="hero-copy">
-          <div class="eyebrow">EDITOR + PLAYER + EXPORT WEB</div>
-          <h1>
-            Presentaciones y PDFs interactivos
-            <span>con el canvas al centro.</span>
-          </h1>
-          <p>
-            Diseña slides, hotspots, audio, modelos 3D, mapas y experiencias web fluidas desde un solo editor.
-            Importa tu deck. Refínalo visualmente. Publícalo sin fricción.
+          <p class="section-label">DocFlow Studio</p>
+          <h1>Editor de presentaciones WEB (html).</h1>
+          <h2>Con soporte powerpoint y pdf</h2>
+          <p class="hero-description">
+            Diseñado para equipos que necesitan control visual, consistencia de marca y publicación web en un solo flujo.
+            Importa, edita y presenta desde una interfaz sólida orientada a producción.
           </p>
 
           <div class="hero-actions">
-            <RouterLink :to="primaryRoute" class="button-primary">{{ primaryCopy }}</RouterLink>
-            <RouterLink to="/devpresent/templates" class="button-secondary">Explorar plantillas</RouterLink>
+            <RouterLink :to="primaryRoute" class="btn btn-dark">{{ primaryCopy }}</RouterLink>
+            <RouterLink to="/devpresent/projects" class="btn btn-light">Ver proyectos</RouterLink>
           </div>
 
-          <div class="proof-strip">
-            <div>
-              <strong>PPTX + PDF</strong>
-              <span>importación editable</span>
+          <div class="hero-facts reveal-stagger">
+            <div class="fact-card">
+              <strong>PDF + PPTX</strong>
+              <span>Importación editable</span>
             </div>
-            <div>
-              <strong>HTML export</strong>
-              <span>presentación publicable</span>
-            </div>
-            <div>
+            <div class="fact-card">
               <strong>Canvas interactivo</strong>
-              <span>audio, mapas, 3D, hotspots</span>
+              <span>Hotspots, audio, mapas, 3D</span>
+            </div>
+            <div class="fact-card">
+              <strong>Exportación web</strong>
+              <span>Player listo para compartir</span>
             </div>
           </div>
         </div>
 
-        <div class="hero-stage">
-          <div class="editor-preview glass-card">
-            <div class="preview-topbar">
-              <div class="preview-pills">
-                <span></span>
-                <span></span>
-                <span></span>
+        <div class="hero-carousel" @mouseenter="stopCarousel" @mouseleave="startCarousel">
+          <div class="carousel-frame">
+            <Transition name="hero-slide" mode="out-in">
+              <img
+                :key="activeSlide.image"
+                :src="activeSlide.image"
+                :alt="activeSlide.title"
+                class="carousel-image"
+              />
+            </Transition>
+            <Transition name="hero-content" mode="out-in">
+              <div class="carousel-overlay" :key="activeSlide.title">
+                <h2>{{ activeSlide.title }}</h2>
+                <p>{{ activeSlide.description }}</p>
               </div>
-              <div class="preview-toolbar">
-                <span>Texto</span>
-                <span>Media</span>
-                <span>Interacción</span>
-                <span class="is-active">Presentar</span>
-              </div>
+            </Transition>
+          </div>
+
+          <div class="carousel-controls">
+            <button type="button" class="carousel-arrow" @click="prevSlide" aria-label="Slide anterior">&#8592;</button>
+            <div class="carousel-dots">
+              <button
+                v-for="(slide, index) in slides"
+                :key="slide.title"
+                type="button"
+                class="dot"
+                :class="{ active: index === currentSlide }"
+                @click="goToSlide(index)"
+                :aria-label="`Ir a slide ${index + 1}`"
+              ></button>
             </div>
-
-            <div class="preview-body">
-              <aside class="preview-sidebar">
-                <div class="mini-slide is-active"></div>
-                <div class="mini-slide"></div>
-                <div class="mini-slide"></div>
-                <div class="mini-slide"></div>
-              </aside>
-
-              <div class="preview-canvas-wrap">
-                <div class="preview-floating-tools">
-                  <span>Seleccionar</span>
-                  <span>Texto</span>
-                  <span>Mapa</span>
-                  <span>3D</span>
-                </div>
-
-                <div class="preview-canvas">
-                  <div class="canvas-badge">Diapositiva 07</div>
-                  <div class="canvas-content">
-                    <div class="canvas-title">Clase interactiva de geografía</div>
-                    <div class="canvas-subtitle">Mapa vivo, audio narrado y capas editables en una sola escena.</div>
-
-                    <div class="canvas-cards">
-                      <article>
-                        <span>Hotspots</span>
-                        <strong>12 activos</strong>
-                      </article>
-                      <article>
-                        <span>Audio guía</span>
-                        <strong>3 pistas</strong>
-                      </article>
-                      <article>
-                        <span>Mapa</span>
-                        <strong>Zoom + marcadores</strong>
-                      </article>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <aside class="preview-inspector">
-                <div class="inspector-tabs">
-                  <span class="is-active">Diseño</span>
-                  <span>Datos</span>
-                  <span>Animación</span>
-                </div>
-                <div class="inspector-panel">
-                  <div class="inspector-row"></div>
-                  <div class="inspector-row short"></div>
-                  <div class="inspector-row"></div>
-                  <div class="inspector-swatch"></div>
-                </div>
-              </aside>
-            </div>
+            <button type="button" class="carousel-arrow" @click="nextSlide" aria-label="Slide siguiente">&#8594;</button>
           </div>
         </div>
       </section>
 
-      <section class="feature-grid" id="features">
-        <article class="feature-card feature-card-wide glass-card">
-          <div class="feature-icon">01</div>
-          <h2>Importa decks. Refina cada capa.</h2>
-          <p>
-            Convierte presentaciones existentes en slides editables y trabaja encima con un flujo visual moderno.
-          </p>
-          <ul>
-            <li>Importación desde PDF y PPTX</li>
-            <li>Miniaturas, capas y propiedades en vivo</li>
-            <li>Edición visual pensada para velocidad</li>
-          </ul>
-        </article>
+      <section class="capabilities reveal" id="secciones">
+        <header class="section-header">
+          <p class="section-label">Capacidades</p>
+          <h2>Arquitectura pensada para operación real</h2>
+        </header>
 
-        <article class="feature-card glass-card">
-          <div class="feature-icon">02</div>
-          <h2>Interactividad sin plugins.</h2>
-          <p>
-            Añade hotspots, audio, embeds, comparadores, mapas y componentes especiales dentro del mismo canvas.
-          </p>
-        </article>
-
-        <article class="feature-card glass-card">
-          <div class="feature-icon">03</div>
-          <h2>Presenta y exporta web.</h2>
-          <p>
-            Lo que diseñas en el editor se convierte en una experiencia presentable y compartible desde navegador.
-          </p>
-        </article>
-      </section>
-
-      <section class="use-cases" id="casos">
-        <div class="section-copy">
-          <div class="eyebrow">Hecho para trabajo real</div>
-          <h2>No es solo una app de slides.</h2>
-          <p>
-            Sirve para clases, demos comerciales, onboarding, manuales interactivos y storytelling visual con contenido vivo.
-          </p>
-        </div>
-
-        <div class="use-case-grid">
-          <article class="use-case glass-card">
-            <strong>Profesores</strong>
-            <p>Convierte una clase estática en una lección con mapa, audio, comparadores y navegación guiada.</p>
+        <div class="cap-grid reveal-stagger">
+          <article class="cap-card">
+            <div class="icon-blob">🛠️</div>
+            <h3>Editor de escenas</h3>
+            <p>Manipula bloques visuales con precisión, panel lateral de propiedades y timeline de contenido.</p>
           </article>
-          <article class="use-case glass-card">
-            <strong>Equipos comerciales</strong>
-            <p>Construye demos navegables, catálogos y propuestas visuales que se sienten como producto, no como PDF plano.</p>
+          <article class="cap-card">
+            <div class="icon-blob">✨</div>
+            <h3>Componentes interactivos</h3>
+            <p>Integra hotspots, comparadores, audio, mapas y módulos 3D en la misma experiencia.</p>
           </article>
-          <article class="use-case glass-card">
-            <strong>Creadores</strong>
-            <p>Diseña secuencias visuales, portfolios interactivos y experiencias para compartir por link sin sacrificar control.</p>
+          <article class="cap-card">
+            <div class="icon-blob">📚</div>
+            <h3>Biblioteca y plantillas</h3>
+            <p>Estandariza estilos y acelera producción con plantillas reutilizables por equipo.</p>
+          </article>
+          <article class="cap-card">
+            <div class="icon-blob">🚀</div>
+            <h3>Publicación y playback</h3>
+            <p>Genera un player web estable para sesiones comerciales, clases y documentación guiada.</p>
           </article>
         </div>
       </section>
 
-      <section class="final-cta glass-card">
+      <section class="use-cases reveal" id="casos">
+        <header class="section-header">
+          <p class="section-label">Casos de uso</p>
+          <h2>Una plataforma para diferentes equipos</h2>
+        </header>
+
+        <div class="cases-grid reveal-stagger">
+          <article class="case-card">
+            <h3>Educación y formación</h3>
+            <p>Lecciones navegables con recursos multimedia para mejorar retención y comprensión.</p>
+          </article>
+          <article class="case-card">
+            <h3>Ventas y preventa</h3>
+            <p>Demos guiadas y propuestas visuales con mayor claridad comercial.</p>
+          </article>
+          <article class="case-card">
+            <h3>Producto y onboarding</h3>
+            <p>Explicación visual de funcionalidades, procesos y recorridos de usuario.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="process reveal" id="proceso">
+        <header class="section-header">
+          <p class="section-label">Proceso</p>
+          <h2>Tres pasos para pasar de archivo a experiencia web</h2>
+        </header>
+
+        <ol class="process-list reveal-stagger">
+          <li class="process-step">
+            <span>01</span>
+            <div>
+              <h3>Importar base documental</h3>
+              <p>Sube material existente y organiza estructura inicial del proyecto.</p>
+            </div>
+          </li>
+          <li class="process-step">
+            <span>02</span>
+            <div>
+              <h3>Editar e integrar interacciones</h3>
+              <p>Ajusta diseño, añade lógica visual y valida flujo de navegación.</p>
+            </div>
+          </li>
+          <li class="process-step">
+            <span>03</span>
+            <div>
+              <h3>Publicar y compartir</h3>
+              <p>Exporta presentación interactiva para distribuir por enlace y reproducir en navegador.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="templates reveal" id="plantillas">
+        <header class="section-header">
+          <p class="section-label">Plantillas</p>
+          <h2>Base visual lista para acelerar entregas</h2>
+        </header>
+
+        <div class="templates-grid reveal-stagger">
+          <article class="template-card">
+            <strong>Sales Deck Pro</strong>
+            <p>Estructura pensada para demos comerciales con narrativa por etapas.</p>
+          </article>
+          <article class="template-card">
+            <strong>Training Flow</strong>
+            <p>Plantilla de formación con checkpoints y recursos interactivos.</p>
+          </article>
+          <article class="template-card">
+            <strong>Product Storyboard</strong>
+            <p>Formato de lanzamiento con comparación visual y módulos multimedia.</p>
+          </article>
+        </div>
+
+        <div class="templates-actions">
+          <RouterLink to="/devpresent/templates" class="btn btn-dark">Ir a plantillas</RouterLink>
+        </div>
+      </section>
+
+      <section class="final-cta reveal">
         <div>
-          <div class="eyebrow">DocFlow</div>
-          <h2>Empieza con una plantilla o abre el editor vacío.</h2>
-          <p>
-            La app ya tiene el motor. Ahora también tiene una entrada clara para mostrar lo que hace.
-          </p>
+          <p class="section-label">DocFlow</p>
+          <h2>Empieza con una plantilla o crea tu flujo desde cero.</h2>
+          <p class="cta-copy">Control total de diseño, interactividad y publicación en una única plataforma.</p>
         </div>
-
         <div class="final-actions">
-          <RouterLink :to="primaryRoute" class="button-primary">{{ primaryCopy }}</RouterLink>
-          <RouterLink to="/devpresent/projects" class="button-secondary">Ir a proyectos</RouterLink>
+          <RouterLink :to="primaryRoute" class="btn btn-dark">{{ primaryCopy }}</RouterLink>
+          <RouterLink to="/devpresent/templates" class="btn btn-light">Ver plantillas</RouterLink>
         </div>
       </section>
     </main>
@@ -216,589 +317,698 @@ const primaryCopy = computed(() => (authStore.isAuthenticated ? 'Abrir editor' :
 </template>
 
 <style scoped>
+/* ── Keyframes ─────────────────────────────────────────── */
+@keyframes headerFadeIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes sectionFadeUp {
+  from { transform: translateY(32px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes staggerFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Base ───────────────────────────────────────────────── */
 .landing-page {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(var(--accent-rgb), 0.14), transparent 26%),
-    linear-gradient(180deg, #05070b 0%, #090b11 46%, #05070b 100%);
-  color: var(--text-primary);
-  padding: 18px;
+    radial-gradient(ellipse at 12% 0%, rgba(255, 130, 60, 0.14) 0%, transparent 38%),
+    radial-gradient(ellipse at 88% 0%, rgba(52, 140, 255, 0.16) 0%, transparent 40%),
+    #edf3fb;
+  color: #111a28;
+  padding: 22px;
+  font-family: 'Plus Jakarta Sans', var(--font-main);
+  overflow-x: hidden;
 }
 
+/* ── Contenedor global ───────────────────── */
+.landing-header,
+.hero,
+.capabilities,
+.use-cases,
+.process,
+.templates,
+.final-cta {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Header ─────────────────────────────── */
 .landing-header {
-  max-width: 1380px;
-  margin: 0 auto 22px;
-  padding: 14px 18px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-xl);
-  background: rgba(10, 13, 20, 0.74);
-  backdrop-filter: blur(var(--blur-md));
-  -webkit-backdrop-filter: blur(var(--blur-md));
-  box-shadow: var(--shadow-float);
+  border: 1px solid rgba(180, 210, 240, 0.9);
+  background: rgba(249, 252, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 12px 20px;
+  position: sticky;
+  top: 12px;
+  z-index: 25;
+  border-radius: 14px;
+  box-shadow: 0 2px 16px rgba(18, 38, 70, 0.08);
+  animation: headerFadeIn 0.5s ease both;
 }
 
-.brand-mark {
+/* ── Marca ───────────────────────────────── */
+.brand {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  color: inherit;
   text-decoration: none;
+  color: inherit;
 }
 
-.brand-icon {
+.brand-logo {
   width: 42px;
   height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.9), rgba(68, 131, 255, 0.75));
-  color: #06111b;
-  font-weight: 800;
+  border: 1px solid #264d78;
+  padding: 4px;
+  background: linear-gradient(160deg, #1a3254, #0f1d2e);
+  border-radius: 10px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.brand:hover .brand-logo {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(38, 77, 120, 0.28);
 }
 
 .brand-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 .brand-copy strong {
-  font-size: 0.96rem;
+  font-size: 0.95rem;
   letter-spacing: -0.02em;
+  color: #0f2240;
 }
 
 .brand-copy small {
-  color: var(--text-tertiary);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-size: 0.64rem;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
+  color: #5b6d84;
 }
 
-.landing-nav,
-.landing-actions {
+/* ── Nav ─────────────────────────────────── */
+.landing-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
 }
 
-.landing-nav a,
-.nav-link {
-  padding: 10px 14px;
-  border-radius: var(--radius-pill);
-  color: var(--text-secondary);
+.landing-nav a {
   text-decoration: none;
-  font-size: 0.86rem;
-  transition: background-color var(--transition-normal), color var(--transition-normal), transform var(--transition-bounce);
-}
-
-.landing-nav a:hover,
-.nav-link:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateY(-1px);
-}
-
-.nav-link-primary,
-.button-primary {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.98), rgba(108, 210, 255, 0.84));
-  color: #06111b;
-  box-shadow: 0 16px 32px rgba(var(--accent-rgb), 0.18);
-}
-
-.nav-link-primary:hover,
-.button-primary:hover {
-  color: #06111b;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 1), rgba(126, 214, 255, 0.92));
-}
-
-.hero-shell,
-.feature-grid,
-.use-cases,
-.final-cta {
-  max-width: 1380px;
-  margin: 0 auto;
-}
-
-.hero-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  gap: 26px;
-  padding: 34px 0 48px;
-  align-items: center;
-}
-
-.hero-copy {
-  padding: 12px 8px;
-}
-
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: 18px;
-  padding: 8px 12px;
-  border-radius: var(--radius-pill);
-  background: rgba(var(--accent-rgb), 0.1);
-  border: 1px solid rgba(var(--accent-rgb), 0.14);
-  color: var(--accent-hover);
-  font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: 0.14em;
+  color: #334e6a;
+  font-size: 0.82rem;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 9px 13px;
+  border-radius: 8px;
+  position: relative;
+  transition: color 0.22s ease, background-color 0.22s ease;
 }
 
-.hero-copy h1 {
-  margin: 0;
-  font-size: clamp(3.3rem, 6vw, 6.2rem);
-  line-height: 0.96;
-  letter-spacing: -0.06em;
+.landing-nav a::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: #2563a0;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: width 0.28s ease;
 }
 
-.hero-copy h1 span {
-  display: block;
-  color: var(--text-secondary);
+.landing-nav a:hover {
+  color: #1a3e68;
+  background: rgba(37, 99, 160, 0.07);
 }
 
-.hero-copy p {
-  max-width: 640px;
-  margin-top: 22px;
-  color: var(--text-secondary);
-  font-size: 1.08rem;
-  line-height: 1.7;
+.landing-nav a:hover::after {
+  width: 60%;
 }
 
+/* ── Botones ─────────────────────────────── */
+.header-actions,
 .hero-actions,
 .final-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 28px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.button-primary,
-.button-secondary {
+.btn {
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0 18px;
-  border-radius: var(--radius-pill);
   text-decoration: none;
-  font-weight: 650;
-  transition: transform var(--transition-bounce), background-color var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
-}
-
-.button-primary {
-  color: #06111b;
-}
-
-.button-secondary {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-primary);
-}
-
-.button-secondary:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.proof-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.proof-strip div,
-.use-case,
-.feature-card,
-.final-cta,
-.editor-preview {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg, rgba(17, 21, 30, 0.84), rgba(10, 12, 18, 0.76));
-  backdrop-filter: blur(var(--blur-md));
-  -webkit-backdrop-filter: blur(var(--blur-md));
-  box-shadow: var(--shadow-float);
-}
-
-.proof-strip div {
-  padding: 16px;
-  border-radius: var(--radius-lg);
-}
-
-.proof-strip strong {
-  display: block;
-  font-size: 0.95rem;
-}
-
-.proof-strip span {
-  display: block;
-  margin-top: 6px;
-  color: var(--text-tertiary);
-  font-size: 0.84rem;
-}
-
-.hero-stage {
-  position: relative;
-}
-
-.editor-preview {
-  border-radius: 30px;
-  overflow: hidden;
-}
-
-.preview-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.preview-pills {
-  display: flex;
-  gap: 8px;
-}
-
-.preview-pills span {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.preview-pills span:first-child {
-  background: rgba(255, 107, 124, 0.8);
-}
-
-.preview-pills span:nth-child(2) {
-  background: rgba(255, 190, 92, 0.8);
-}
-
-.preview-pills span:nth-child(3) {
-  background: rgba(87, 211, 155, 0.8);
-}
-
-.preview-toolbar {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.preview-toolbar span,
-.preview-floating-tools span,
-.inspector-tabs span {
-  padding: 8px 12px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary);
-  font-size: 0.76rem;
-}
-
-.preview-toolbar .is-active,
-.inspector-tabs .is-active {
-  background: rgba(var(--accent-rgb), 0.16);
-  color: var(--accent-hover);
-}
-
-.preview-body {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 210px;
-  min-height: 560px;
-}
-
-.preview-sidebar,
-.preview-inspector {
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.015);
-}
-
-.preview-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.mini-slide {
-  height: 62px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
-  border: 1px solid rgba(255,255,255,0.05);
-}
-
-.mini-slide.is-active {
-  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-rgb), 0.08));
-  border-color: rgba(var(--accent-rgb), 0.16);
-  box-shadow: inset 3px 0 0 var(--accent-primary);
-}
-
-.preview-canvas-wrap {
-  position: relative;
-  padding: 24px;
-  background:
-    radial-gradient(circle, rgba(255,255,255,0.14) 0.8px, transparent 1px),
-    #000000;
-  background-size: 22px 22px;
-}
-
-.preview-floating-tools {
-  position: absolute;
-  left: 50%;
-  top: 18px;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-radius: var(--radius-xl);
-  background: rgba(13, 16, 23, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.preview-canvas {
-  position: relative;
-  display: flex;
-  height: 100%;
-  min-height: 440px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 30px;
-  background: linear-gradient(160deg, #0d2031 0%, #102a44 44%, #0b1724 100%);
-  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-
-.canvas-badge {
-  position: absolute;
-  left: 18px;
-  top: 18px;
-  padding: 8px 12px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  padding: 0 20px;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  font-weight: 700;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease;
 }
 
-.canvas-content {
-  max-width: 560px;
-  padding: 34px;
-  text-align: center;
+.btn:hover {
+  transform: translateY(-2px);
 }
 
-.canvas-title {
-  font-size: clamp(2rem, 3vw, 3.2rem);
-  font-weight: 680;
-  line-height: 1;
-  letter-spacing: -0.05em;
+.btn-dark {
+  color: #f0f6ff;
+  border-color: #14396a;
+  background: linear-gradient(160deg, #1a4370, #2563a0);
+  box-shadow: 0 4px 14px rgba(26, 67, 112, 0.22);
 }
 
-.canvas-subtitle {
-  margin-top: 16px;
-  color: rgba(255, 255, 255, 0.74);
-  line-height: 1.6;
+.btn-dark:hover {
+  background: linear-gradient(160deg, #1f4e83, #2e73b8);
+  box-shadow: 0 6px 20px rgba(26, 67, 112, 0.32);
 }
 
-.canvas-cards {
+.btn-light,
+.btn-ghost {
+  color: #133360;
+  border-color: #a6c2e0;
+  background: #f2f8ff;
+}
+
+.btn-light:hover,
+.btn-ghost:hover {
+  background: #e6f0fb;
+  box-shadow: 0 4px 12px rgba(18, 50, 96, 0.1);
+}
+
+/* ── Shell principal ─────────────────────── */
+.main-shell {
+  padding-top: 20px;
+}
+
+/* ── Scroll reveal ───────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-stagger > * {
+  opacity: 0; /* Ocultos hasta que la animación tome el control */
+}
+
+/* Aplicación del stagger con keyframes en vez de transition */
+.reveal.is-visible .reveal-stagger > *:nth-child(1) { animation: staggerFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
+.reveal.is-visible .reveal-stagger > *:nth-child(2) { animation: staggerFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both; }
+.reveal.is-visible .reveal-stagger > *:nth-child(3) { animation: staggerFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both; }
+.reveal.is-visible .reveal-stagger > *:nth-child(4) { animation: staggerFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.32s both; }
+
+/* ── Hero ────────────────────────────────── */
+.hero {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.14fr);
+  gap: 28px;
+  border: 1px solid #c0d5ec;
+  background: #f8fbff;
+  padding: 36px;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(18, 38, 70, 0.05);
+}
+
+/* ── Etiqueta de sección ─────────────────── */
+.section-label {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #e85c20;
+  background: rgba(232, 92, 32, 0.09);
+  border: 1px solid rgba(232, 92, 32, 0.16);
+  padding: 5px 11px;
+  border-radius: 99px;
+}
+
+/* ── Titular del hero ────────────────────── */
+.hero-copy h1 {
+  margin: 14px 0 0;
+  font-family: 'Space Grotesk', var(--font-heading);
+  font-size: clamp(2.1rem, 4vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  color: #0d2040;
+  background: linear-gradient(140deg, #0d2040 40%, #2460a0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-copy h2 {
+  margin: 14px 0 0;
+  font-family: 'Space Grotesk', var(--font-heading);
+  font-size: clamp(2.1rem, 4vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  color: #0d2040;
+  background: linear-gradient(140deg, #0d2040 40%, #2460a0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-description {
+  margin-top: 16px;
+  color: #44587a;
+  line-height: 1.76;
+  max-width: 580px;
+  font-size: 1.03rem;
+}
+
+.hero-actions {
   margin-top: 24px;
 }
 
-.canvas-cards article {
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.canvas-cards span {
-  display: block;
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 0.78rem;
-}
-
-.canvas-cards strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 0.92rem;
-}
-
-.preview-inspector {
-  border-left: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.inspector-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.inspector-panel {
-  margin-top: 18px;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.inspector-row,
-.inspector-swatch {
-  height: 40px;
-  margin-bottom: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.inspector-row.short {
-  width: 62%;
-}
-
-.inspector-swatch {
-  height: 84px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.46), rgba(255, 255, 255, 0.08));
-  margin-bottom: 0;
-}
-
-.feature-grid {
+/* ── Tarjetas (Unificadas y suaves) ──────── */
+.hero-facts {
+  margin-top: 28px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  padding: 24px 0 44px;
-}
-
-.feature-card {
-  padding: 22px;
-  border-radius: 28px;
-}
-
-.feature-card-wide {
-  grid-column: span 2;
-}
-
-.feature-icon {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  margin-bottom: 18px;
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-hover);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.feature-card h2,
-.section-copy h2,
-.final-cta h2 {
-  margin: 0;
-  font-size: clamp(1.6rem, 3vw, 2.7rem);
-  line-height: 1.02;
-  letter-spacing: -0.05em;
-}
-
-.feature-card p,
-.section-copy p,
-.final-cta p,
-.use-case p {
-  margin-top: 14px;
-  color: var(--text-secondary);
-  line-height: 1.65;
-}
-
-.feature-card ul {
-  margin: 20px 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
   gap: 10px;
 }
 
-.feature-card li {
-  color: var(--text-primary);
-  padding-left: 18px;
+.fact-card {
+  border: 1px solid #c4d9ef;
+  background: #f2f8ff;
+  padding: 14px 16px;
+  border-radius: 10px;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.fact-card:hover {
+  transform: translateY(-4px);
+  border-color: #2563a0;
+  box-shadow: 0 8px 24px rgba(37, 99, 160, 0.12);
+}
+
+.fact-card strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #0f2440;
+}
+
+.fact-card span {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.79rem;
+  color: #5a708b;
+}
+
+/* ── Carrusel ────────────────────────────── */
+.hero-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.carousel-frame {
   position: relative;
+  border: 1px solid #1e4878;
+  background: #121d2d;
+  min-height: 520px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 48px rgba(14, 26, 46, 0.22);
 }
 
-.feature-card li::before {
-  content: '';
+.carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.carousel-overlay {
   position: absolute;
-  left: 0;
-  top: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--accent-primary);
+  inset: 0;
+  top: auto;
+  background: linear-gradient(180deg, transparent 0%, rgba(10, 16, 28, 0.94) 100%);
+  color: #e4edf8;
+  padding: 24px 26px;
 }
 
-.use-cases {
-  padding: 30px 0 44px;
+.carousel-overlay h2 {
+  margin: 0;
+  font-family: 'Space Grotesk', var(--font-heading);
+  font-size: 1.22rem;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
 }
 
-.section-copy {
-  max-width: 760px;
+.carousel-overlay p {
+  margin-top: 8px;
+  color: #a8bdd4;
+  line-height: 1.56;
+  font-size: 0.9rem;
 }
 
-.use-case-grid {
-  margin-top: 24px;
+.carousel-controls {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.carousel-arrow {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #94b6da;
+  background: #f2f8ff;
+  color: #17436f;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.22s ease, color 0.22s ease, transform 0.22s ease;
+}
+
+.carousel-arrow:hover {
+  background: #1e4878;
+  color: #e8f2ff;
+  transform: scale(1.06);
+}
+
+.carousel-dots {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 8px;
+  padding: 0 16px;
 }
 
-.use-case {
-  padding: 22px;
-  border-radius: 26px;
+.dot {
+  border: none;
+  height: 5px;
+  border-radius: 4px;
+  background: #c0d3e8;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
-.use-case strong {
-  font-size: 1rem;
+.dot.active {
+  background: #e85c20;
+  transform: scaleX(1.2);
 }
 
+/* ── Secciones de contenido ──────────────── */
+.capabilities,
+.use-cases,
+.process,
+.templates,
 .final-cta {
-  margin-top: 18px;
-  margin-bottom: 40px;
-  padding: 26px;
-  border-radius: 30px;
+  margin-top: 20px;
+  border: 1px solid #c0d5ec;
+  background: #f8fbff;
+  padding: 36px;
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(18, 38, 70, 0.04);
+}
+
+.section-header h2 {
+  margin-top: 10px;
+  font-family: 'Space Grotesk', var(--font-heading);
+  font-size: clamp(1.5rem, 2.8vw, 2.3rem);
+  letter-spacing: -0.04em;
+  color: #102240;
+  line-height: 1.1;
+}
+
+/* ── Grids de contenido ──────────────────── */
+.cap-grid,
+.cases-grid {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cases-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* ── Icon blob ───────────────────────────── */
+.icon-blob {
+  font-size: 1.6rem;
+  margin-bottom: 14px;
+  display: inline-flex;
+  width: 50px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(140deg, #e8f3ff, #d6e9ff);
+  border: 1px solid #b6d4f0;
+  border-radius: 12px;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.cap-card:hover .icon-blob {
+  transform: scale(1.1);
+  background: linear-gradient(140deg, #d0e8ff, #b8d8f8);
+}
+
+/* ── Tarjetas Generales ──────────────────── */
+.cap-card,
+.case-card,
+.process-step,
+.template-card {
+  border: 1px solid #c4d9ef;
+  background: #ffffff;
+  padding: 22px;
+  border-radius: 14px;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.cap-card:hover,
+.case-card:hover,
+.process-step:hover,
+.template-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 14px 32px rgba(18, 38, 70, 0.1);
+  border-color: #2563a0;
+}
+
+.cap-card h3,
+.case-card h3,
+.process-list h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+  color: #132c4a;
+  font-weight: 700;
+}
+
+.cap-card p,
+.case-card p,
+.process-list p,
+.cta-copy {
+  margin-top: 10px;
+  color: #4e6882;
+  line-height: 1.68;
+  font-size: 0.92rem;
+}
+
+/* ── Proceso ─────────────────────────────── */
+.process-list {
+  list-style: none;
+  padding: 0;
+  margin: 26px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.process-step span {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2563a0;
+  background: linear-gradient(140deg, #1a4070, #2563a0);
+  color: #e8f2ff;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+  border-radius: 10px;
+}
+
+/* ── Plantillas ──────────────────────────── */
+.templates-grid {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.template-card strong {
+  display: block;
+  color: #122c48;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.templates-actions {
+  margin-top: 22px;
+  text-align: center;
+}
+
+/* ── CTA Final ───────────────────────────── */
+.final-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 24px;
+  margin-bottom: 40px;
+  padding: 40px;
+  background: linear-gradient(140deg, #112540 0%, #1e4473 100%);
+  border: 1px solid #1e4070;
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(17, 37, 64, 0.28);
 }
 
-@media (max-width: 1180px) {
-  .landing-header,
-  .hero-shell,
-  .feature-grid,
-  .use-case-grid,
-  .final-cta {
+.final-cta .section-label {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #aaccf0;
+}
+
+.final-cta h2 {
+  margin-top: 10px;
+  font-family: 'Space Grotesk', var(--font-heading);
+  font-size: clamp(1.4rem, 2.6vw, 2.2rem);
+  letter-spacing: -0.035em;
+  color: #f0f6ff;
+  line-height: 1.14;
+}
+
+.final-cta .cta-copy {
+  color: #8bb0d6;
+  font-size: 0.96rem;
+}
+
+.final-cta .btn-dark {
+  background: linear-gradient(140deg, #e85c20, #f57c3a);
+  border-color: #c14c18;
+  box-shadow: 0 4px 16px rgba(232, 92, 32, 0.36);
+}
+
+.final-cta .btn-dark:hover {
+  background: linear-gradient(140deg, #f0682a, #f98d4e);
+  box-shadow: 0 8px 24px rgba(232, 92, 32, 0.46);
+}
+
+.final-cta .btn-light {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #d8ecff;
+}
+
+.final-cta .btn-light:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ── Transiciones Vue del carrusel ───────── */
+.hero-slide-enter-active {
+  transition: opacity 480ms ease, transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-slide-leave-active {
+  transition: opacity 280ms ease, transform 280ms ease;
+  position: absolute;
+  inset: 0;
+}
+
+.hero-slide-enter-from {
+  opacity: 0;
+  transform: translateX(24px);
+}
+
+.hero-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-18px);
+}
+
+.hero-content-enter-active {
+  transition: opacity 360ms ease 100ms, transform 360ms cubic-bezier(0.22, 1, 0.36, 1) 100ms;
+}
+
+.hero-content-leave-active {
+  transition: opacity 200ms ease;
+  position: absolute;
+  inset: 0;
+  top: auto;
+}
+
+.hero-content-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.hero-content-leave-to {
+  opacity: 0;
+}
+
+/* ── Responsive ──────────────────────────── */
+@media (max-width: 1220px) {
+  .landing-header {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .landing-nav {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .hero {
     grid-template-columns: 1fr;
   }
 
-  .hero-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .preview-body {
-    grid-template-columns: 76px minmax(0, 1fr);
-  }
-
-  .preview-inspector {
-    display: none;
-  }
-
-  .feature-card-wide {
-    grid-column: auto;
+  .cap-grid,
+  .cases-grid,
+  .process-list,
+  .templates-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .final-cta {
@@ -807,46 +1017,34 @@ const primaryCopy = computed(() => (authStore.isAuthenticated ? 'Abrir editor' :
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 780px) {
   .landing-page {
     padding: 12px;
   }
 
-  .landing-header {
-    flex-wrap: wrap;
+  .hero,
+  .capabilities,
+  .use-cases,
+  .process,
+  .templates,
+  .final-cta {
+    padding: 20px;
   }
 
-  .landing-nav {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  .landing-nav a {
-    white-space: nowrap;
-  }
-
-  .proof-strip,
-  .canvas-cards,
-  .use-case-grid,
-  .feature-grid {
+  .hero-facts,
+  .cap-grid,
+  .cases-grid,
+  .process-list,
+  .templates-grid {
     grid-template-columns: 1fr;
   }
 
-  .preview-body {
-    grid-template-columns: 1fr;
+  .carousel-frame {
+    min-height: 360px;
   }
 
-  .preview-sidebar {
-    display: none;
-  }
-
-  .preview-canvas-wrap {
-    min-height: 420px;
-  }
-
-  .hero-copy h1 {
-    font-size: clamp(2.5rem, 12vw, 4rem);
+  .carousel-controls {
+    grid-template-columns: 44px 1fr 44px;
   }
 }
 </style>
