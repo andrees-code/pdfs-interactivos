@@ -903,7 +903,7 @@ onUnmounted(() => {
   border: 1px solid #7c2d12;
   border-radius: 8px;
   box-shadow: 0 8px 28px rgba(30, 10, 2, 0.22);
-}}
+}
 
 .final-cta .section-label {
   background: rgba(255, 255, 255, 0.08);

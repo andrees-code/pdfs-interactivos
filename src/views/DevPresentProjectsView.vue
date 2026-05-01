@@ -360,7 +360,7 @@ onMounted(async () => {
           <h1 class="font-display-xl text-display-xl text-on-surface">Proyectos</h1>
           <p class="mt-unit text-body-lg text-on-surface-variant">Gestiona tus presentaciones y vuelve al editor con un clic.</p>
         </div>
-        <button type="button" class="flex items-center gap-stack-sm rounded-lg bg-gradient-to-r from-primary-300 to-tertiary px-6 py-4 text-label-caps text-slate-950 shadow-[0_10px_30px_rgba(192,193,255,0.15)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_15px_40px_rgba(192,193,255,0.25)]" @click="createNewProject">
+        <button type="button" class="flex items-center gap-stack-sm rounded-lg bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-4 text-label-caps text-white shadow-[0_12px_30px_rgba(194,65,12,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:from-primary-600 hover:to-primary-800 hover:shadow-[0_18px_42px_rgba(194,65,12,0.45)]" @click="createNewProject">
           <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
           Crear nueva presentacion
         </button>
@@ -374,14 +374,14 @@ onMounted(async () => {
         @dragleave.prevent="isDropZoneActive = false"
         @drop.prevent="handleDropZoneDrop"
       >
-        <div class="absolute inset-0 rounded-xl bg-primary/5 blur-xl transition-colors duration-500 group-hover:bg-primary/10"></div>
-        <div class="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant bg-surface-container-lowest/50 p-stack-lg text-center backdrop-blur-sm transition-colors hover:border-primary" :class="{ 'border-primary bg-primary/10': isDropZoneActive }">
+        <div class="absolute inset-0 rounded-xl bg-primary/10 blur-xl transition-colors duration-500 group-hover:bg-primary/20"></div>
+        <div class="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary-700/60 bg-surface-container-lowest p-stack-lg text-center backdrop-blur-sm transition-colors hover:border-primary-700" :class="{ 'border-primary-700 bg-primary/15': isDropZoneActive }">
           <div class="mb-stack-md flex h-14 w-14 items-center justify-center rounded-full bg-surface-container transition-all duration-300 group-hover:scale-110 group-hover:bg-primary/20">
             <span class="material-symbols-outlined text-3xl text-on-surface-variant transition-colors group-hover:text-primary">upload_file</span>
           </div>
           <h3 class="text-headline-md text-on-surface">Nuevo proyecto</h3>
           <p class="mt-unit max-w-md text-body-md text-on-surface-variant">Crea una presentacion nueva o arrastra aqui PDF, PPTX o HTML para importarlo directo.</p>
-          <label class="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-md border border-outline-variant px-3 py-2 text-sm text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface" @click.stop>
+          <label class="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-md border border-primary-700/50 px-3 py-2 text-sm text-primary-900 transition-colors hover:bg-primary-100 hover:text-primary-900" @click.stop>
             <span class="material-symbols-outlined text-[18px]">upload</span>
             Seleccionar archivo
             <input type="file" accept=".pdf, .pptx, .ppsx, .potx, .html" hidden @change="handleDropZoneFilePick" />
@@ -392,33 +392,33 @@ onMounted(async () => {
       <section>
         <div class="mb-stack-md flex items-center justify-between">
           <h2 class="text-[20px] text-on-surface">Trabajo reciente</h2>
-          <div class="flex items-center gap-stack-sm text-label-caps text-on-surface-variant">
-            <button type="button" class="flex items-center gap-1 transition-colors hover:text-primary" @click="loadPresentations"><span class="material-symbols-outlined text-[16px]">refresh</span>Recargar</button>
-            <div class="h-4 w-px bg-outline-variant"></div>
-            <button type="button" class="flex items-center gap-1 transition-colors hover:text-primary" @click="createNewProject"><span class="material-symbols-outlined text-[16px]">add</span>Nuevo</button>
+          <div class="flex items-center gap-stack-sm text-label-caps text-on-surface">
+            <button type="button" class="flex items-center gap-1 transition-colors hover:text-primary-700" @click="loadPresentations"><span class="material-symbols-outlined text-[16px]">refresh</span>Recargar</button>
+            <div class="h-4 w-px bg-outline"></div>
+            <button type="button" class="flex items-center gap-1 transition-colors hover:text-primary-700" @click="createNewProject"><span class="material-symbols-outlined text-[16px]">add</span>Nuevo</button>
           </div>
         </div>
 
-        <div v-if="isLoading" class="rounded-xl border border-outline-variant/30 bg-surface-container p-8 text-center text-on-surface-variant">
+        <div v-if="isLoading" class="rounded-xl border border-outline-variant bg-surface-container p-8 text-center text-on-surface-variant">
           Cargando proyectos...
         </div>
 
-        <div v-else-if="errorMessage" class="rounded-xl border border-red-400/30 bg-red-900/20 p-6 text-sm text-red-200">
+        <div v-else-if="errorMessage" class="rounded-xl border border-red-300 bg-red-50 p-6 text-sm text-red-700">
           {{ errorMessage }}
         </div>
 
-        <div v-else-if="presentations.length === 0" class="rounded-xl border border-outline-variant/30 bg-surface-container p-8 text-center text-on-surface-variant">
+        <div v-else-if="presentations.length === 0" class="rounded-xl border border-outline-variant bg-surface-container p-8 text-center text-on-surface-variant">
           Aun no tienes proyectos.
         </div>
 
         <div v-else class="grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3">
-          <article v-for="project in presentations" :key="project._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-white/5 bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
+          <article v-for="project in presentations" :key="project._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:border-primary-700/70 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
             <div class="relative aspect-video overflow-hidden bg-surface-container-highest" :style="getCardBackground(project)">
               <div class="absolute inset-0 flex items-center justify-center" v-if="!project.coverImage">
                 <span class="material-symbols-outlined text-[64px] text-surface-variant">{{ project.docType === 'pdf' ? 'picture_as_pdf' : 'slideshow' }}</span>
               </div>
               <div class="absolute inset-0 z-10 flex items-center justify-center bg-background/80 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
-                <button type="button" class="flex items-center gap-2 rounded-lg border border-outline bg-surface/90 px-5 py-2.5 text-label-caps text-on-surface transition-colors hover:border-primary hover:bg-primary hover:text-slate-950" @click="editProject(project._id)">
+                <button type="button" class="flex items-center gap-2 rounded-lg border border-primary-700/60 bg-primary-50 px-5 py-2.5 text-label-caps text-primary-900 transition-colors hover:border-primary-700 hover:bg-primary-700 hover:text-white" @click="editProject(project._id)">
                   <span class="material-symbols-outlined text-[16px]">edit</span>
                   Editar
                 </button>
@@ -429,11 +429,11 @@ onMounted(async () => {
                 <h3 class="truncate text-[18px] text-on-surface">{{ project.title || 'Presentacion sin titulo' }}</h3>
                 <p class="mt-1 line-clamp-2 text-[14px] text-on-surface-variant">Tipo: {{ project.docType || 'blank' }}</p>
               </div>
-              <div class="mt-stack-md flex items-center justify-between border-t border-white/5 pt-stack-sm text-[13px] text-outline">
+              <div class="mt-stack-md flex items-center justify-between border-t border-outline pt-stack-sm text-[13px] text-on-surface">
                 <span>{{ formatDate(project.updatedAt) }}</span>
                 <div class="flex items-center gap-2">
-                  <button type="button" aria-label="Editar proyecto" class="rounded-full p-1 transition-colors hover:bg-white/5 hover:text-primary" @click="editProject(project._id)"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-                  <button type="button" aria-label="Eliminar proyecto" class="rounded-full p-1 transition-colors hover:bg-white/5 hover:text-red-300" @click="deleteProject(project._id, project.title)"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+                  <button type="button" aria-label="Editar proyecto" class="rounded-full p-1 transition-colors hover:bg-primary-100 hover:text-primary-700" @click="editProject(project._id)"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+                  <button type="button" aria-label="Eliminar proyecto" class="rounded-full p-1 transition-colors hover:bg-red-200 hover:text-red-800" @click="deleteProject(project._id, project.title)"><span class="material-symbols-outlined text-[20px]">delete</span></button>
                 </div>
               </div>
             </div>
@@ -451,13 +451,13 @@ onMounted(async () => {
       @dragleave.prevent="handleUploadModalDragLeave"
       @drop.prevent="handleUploadModalDrop"
     >
-      <div class="w-full max-w-2xl rounded-xl border border-white/10 bg-surface-container p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]" :class="{ 'border-primary bg-primary/5': createSource === 'upload' && isUploadModalDragActive }">
+      <div class="w-full max-w-2xl rounded-xl border border-primary-700/60 bg-surface-container p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]" :class="{ 'border-primary-700 bg-primary/10': createSource === 'upload' && isUploadModalDragActive }">
         <div class="mb-5 flex items-center justify-between">
           <div>
             <h3 class="text-headline-md text-on-surface">Crear nuevo proyecto</h3>
             <p class="mt-1 text-body-md text-on-surface-variant">Elige configuracion inicial antes de abrir el editor.</p>
           </div>
-          <button type="button" class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-white/5 hover:text-on-surface" @click="closeCreateModal">
+          <button type="button" class="rounded-full p-2 text-on-surface transition-colors hover:bg-primary-100 hover:text-primary-900" @click="closeCreateModal">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -484,7 +484,7 @@ onMounted(async () => {
         <div class="space-y-4">
           <div>
             <label class="mb-1 block text-label-caps text-on-surface-variant">Tamano del lienzo</label>
-            <select v-model="createConfigs.preset" class="w-full rounded-md border border-outline-variant bg-surface px-3 py-2 text-on-surface">
+            <select v-model="createConfigs.preset" class="w-full rounded-md border border-outline bg-surface px-3 py-2 text-on-surface">
               <option v-if="detectedOriginalResolution" value="original">Original ({{ detectedOriginalResolution.width }}x{{ detectedOriginalResolution.height }})</option>
               <option value="hd">16:9 HD (1280x720)</option>
               <option value="fhd">16:9 Full HD (1920x1080)</option>
@@ -497,11 +497,11 @@ onMounted(async () => {
           <div v-if="createConfigs.preset === 'custom'" class="grid grid-cols-2 gap-3">
             <div>
               <label class="mb-1 block text-label-caps text-on-surface-variant">Ancho (px)</label>
-              <input v-model.number="createConfigs.width" type="number" min="320" class="w-full rounded-md border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
+              <input v-model.number="createConfigs.width" type="number" min="320" class="w-full rounded-md border border-outline bg-surface px-3 py-2 text-on-surface" />
             </div>
             <div>
               <label class="mb-1 block text-label-caps text-on-surface-variant">Alto (px)</label>
-              <input v-model.number="createConfigs.height" type="number" min="240" class="w-full rounded-md border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
+              <input v-model.number="createConfigs.height" type="number" min="240" class="w-full rounded-md border border-outline bg-surface px-3 py-2 text-on-surface" />
             </div>
           </div>
 
@@ -509,22 +509,22 @@ onMounted(async () => {
             <label class="mb-1 block text-label-caps text-on-surface-variant">Plantilla base</label>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
               <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
-                :class="createConfigs.template === 'blank' ? 'border-primary bg-primary/20 text-on-surface' : 'border-outline-variant text-on-surface-variant hover:text-on-surface'"
+                :class="createConfigs.template === 'blank' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'blank'">En blanco</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
-                :class="createConfigs.template === 'modern' ? 'border-primary bg-primary/20 text-on-surface' : 'border-outline-variant text-on-surface-variant hover:text-on-surface'"
+                :class="createConfigs.template === 'modern' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'modern'">Moderna</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
-                :class="createConfigs.template === 'dark' ? 'border-primary bg-primary/20 text-on-surface' : 'border-outline-variant text-on-surface-variant hover:text-on-surface'"
+                :class="createConfigs.template === 'dark' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'dark'">Oscura</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
-                :class="createConfigs.template === 'custom' ? 'border-primary bg-primary/20 text-on-surface' : 'border-outline-variant text-on-surface-variant hover:text-on-surface'"
+                :class="createConfigs.template === 'custom' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'custom'">Mi plantilla</button>
             </div>
           </div>
 
-          <div v-if="createSource === 'upload'" class="rounded-md border border-primary/30 bg-primary/10 px-3 py-3 text-center">
-            <label class="mx-auto inline-flex cursor-pointer items-center gap-2 rounded-md border border-outline-variant px-3 py-2 text-sm text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface">
+          <div v-if="createSource === 'upload'" class="rounded-md border border-primary-700/60 bg-primary-100 px-3 py-3 text-center">
+            <label class="mx-auto inline-flex cursor-pointer items-center gap-2 rounded-md border border-primary-700/50 px-3 py-2 text-sm text-primary-900 transition-colors hover:bg-primary-200 hover:text-primary-900">
               <span class="material-symbols-outlined text-[18px]">upload</span>
               Subir archivo
               <input type="file" accept=".pdf, .pptx, .ppsx, .potx, .html" hidden @change="handleDropZoneFilePick" />
@@ -536,8 +536,8 @@ onMounted(async () => {
         </div>
 
         <div class="mt-6 flex justify-end gap-3">
-          <button type="button" class="rounded-md border border-outline-variant px-4 py-2 text-label-caps text-on-surface-variant transition-colors hover:text-on-surface" @click="closeCreateModal">Cancelar</button>
-          <button type="button" class="rounded-md bg-gradient-to-r from-primary-300 to-tertiary px-5 py-2.5 text-label-caps text-slate-950" @click="confirmCreateProject">
+          <button type="button" class="rounded-md border border-primary-700/60 px-4 py-2 text-label-caps text-primary-900 transition-colors hover:bg-primary-100 hover:text-primary-900" @click="closeCreateModal">Cancelar</button>
+          <button type="button" class="rounded-md bg-gradient-to-r from-primary-500 to-primary-700 px-5 py-2.5 text-label-caps text-white shadow-[0_10px_24px_rgba(194,65,12,0.32)]" @click="confirmCreateProject">
             Continuar al editor
           </button>
         </div>
@@ -545,9 +545,9 @@ onMounted(async () => {
     </div>
 
     <div v-if="deleteModal.open" class="fixed inset-0 z-[1500] flex items-center justify-center bg-black/70 px-4" @click.self="closeDeleteModal">
-      <div class="w-full max-w-md rounded-xl border border-white/10 bg-surface-container p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+      <div class="w-full max-w-md rounded-xl border border-red-300 bg-surface-container p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
         <div class="mb-4 flex items-start gap-3">
-          <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-400/30 bg-red-500/15 text-red-200">
+          <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-red-300 bg-red-100 text-red-700">
             <span class="material-symbols-outlined">delete</span>
           </div>
           <div>
@@ -556,17 +556,17 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-on-surface-variant">
+        <div class="rounded-md border border-outline bg-surface-container-high px-3 py-2 text-sm text-on-surface">
           Proyecto: <span class="text-on-surface">{{ deleteModal.title }}</span>
         </div>
 
-        <p v-if="deleteErrorMessage" class="mt-3 rounded-md border border-red-400/30 bg-red-900/20 px-3 py-2 text-sm text-red-200">
+        <p v-if="deleteErrorMessage" class="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
           {{ deleteErrorMessage }}
         </p>
 
         <div class="mt-6 flex justify-end gap-3">
-          <button type="button" class="rounded-md border border-outline-variant px-4 py-2 text-label-caps text-on-surface-variant transition-colors hover:text-on-surface" :disabled="isDeletingProject" @click="closeDeleteModal">Cancelar</button>
-          <button type="button" class="rounded-md bg-gradient-to-r from-red-300 to-red-500 px-5 py-2.5 text-label-caps text-slate-950 disabled:opacity-60" :disabled="isDeletingProject" @click="confirmDeleteProject">
+          <button type="button" class="rounded-md border border-red-400 px-4 py-2 text-label-caps text-red-800 transition-colors hover:bg-red-100 hover:text-red-900" :disabled="isDeletingProject" @click="closeDeleteModal">Cancelar</button>
+          <button type="button" class="rounded-md bg-gradient-to-r from-red-500 to-red-700 px-5 py-2.5 text-label-caps text-white shadow-[0_10px_24px_rgba(185,28,28,0.3)] disabled:opacity-60" :disabled="isDeletingProject" @click="confirmDeleteProject">
             {{ isDeletingProject ? 'Eliminando...' : 'Eliminar' }}
           </button>
         </div>

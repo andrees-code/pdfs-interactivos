@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EditorHeader from '@/components/EditorHeader.vue'
-import SideNavBar from '@/components/layout/SideNavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { templateService } from '@/services/template.service'
 
@@ -241,10 +240,7 @@ onMounted(async () => {
       @create-template="openTemplateEngine"
     />
 
-    <div class="flex h-[calc(100vh-64px)]">
-      <SideNavBar active="assets" project-name="Q3 Presentation" />
-
-      <main class="flex-1 overflow-y-auto bg-background p-margin-safe">
+    <main class="h-[calc(100vh-64px)] overflow-y-auto bg-background p-margin-safe">
         <header class="mx-auto mb-stack-lg flex max-w-7xl flex-col justify-between gap-stack-md md:flex-row md:items-end">
           <div>
             <h1 class="font-display-xl text-display-xl text-on-background">Biblioteca de plantillas</h1>
@@ -252,20 +248,20 @@ onMounted(async () => {
           </div>
           <div class="flex items-center gap-stack-sm">
             <div class="group relative">
-              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm transition-colors group-focus-within:text-primary">search</span>
-              <input v-model="searchQuery" aria-label="Buscar plantillas" placeholder="Buscar por nombre o estilo..." class="w-full rounded-lg border border-outline-variant/50 bg-surface-container py-2 pl-9 pr-4 text-body-md text-on-surface shadow-inner transition-all placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:w-64" />
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface text-sm transition-colors group-focus-within:text-primary-700">search</span>
+              <input v-model="searchQuery" aria-label="Buscar plantillas" placeholder="Buscar por nombre o estilo..." class="w-full rounded-lg border border-outline bg-surface-container py-2 pl-9 pr-4 text-body-md text-on-surface shadow-inner transition-all placeholder:text-on-surface-variant focus:border-primary-700 focus:outline-none focus:ring-1 focus:ring-primary-700 md:w-64" />
             </div>
-            <button type="button" class="flex items-center justify-center rounded-lg border border-outline-variant/50 bg-surface-container p-2 text-on-surface transition-colors hover:bg-surface-bright" @click="openTemplateEngine" title="Crear plantilla privada">
+            <button type="button" class="flex items-center justify-center rounded-lg border border-primary-700/60 bg-primary-50 p-2 text-primary-900 transition-colors hover:bg-primary-100" @click="openTemplateEngine" title="Crear plantilla privada">
               <span class="material-symbols-outlined">add</span>
             </button>
           </div>
         </header>
 
-        <div class="mx-auto mb-stack-lg flex max-w-7xl items-center gap-stack-sm overflow-x-auto border-b border-surface-variant/50 pb-2">
+        <div class="mx-auto mb-stack-lg flex max-w-7xl items-center gap-stack-sm overflow-x-auto border-b border-outline pb-2">
           <button
             type="button"
             class="whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2 text-label-caps"
-            :class="activeTab === 'store' ? 'border-primary text-primary bg-surface-bright/20' : 'border-transparent text-on-surface-variant hover:bg-surface-container/50 hover:text-on-surface'"
+            :class="activeTab === 'store' ? 'border-primary-700 text-primary-800 bg-primary-100/70' : 'border-transparent text-on-surface hover:bg-primary-50 hover:text-primary-800'"
             @click="activeTab = 'store'"
           >
             Tienda
@@ -273,36 +269,36 @@ onMounted(async () => {
           <button
             type="button"
             class="whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2 text-label-caps"
-            :class="activeTab === 'mine' ? 'border-primary text-primary bg-surface-bright/20' : 'border-transparent text-on-surface-variant hover:bg-surface-container/50 hover:text-on-surface'"
+            :class="activeTab === 'mine' ? 'border-primary-700 text-primary-800 bg-primary-100/70' : 'border-transparent text-on-surface hover:bg-primary-50 hover:text-primary-800'"
             @click="activeTab = 'mine'"
           >
             Mis plantillas
           </button>
 
-          <div class="mx-2 h-4 w-px shrink-0 bg-surface-variant/50"></div>
+          <div class="mx-2 h-4 w-px shrink-0 bg-outline"></div>
 
           <button
             type="button"
             v-for="category in categories"
             :key="category"
             class="whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2 text-label-caps"
-            :class="selectedCategory === category ? 'border-primary text-primary bg-surface-bright/20' : 'border-transparent text-on-surface-variant hover:bg-surface-container/50 hover:text-on-surface'"
+            :class="selectedCategory === category ? 'border-primary-700 text-primary-800 bg-primary-100/70' : 'border-transparent text-on-surface hover:bg-primary-50 hover:text-primary-800'"
             @click="selectedCategory = category"
           >
             {{ category }}
           </button>
         </div>
 
-        <div v-if="isLoading" class="mx-auto mb-stack-md max-w-7xl rounded-xl border border-outline-variant/30 bg-surface-container p-6 text-center text-on-surface-variant">
+        <div v-if="isLoading" class="mx-auto mb-stack-md max-w-7xl rounded-xl border border-outline bg-surface-container p-6 text-center text-on-surface-variant">
           Cargando plantillas...
         </div>
 
-        <div v-else-if="errorMessage" class="mx-auto mb-stack-md max-w-7xl rounded-xl border border-red-400/30 bg-red-900/20 p-6 text-sm text-red-200">
+        <div v-else-if="errorMessage" class="mx-auto mb-stack-md max-w-7xl rounded-xl border border-red-300 bg-red-50 p-6 text-sm text-red-700">
           {{ errorMessage }}
         </div>
 
         <section v-if="activeTab === 'store'" class="mx-auto grid max-w-7xl grid-cols-1 gap-gutter pb-stack-lg md:grid-cols-2 xl:grid-cols-3">
-          <article v-if="featuredTemplate" class="group relative col-span-1 overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)] md:col-span-2">
+          <article v-if="featuredTemplate" class="group relative col-span-1 overflow-hidden rounded-xl border border-outline bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-primary-700/70 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)] md:col-span-2">
             <div class="relative aspect-[21/9] overflow-hidden bg-surface-dim">
               <div
                 class="absolute inset-0 transition-all duration-500 group-hover:scale-105"
@@ -311,14 +307,14 @@ onMounted(async () => {
                   : { backgroundImage: 'radial-gradient(circle_at_20%_20%,rgba(140,176,255,0.55),transparent_36%),linear-gradient(120deg,#0c1630,#111827_48%,#1f2f56)' }"
               ></div>
               <div class="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
-                <button type="button" class="flex translate-y-4 items-center gap-2 rounded-full bg-gradient-to-r from-primary to-tertiary-container px-6 py-3 text-label-caps text-slate-950 shadow-lg transition-all duration-300 group-hover:translate-y-0" @click="openTemplatePreview(featuredTemplate)">
+                <button type="button" class="flex translate-y-4 items-center gap-2 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-3 text-label-caps text-white shadow-lg transition-all duration-300 group-hover:translate-y-0" @click="openTemplatePreview(featuredTemplate)">
                   <span class="material-symbols-outlined text-sm">visibility</span>
                   Vista previa
                 </button>
               </div>
               <div class="absolute left-4 top-4 flex gap-2">
-                <span class="rounded border border-primary/30 bg-primary-container/20 px-2.5 py-1 text-label-caps text-primary-fixed">Destacada</span>
-                <span class="rounded border border-outline-variant/50 bg-surface-container/80 px-2.5 py-1 text-label-caps">{{ featuredTemplate.category || featuredTemplate.style || 'General' }}</span>
+                <span class="rounded border border-primary-700/50 bg-primary-100 px-2.5 py-1 text-label-caps text-primary-900">Destacada</span>
+                <span class="rounded border border-outline bg-surface-container px-2.5 py-1 text-label-caps text-on-surface">{{ featuredTemplate.category || featuredTemplate.style || 'General' }}</span>
               </div>
             </div>
             <div class="flex items-start justify-between bg-gradient-to-b from-surface-container to-surface-container-low p-stack-md">
@@ -326,14 +322,14 @@ onMounted(async () => {
                 <h3 class="mb-1 text-headline-md text-on-surface">{{ featuredTemplate.title || 'Plantilla' }}</h3>
                 <p class="line-clamp-1 text-body-md text-on-surface-variant">Por {{ featuredTemplate.authorName || 'Desconocido' }}</p>
               </div>
-              <div class="flex items-center gap-2 pl-4 text-code-sm text-outline">
+              <div class="flex items-center gap-2 pl-4 text-code-sm text-on-surface">
                 <span>{{ Object.keys(featuredTemplate.documentState || {}).length || 0 }} diapositivas</span>
-                <button type="button" class="text-on-surface-variant transition-colors hover:text-primary" @click="saveToMyGallery(featuredTemplate._id)"><span class="material-symbols-outlined">bookmark_border</span></button>
+                <button type="button" class="text-on-surface transition-colors hover:text-primary-700" @click="saveToMyGallery(featuredTemplate._id)"><span class="material-symbols-outlined">bookmark_border</span></button>
               </div>
             </div>
           </article>
 
-          <article v-for="tpl in filteredPublicTemplates.slice(1)" :key="tpl._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
+          <article v-for="tpl in filteredPublicTemplates.slice(1)" :key="tpl._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-primary-700/70 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
             <div
               class="relative aspect-video"
               :style="tpl.coverImage
@@ -341,13 +337,13 @@ onMounted(async () => {
                 : { backgroundImage: 'radial-gradient(circle_at_70%_30%,rgba(34,211,238,0.45),transparent_35%),linear-gradient(130deg,#071929,#0b2a43)' }"
             >
               <div class="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
-                <button type="button" class="flex translate-y-4 items-center gap-2 rounded-full bg-gradient-to-r from-primary to-tertiary-container px-6 py-3 text-label-caps text-slate-950 shadow-lg transition-all duration-300 group-hover:translate-y-0" @click="openTemplatePreview(tpl)">
+                <button type="button" class="flex translate-y-4 items-center gap-2 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-3 text-label-caps text-white shadow-lg transition-all duration-300 group-hover:translate-y-0" @click="openTemplatePreview(tpl)">
                   <span class="material-symbols-outlined text-sm">visibility</span>
                   Vista previa
                 </button>
               </div>
               <div class="absolute left-4 top-4">
-                <span class="rounded border border-outline-variant/50 bg-surface-container/80 px-2.5 py-1 text-label-caps">{{ tpl.category || tpl.style || 'General' }}</span>
+                <span class="rounded border border-outline bg-surface-container px-2.5 py-1 text-label-caps text-on-surface">{{ tpl.category || tpl.style || 'General' }}</span>
               </div>
             </div>
             <div class="flex flex-1 flex-col justify-between bg-surface-container p-stack-md">
@@ -355,31 +351,31 @@ onMounted(async () => {
                 <h3 class="mb-1 text-[20px] text-on-surface">{{ tpl.title || 'Plantilla' }}</h3>
                 <p class="text-code-sm text-on-surface-variant">Creada por {{ tpl.authorName || 'Desconocido' }}</p>
               </div>
-              <div class="mt-stack-md flex items-center justify-between border-t border-outline-variant/20 pt-stack-sm">
+              <div class="mt-stack-md flex items-center justify-between border-t border-outline pt-stack-sm">
                 <div class="flex items-center gap-2">
                   <div class="flex h-6 w-6 items-center justify-center rounded-full bg-secondary-container text-[10px] text-on-secondary-container">{{ (tpl.authorName || 'U').charAt(0).toUpperCase() }}</div>
-                  <span class="text-[13px] text-on-surface-variant">{{ tpl.authorName || 'Desconocido' }}</span>
+                  <span class="text-[13px] text-on-surface">{{ tpl.authorName || 'Desconocido' }}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <button type="button" class="text-code-sm text-outline hover:text-primary" @click="saveToMyGallery(tpl._id)">
+                  <button type="button" class="text-code-sm text-on-surface hover:text-primary-700" @click="saveToMyGallery(tpl._id)">
                     {{ savingId === tpl._id ? 'Guardando...' : (isTemplateSaved(tpl) ? 'Guardada' : 'Guardar') }}
                   </button>
-                  <button type="button" class="text-code-sm text-outline hover:text-primary" @click="useTemplate(tpl)">Usar</button>
+                  <button type="button" class="text-code-sm text-on-surface hover:text-primary-700" @click="useTemplate(tpl)">Usar</button>
                 </div>
               </div>
             </div>
           </article>
 
-          <div v-if="filteredPublicTemplates.length === 0" class="col-span-full rounded-xl border border-outline-variant/30 bg-surface-container p-8 text-center text-on-surface-variant">
-            No hay plantillas que coincidan con los filtros.
+          <div v-if="filteredPublicTemplates.length === 0" class="col-span-full rounded-xl border border-outline bg-surface-container p-8 text-center text-on-surface-variant">
+            Aun no hay plantillas publicadas.
           </div>
         </section>
 
         <section v-else class="mx-auto grid max-w-7xl grid-cols-1 gap-gutter pb-stack-lg md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="tpl in filteredMyTemplates" :key="tpl._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
+          <article v-for="tpl in filteredMyTemplates" :key="tpl._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-primary-700/70 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
             <div class="relative aspect-video" :style="tpl.coverImage ? { backgroundImage: `url(${tpl.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { backgroundImage: 'radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.4),transparent_35%),linear-gradient(130deg,#120a26,#2d1d52)' }">
               <div class="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
-                <button type="button" class="flex translate-y-4 items-center gap-2 rounded-full bg-gradient-to-r from-primary to-tertiary-container px-6 py-3 text-label-caps text-slate-950 shadow-lg transition-all duration-300 group-hover:translate-y-0" @click="openTemplatePreview(tpl)">
+                <button type="button" class="flex translate-y-4 items-center gap-2 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 px-6 py-3 text-label-caps text-white shadow-lg transition-all duration-300 group-hover:translate-y-0" @click="openTemplatePreview(tpl)">
                   <span class="material-symbols-outlined text-sm">visibility</span>
                   Vista previa
                 </button>
@@ -392,26 +388,26 @@ onMounted(async () => {
                 <p class="text-code-sm text-on-surface-variant">{{ tpl.isPrivate ? 'Privada' : 'Publica' }}</p>
               </div>
 
-              <div class="mt-stack-md flex items-center justify-between border-t border-outline-variant/20 pt-stack-sm">
-                <button type="button" class="text-code-sm text-outline hover:text-primary" @click="useTemplate(tpl)">Usar</button>
-                <button type="button" class="text-code-sm text-outline hover:text-red-300" @click="deleteTemplateFromCard(tpl)">Eliminar</button>
+              <div class="mt-stack-md flex items-center justify-between border-t border-outline pt-stack-sm">
+                <button type="button" class="text-code-sm text-on-surface hover:text-primary-700" @click="useTemplate(tpl)">Usar</button>
+                <button type="button" class="text-code-sm text-on-surface hover:text-red-700" @click="deleteTemplateFromCard(tpl)">Eliminar</button>
               </div>
             </div>
           </article>
 
-          <div v-if="filteredMyTemplates.length === 0" class="col-span-full rounded-xl border border-outline-variant/30 bg-surface-container p-8 text-center text-on-surface-variant">
+          <div v-if="filteredMyTemplates.length === 0" class="col-span-full rounded-xl border border-outline bg-surface-container p-8 text-center text-on-surface-variant">
             Aun no tienes plantillas guardadas.
           </div>
         </section>
 
         <div v-if="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6" @click.self="closeTemplatePreview">
-          <div class="w-full max-w-3xl rounded-xl border border-outline-variant/30 bg-surface-container p-5">
+          <div class="w-full max-w-3xl rounded-xl border border-outline bg-surface-container p-5">
             <div class="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h3 class="text-headline-md text-on-surface">{{ selectedTemplate?.title || 'Vista previa' }}</h3>
                 <p class="text-body-md text-on-surface-variant">Por {{ selectedTemplate?.authorName || 'Desconocido' }}</p>
               </div>
-              <button type="button" class="rounded-full p-2 hover:bg-white/10" @click="closeTemplatePreview">
+              <button type="button" class="rounded-full p-2 text-on-surface hover:bg-primary-100" @click="closeTemplatePreview">
                 <span class="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -423,13 +419,12 @@ onMounted(async () => {
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-              <button type="button" class="rounded-lg bg-primary px-4 py-2 text-slate-950" @click="useTemplate(selectedTemplate)">Usar plantilla</button>
-              <button v-if="canPublishSelected" type="button" class="rounded-lg border border-outline-variant px-4 py-2 text-on-surface" :disabled="isActionLoading" @click="publishSelectedTemplate">Publicar</button>
-              <button type="button" class="rounded-lg border border-red-300/40 px-4 py-2 text-red-200" :disabled="isActionLoading" @click="deleteSelectedTemplate">Eliminar</button>
+              <button type="button" class="rounded-lg bg-gradient-to-r from-primary-500 to-primary-700 px-4 py-2 text-white shadow-[0_10px_24px_rgba(194,65,12,0.32)]" @click="useTemplate(selectedTemplate)">Usar plantilla</button>
+              <button v-if="canPublishSelected" type="button" class="rounded-lg border border-primary-700/60 px-4 py-2 text-primary-900 hover:bg-primary-100" :disabled="isActionLoading" @click="publishSelectedTemplate">Publicar</button>
+              <button type="button" class="rounded-lg border border-red-400 px-4 py-2 text-red-800 hover:bg-red-100" :disabled="isActionLoading" @click="deleteSelectedTemplate">Eliminar</button>
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </main>
   </div>
 </template>

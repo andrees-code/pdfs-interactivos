@@ -633,7 +633,7 @@ const emit = defineEmits<{
 
 .dropdown-divider {
   height: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-subtle);
   width: 100%;
 }
 
@@ -652,7 +652,7 @@ const emit = defineEmits<{
 }
 
 .dropdown-item:hover {
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: var(--bg-hover);
   transform: translateX(2px);
 }
 
@@ -661,8 +661,8 @@ const emit = defineEmits<{
 }
 
 .btn-logout:hover {
-  background-color: rgba(255, 107, 124, 0.1);
-  color: #ffd7dd;
+  background-color: rgba(255, 107, 124, 0.16);
+  color: #9f1239;
 }
 
 @keyframes scaleIn {

@@ -172,7 +172,23 @@
                     >
                       <span class="drag-handle"><i class="ph ph-dots-six-vertical"></i></span>
                       <span class="icon"><i :class="`ph ${getIconClassForType(el.type)}`"></i></span>
-                      <span class="child-name">{{ el.name || el.type }}</span>
+                      <span
+                        v-if="editingLayerNameId !== el.id"
+                        class="child-name"
+                        @dblclick.stop="startLayerNameEdit(el)"
+                        title="Doble clic para renombrar"
+                      >{{ el.name || el.type }}</span>
+                      <input
+                        v-else
+                        :ref="(node) => setLayerNameInputRef(node, el.id)"
+                        v-model="editingLayerNameValue"
+                        class="child-name-input"
+                        @click.stop
+                        @mousedown.stop
+                        @keydown.enter.stop.prevent="commitLayerNameEdit(el)"
+                        @keydown.escape.stop.prevent="cancelLayerNameEdit"
+                        @blur="commitLayerNameEdit(el)"
+                      />
 
                       <div class="layer-actions">
                         <button
@@ -8146,6 +8162,41 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   const clipboardElements = ref<any[]>([])
 
   const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
+  const editingLayerNameId = ref<string | null>(null)
+  const editingLayerNameValue = ref('')
+  const layerNameInputRefs = ref<Record<string, HTMLInputElement | null>>({})
+
+  const setLayerNameInputRef = (node: any, elementId: string) => {
+    if (node instanceof HTMLInputElement) {
+      layerNameInputRefs.value[elementId] = node
+      return
+    }
+    delete layerNameInputRefs.value[elementId]
+  }
+
+  const startLayerNameEdit = async (el: any) => {
+    if (!el?.id) return
+    editingLayerNameId.value = el.id
+    editingLayerNameValue.value = String(el.name || el.type || '').trim()
+    await nextTick()
+    const input = layerNameInputRefs.value[el.id]
+    if (!input) return
+    input.focus()
+    input.select()
+  }
+
+  const cancelLayerNameEdit = () => {
+    editingLayerNameId.value = null
+    editingLayerNameValue.value = ''
+  }
+
+  const commitLayerNameEdit = (el: any) => {
+    if (!el?.id || editingLayerNameId.value !== el.id) return
+    const nextName = editingLayerNameValue.value.trim()
+    el.name = nextName || String(el.type || el.name || '')
+    cancelLayerNameEdit()
+  }
+
   const _hasExtractedTextOnCurrentPage = computed(() =>
     currentPageElements.value.some(
       (el: any) => typeof el?.id === 'string' && el.id.startsWith('el_pdf_'),
@@ -15727,6 +15778,29 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   .tree-child .icon {
     font-size: 0.9rem;
   }
+  .child-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .child-name-input {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    background: rgba(0, 0, 0, 0.12);
+    color: var(--text-primary);
+    padding: 0 6px;
+    font-size: 0.75rem;
+  }
+  .child-name-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: var(--ring-muted);
+  }
   .tree-child:hover {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
@@ -17073,15 +17147,24 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   /* REDIMENSIONADORES DE PANELES LATERALES */
   .sidebar-resizer {
-  width: 8px; /* Un poco más ancho para que sea fácil de agarrar */
-  margin: 0 -4px; /* Centrado en el borde */
+  width: 4px;
+  margin: 0;
   cursor: col-resize;
-  background: transparent;
+  background: rgba(148, 163, 184, 0.6);
   z-index: 999; /* Asegura que esté por encima del resto */
   position: relative;
   transition: background 0.2s;
   flex-shrink: 0;
 }
+  .sidebar-resizer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -5px;
+    width: 11px;
+    cursor: col-resize;
+  }
   .sidebar-resizer:hover,
   .sidebar-resizer:active {
     background: var(--accent-primary);

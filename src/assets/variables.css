@@ -11,14 +11,14 @@
   --surface-card-strong: rgba(234, 88, 12, 0.08);
 
   /* Warm borders — subtle */
-  --border-subtle: rgba(160, 100, 50, 0.1);
-  --border-strong: rgba(140, 80, 30, 0.18);
-  --border-accent: rgba(234, 88, 12, 0.32);
+  --border-subtle: rgba(140, 80, 30, 0.22);
+  --border-strong: rgba(120, 66, 22, 0.36);
+  --border-accent: rgba(234, 88, 12, 0.52);
 
   /* Dark warm text */
   --text-primary: #0a0604;
   --text-secondary: rgba(10, 6, 4, 0.88);
-  --text-tertiary: rgba(10, 6, 4, 0.70);
+  --text-tertiary: rgba(10, 6, 4, 0.82);
   --text-disabled: rgba(10, 6, 4, 0.38);
 
   /* Orange accent from Flujo Múltiple B */
@@ -36,24 +36,24 @@
              radial-gradient(ellipse at 80% 5%, rgba(154, 52, 18, 0.04), transparent 32%),
              var(--surface-base);
   --bg-surface: var(--surface-elevated);
-  --bg-surface-hover: rgba(234, 88, 12, 0.04);
-  --bg-surface-active: rgba(234, 88, 12, 0.08);
+  --bg-surface-hover: rgba(234, 88, 12, 0.08);
+  --bg-surface-active: rgba(234, 88, 12, 0.14);
   --bg-panel: var(--surface-panel);
-  --bg-hover: rgba(234, 88, 12, 0.06);
+  --bg-hover: rgba(234, 88, 12, 0.12);
   --bg-elevated: var(--surface-overlay);
 
   --glass-bg: linear-gradient(180deg, rgba(255, 252, 248, 0.88), rgba(250, 245, 238, 0.82));
   --glass-bg-strong: linear-gradient(180deg, rgba(255, 253, 250, 0.95), rgba(252, 248, 242, 0.92));
-  --glass-border: rgba(160, 100, 50, 0.1);
+  --glass-border: rgba(140, 80, 30, 0.22);
   --overlay-backdrop: rgba(28, 20, 12, 0.45);
-  --surface-soft: rgba(234, 88, 12, 0.06);
-  --surface-soft-strong: rgba(234, 88, 12, 0.12);
+  --surface-soft: rgba(234, 88, 12, 0.1);
+  --surface-soft-strong: rgba(234, 88, 12, 0.18);
   --surface-soft-contrast: rgba(234, 88, 12, 0.04);
   --canvas-dot: rgba(160, 100, 50, 0.14);
 
   --selection-blue: var(--accent-primary);
   --ring-accent: 0 0 0 1px rgba(234, 88, 12, 0.28), 0 0 0 4px rgba(234, 88, 12, 0.1);
-  --ring-muted: 0 0 0 1px rgba(160, 100, 50, 0.14), 0 0 0 4px rgba(160, 100, 50, 0.05);
+  --ring-muted: 0 0 0 1px rgba(140, 80, 30, 0.24), 0 0 0 4px rgba(140, 80, 30, 0.1);
 
   --shadow-xs: 0 2px 6px rgba(60, 30, 10, 0.1);
   --shadow-sm: 0 4px 16px rgba(60, 30, 10, 0.1), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
