@@ -1,67 +1,73 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  --surface-base: #090b11;
-  --surface-canvas: #000000;
-  --surface-panel: rgba(16, 20, 30, 0.74);
-  --surface-elevated: rgba(23, 28, 40, 0.88);
-  --surface-overlay: rgba(11, 15, 23, 0.92);
-  --surface-card: rgba(255, 255, 255, 0.045);
-  --surface-card-strong: rgba(255, 255, 255, 0.08);
+  /* Light warm surfaces */
+  --surface-base: #faf8f5;
+  --surface-canvas: #f2ede8;
+  --surface-panel: rgba(255, 252, 248, 0.96);
+  --surface-elevated: rgba(255, 255, 255, 0.98);
+  --surface-overlay: rgba(255, 253, 250, 0.97);
+  --surface-card: rgba(234, 88, 12, 0.04);
+  --surface-card-strong: rgba(234, 88, 12, 0.08);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --border-accent: rgba(124, 211, 255, 0.3);
+  /* Warm borders — subtle */
+  --border-subtle: rgba(160, 100, 50, 0.1);
+  --border-strong: rgba(140, 80, 30, 0.18);
+  --border-accent: rgba(234, 88, 12, 0.32);
 
-  --text-primary: #f5f7fb;
-  --text-secondary: rgba(231, 236, 245, 0.72);
-  --text-tertiary: rgba(231, 236, 245, 0.5);
-  --text-disabled: rgba(231, 236, 245, 0.34);
+  /* Dark warm text */
+  --text-primary: #0a0604;
+  --text-secondary: rgba(10, 6, 4, 0.88);
+  --text-tertiary: rgba(10, 6, 4, 0.70);
+  --text-disabled: rgba(10, 6, 4, 0.38);
 
-  --accent-primary: #58c4ff;
-  --accent-hover: #7ed2ff;
-  --accent-pressed: #37aff4;
-  --accent-rgb: 88, 196, 255;
+  /* Orange accent from Flujo Múltiple B */
+  --accent-primary: #ea580c;
+  --accent-hover: #f97316;
+  --accent-pressed: #c2410c;
+  --accent-rgb: 234, 88, 12;
 
-  --success: #57d39b;
-  --danger: #ff6b7c;
-  --danger-hover: #ff8492;
-  --warning: #ffbe5c;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --danger-hover: #ef4444;
+  --warning: #d97706;
 
-  --bg-base: radial-gradient(circle at top, rgba(var(--accent-rgb), 0.09), transparent 28%), var(--surface-base);
+  --bg-base: radial-gradient(ellipse at 20% 0%, rgba(234, 88, 12, 0.06), transparent 36%),
+             radial-gradient(ellipse at 80% 5%, rgba(154, 52, 18, 0.04), transparent 32%),
+             var(--surface-base);
   --bg-surface: var(--surface-elevated);
-  --bg-surface-hover: rgba(255, 255, 255, 0.06);
-  --bg-surface-active: rgba(255, 255, 255, 0.11);
+  --bg-surface-hover: rgba(234, 88, 12, 0.04);
+  --bg-surface-active: rgba(234, 88, 12, 0.08);
   --bg-panel: var(--surface-panel);
-  --bg-hover: rgba(var(--accent-rgb), 0.1);
+  --bg-hover: rgba(234, 88, 12, 0.06);
   --bg-elevated: var(--surface-overlay);
 
-  --glass-bg: linear-gradient(180deg, rgba(20, 25, 36, 0.78), rgba(12, 16, 24, 0.68));
-  --glass-bg-strong: linear-gradient(180deg, rgba(28, 34, 48, 0.88), rgba(15, 18, 27, 0.82));
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --overlay-backdrop: rgba(4, 6, 10, 0.64);
-  --surface-soft: rgba(var(--accent-rgb), 0.08);
-  --surface-soft-strong: rgba(var(--accent-rgb), 0.16);
-  --surface-soft-contrast: rgba(255, 255, 255, 0.055);
-  --canvas-dot: rgba(255, 255, 255, 0.16);
+  --glass-bg: linear-gradient(180deg, rgba(255, 252, 248, 0.88), rgba(250, 245, 238, 0.82));
+  --glass-bg-strong: linear-gradient(180deg, rgba(255, 253, 250, 0.95), rgba(252, 248, 242, 0.92));
+  --glass-border: rgba(160, 100, 50, 0.1);
+  --overlay-backdrop: rgba(28, 20, 12, 0.45);
+  --surface-soft: rgba(234, 88, 12, 0.06);
+  --surface-soft-strong: rgba(234, 88, 12, 0.12);
+  --surface-soft-contrast: rgba(234, 88, 12, 0.04);
+  --canvas-dot: rgba(160, 100, 50, 0.14);
 
   --selection-blue: var(--accent-primary);
-  --ring-accent: 0 0 0 1px rgba(var(--accent-rgb), 0.18), 0 0 0 4px rgba(var(--accent-rgb), 0.14);
-  --ring-muted: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 4px rgba(255, 255, 255, 0.05);
+  --ring-accent: 0 0 0 1px rgba(234, 88, 12, 0.28), 0 0 0 4px rgba(234, 88, 12, 0.1);
+  --ring-muted: 0 0 0 1px rgba(160, 100, 50, 0.14), 0 0 0 4px rgba(160, 100, 50, 0.05);
 
-  --shadow-xs: 0 2px 6px rgba(0, 0, 0, 0.16);
-  --shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.18), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  --shadow-md: 0 22px 50px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-  --shadow-lg: 0 34px 80px rgba(0, 0, 0, 0.34), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
-  --shadow-float: 0 24px 70px rgba(2, 6, 16, 0.42), 0 2px 0 rgba(255, 255, 255, 0.04) inset;
-  --shadow-panel-left: 18px 0 44px rgba(0, 0, 0, 0.16);
-  --shadow-panel-right: -18px 0 44px rgba(0, 0, 0, 0.16);
+  --shadow-xs: 0 2px 6px rgba(60, 30, 10, 0.1);
+  --shadow-sm: 0 4px 16px rgba(60, 30, 10, 0.1), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  --shadow-md: 0 8px 28px rgba(60, 30, 10, 0.12), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  --shadow-lg: 0 16px 48px rgba(60, 30, 10, 0.14), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  --shadow-float: 0 20px 60px rgba(60, 30, 10, 0.16), 0 2px 0 rgba(255, 255, 255, 0.9) inset;
+  --shadow-panel-left: 8px 0 24px rgba(60, 30, 10, 0.08);
+  --shadow-panel-right: -8px 0 24px rgba(60, 30, 10, 0.08);
 
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
-  --radius-xl: 30px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 7px;
   --radius-pill: 999px;
 
   --space-1: 4px;
@@ -76,9 +82,9 @@
   --blur-md: 20px;
   --blur-lg: 28px;
 
-  --motion-fast: 160ms;
-  --motion-base: 240ms;
-  --motion-slow: 360ms;
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 340ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);

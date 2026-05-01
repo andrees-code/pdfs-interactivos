@@ -274,8 +274,8 @@ const emit = defineEmits<{
   position: relative;
   min-height: 72px;
   padding: 12px 18px 10px;
-  background: linear-gradient(180deg, rgba(7, 10, 16, 0.86), rgba(7, 10, 16, 0.12));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--border-subtle);
   backdrop-filter: blur(var(--blur-md));
   -webkit-backdrop-filter: blur(var(--blur-md));
   z-index: 1200;
@@ -294,8 +294,8 @@ const emit = defineEmits<{
   min-width: 0;
   padding: 10px 14px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-xs);
   font-size: 1rem;
   font-weight: 650;
@@ -309,7 +309,7 @@ const emit = defineEmits<{
 
 .pro-logo:hover {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--bg-hover);
   border-color: rgba(var(--accent-rgb), 0.18);
 }
 
@@ -339,8 +339,8 @@ const emit = defineEmits<{
   flex-wrap: wrap;
   padding: 6px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.032);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-xs);
 }
 
@@ -351,7 +351,7 @@ const emit = defineEmits<{
   min-height: 38px;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   padding: 0 14px;
   border-radius: var(--radius-pill);
   font-size: 0.82rem;
@@ -367,8 +367,8 @@ const emit = defineEmits<{
 
 .menu-item-ghost:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
   color: var(--text-primary);
 }
 
@@ -423,8 +423,8 @@ const emit = defineEmits<{
 
 .cloud-status:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
 }
 
 .cloud-tooltip {
@@ -475,8 +475,8 @@ const emit = defineEmits<{
   gap: 6px;
   padding: 6px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-xs);
 }
 
@@ -492,8 +492,7 @@ const emit = defineEmits<{
 .divider-vertical {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 0 3px;
+  background: var(--border-subtle);
 }
 
 .btn-play {
@@ -518,14 +517,14 @@ const emit = defineEmits<{
 }
 
 .btn-play.is-active {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-soft);
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-subtle);
   box-shadow: none;
 }
 
 .btn-play.is-active:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--surface-soft-strong);
   box-shadow: var(--shadow-xs);
 }
 
@@ -538,7 +537,7 @@ const emit = defineEmits<{
   justify-content: center;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   border-radius: 999px;
   transition: all var(--transition-bounce);
@@ -546,8 +545,8 @@ const emit = defineEmits<{
 
 .tool-btn:hover {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
   color: var(--text-primary);
 }
 
@@ -562,8 +561,8 @@ const emit = defineEmits<{
   justify-content: center;
   width: 42px;
   height: 42px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-subtle);
   padding: 0;
   cursor: pointer;
   border-radius: 50%;
@@ -573,8 +572,8 @@ const emit = defineEmits<{
 
 .avatar-btn:hover {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(var(--accent-rgb), 0.16);
+  background: var(--bg-hover);
+  border-color: rgba(var(--accent-rgb), 0.22);
 }
 
 .avatar-circle {

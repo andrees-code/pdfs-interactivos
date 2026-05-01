@@ -14953,7 +14953,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     background: var(--surface-elevated);
     backdrop-filter: blur(10px);
     padding: 8px 16px;
-    border-radius: 30px;
+    border-radius: 16px;
     border: 1px solid var(--border-subtle);
     display: flex;
     gap: 15px;
@@ -15115,21 +15115,21 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     flex-direction: column;
     align-items: center;
     gap: 7px;
-    background: rgba(255, 255, 255, 0.038);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
     padding: 10px 12px;
     transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-bounce);
   }
   .toolbar-category:hover {
-    background: rgba(255, 255, 255, 0.055);
-    border-color: rgba(var(--accent-rgb), 0.14);
+    background: var(--bg-hover);
+    border-color: rgba(var(--accent-rgb), 0.2);
     transform: translateY(-1px);
   }
   .category-label {
     font-size: 0.66rem;
     font-weight: 620;
-    color: var(--text-tertiary);
+    color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.12em;
   }
@@ -15148,14 +15148,14 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     justify-content: center;
     background: transparent;
     border: 1px solid transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     cursor: pointer;
-    border-radius: 10px;
+    border-radius: 4px;
   }
   .tool-btn:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: var(--bg-hover);
+    border-color: var(--border-subtle);
     color: var(--text-primary);
   }
   .tool-btn.active {
@@ -15194,7 +15194,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15203,11 +15203,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15243,7 +15243,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15252,11 +15252,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15292,7 +15292,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15301,11 +15301,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15346,7 +15346,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15355,11 +15355,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15395,7 +15395,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15404,11 +15404,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15444,7 +15444,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15453,11 +15453,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15493,7 +15493,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     overflow-y: auto;
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
     z-index: 60;
@@ -15502,11 +15502,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 7px 8px;
     cursor: pointer;
     text-align: left;
@@ -15534,7 +15534,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     cursor: grab !important;
     background-size: 22px 22px;
     background-position: center center;
-    border-radius: calc(var(--radius-xl) + 4px);
+    border-radius: var(--radius-md);
   }
 
   .pro-canvas-area.is-panning {
@@ -15569,16 +15569,16 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     padding: 16px 18px 14px;
     font-weight: 620;
     font-size: 0.72rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--border-subtle);
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: var(--text-tertiary);
+    color: var(--text-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .badge {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-soft);
     color: var(--text-primary);
     padding: 4px 8px;
     border-radius: var(--radius-pill);
@@ -15587,12 +15587,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .sidebar-footer {
     padding: 14px 18px 18px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-subtle);
     background: rgba(255, 255, 255, 0.02);
   }
   .sidebar-cta {
     padding: 14px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   /* THUMBNAILS Y DRAG & DROP DE CAPAS */
@@ -15615,19 +15615,19 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     transition: background var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal), transform var(--transition-bounce);
   }
   .thumb-item:hover {
-    background: rgba(255, 255, 255, 0.045);
-    border-color: rgba(255, 255, 255, 0.06);
+    background: var(--bg-hover);
+    border-color: var(--border-subtle);
     transform: translateY(-1px);
   }
   .thumb-item.is-active {
-    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.18), rgba(255, 255, 255, 0.03));
-    border-color: rgba(var(--accent-rgb), 0.14);
-    box-shadow: inset 3px 0 0 var(--accent-primary), 0 18px 32px rgba(0, 0, 0, 0.16);
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0.04));
+    border-color: rgba(var(--accent-rgb), 0.2);
+    box-shadow: inset 3px 0 0 var(--accent-primary);
   }
   .thumb-num {
     font-size: 0.8rem;
     font-weight: bold;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     margin-top: 5px;
     min-width: 15px;
   }
@@ -15719,8 +15719,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--text-secondary);
-    border-radius: 10px;
+    color: var(--text-primary);
+    border-radius: 4px;
     transition: background-color var(--transition-normal), color var(--transition-normal), transform var(--transition-bounce);
     border: 1px solid transparent;
   }
@@ -15818,9 +15818,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     letter-spacing: 0.08em;
   }
   .prop-section {
-    background: rgba(255, 255, 255, 0.028);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius-lg);
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
     padding: 14px;
     margin-bottom: 0;
   }
@@ -15862,18 +15862,18 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   .pro-input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
     color: var(--text-primary);
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: 4px;
     box-sizing: border-box;
     font-family: inherit;
     font-size: 0.8rem;
     transition: border-color var(--transition-normal), background-color var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-bounce);
   }
   .pro-input:hover {
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: var(--border-strong);
   }
   .pro-input:focus {
     border-color: rgba(var(--accent-rgb), 0.24);
@@ -15889,9 +15889,9 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
+    background: var(--surface-soft-contrast);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
     padding: 4px 10px;
   }
   /* Elemento fuera del lienzo — visible en editor, oculto en presentación */
@@ -17065,8 +17065,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   /* RECTÁNGULO DE SELECCIÓN MÚLTIPLE */
   .marquee-selection {
     position: absolute;
-    border: 2px solid var(--accent-primary);
-    background: var(--surface-soft);
+    border: 1px solid rgba(37, 99, 235, 0.7);
+    background: rgba(37, 99, 235, 0.08);
     pointer-events: none;
     z-index: 1000;
   }
