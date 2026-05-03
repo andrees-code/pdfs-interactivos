@@ -19,3 +19,4 @@ export const USERS_API = `${API_BASE}/api/v1/users` // backend actual tiene glob
 export const PRESENTATIONS_API = `${API_BASE}/presentations`
 export const CHAT_API = `${API_BASE}/chat`
 export const UPLOAD_API = `${API_BASE}/upload`
+export const SUBSCRIPTIONS_API = `${API_BASE}/api/v1/subscriptions`

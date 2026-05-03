@@ -312,6 +312,16 @@ onUnmounted(() => {
           <RouterLink to="/devpresent/templates" class="btn btn-light">Ver plantillas</RouterLink>
         </div>
       </section>
+
+      <footer class="site-footer">
+        <span>© 2026 Andrés Blasco Aleixos · DevPresent</span>
+        <nav class="footer-legal">
+          <RouterLink to="/legal/privacidad">Privacidad</RouterLink>
+          <RouterLink to="/legal/terminos">Términos</RouterLink>
+          <RouterLink to="/legal/aviso">Aviso legal</RouterLink>
+          <RouterLink to="/legal/cookies">Cookies</RouterLink>
+        </nav>
+      </footer>
     </main>
   </div>
 </template>
@@ -923,6 +933,41 @@ onUnmounted(() => {
 .final-cta .cta-copy {
   color: #b09080;
   font-size: 0.96rem;
+}
+
+/* ── Footer legal ────────────────────────── */
+.site-footer {
+  max-width: 1400px;
+  margin: 32px auto 0;
+  padding: 20px 0 4px;
+  border-top: 1px solid rgba(234, 88, 12, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.site-footer > span {
+  font-size: 0.8rem;
+  color: #7a5030;
+}
+
+.footer-legal {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.footer-legal a {
+  font-size: 0.8rem;
+  color: #7a5030;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-legal a:hover {
+  color: #ea580c;
 }
 
 .final-cta .btn-dark {

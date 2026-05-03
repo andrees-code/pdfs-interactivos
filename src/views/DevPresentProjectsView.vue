@@ -23,6 +23,7 @@ const presentations = ref<ProjectItem[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
 const showCreateModal = ref(false)
+const showFreeProjectLimitModal = ref(false)
 const createSource = ref<'blank' | 'upload'>('blank')
 const pendingUploadFile = ref<File | null>(null)
 const isDropZoneActive = ref(false)
@@ -158,7 +159,13 @@ const loadPresentations = async () => {
   }
 }
 
+const FREE_PROJECT_LIMIT = 2
+
 const createNewProject = () => {
+  if (!authStore.isPro && presentations.value.length >= FREE_PROJECT_LIMIT) {
+    showFreeProjectLimitModal.value = true
+    return
+  }
   setCreateSource('blank')
   pendingUploadFile.value = null
   detectedOriginalResolution.value = null
@@ -569,6 +576,29 @@ onMounted(async () => {
           <button type="button" class="rounded-md bg-gradient-to-r from-red-500 to-red-700 px-5 py-2.5 text-label-caps text-white shadow-[0_10px_24px_rgba(185,28,28,0.3)] disabled:opacity-60" :disabled="isDeletingProject" @click="confirmDeleteProject">
             {{ isDeletingProject ? 'Eliminando...' : 'Eliminar' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal límite plan gratuito -->
+    <div v-if="showFreeProjectLimitModal" class="fixed inset-0 z-[1500] flex items-center justify-center bg-black/70 px-4" @click.self="showFreeProjectLimitModal = false">
+      <div class="w-full max-w-md rounded-xl border border-outline bg-surface-container p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+        <div class="mb-4 flex items-start gap-3">
+          <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-amber-300 bg-amber-100 text-amber-700">
+            <span class="material-symbols-outlined">workspace_premium</span>
+          </div>
+          <div>
+            <h3 class="text-headline-md text-on-surface">Límite de proyectos alcanzado</h3>
+            <p class="mt-1 text-body-md text-on-surface-variant">
+              El plan gratuito permite un máximo de {{ FREE_PROJECT_LIMIT }} proyectos.<br>
+              Actualiza tu suscripción para crear proyectos ilimitados.
+            </p>
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end">
+          <a href="/devpresent/perfil" class="rounded-md bg-gradient-to-r from-primary-500 to-primary-700 px-5 py-2.5 text-label-caps text-white shadow-[0_10px_24px_rgba(194,65,12,0.3)] transition-all hover:opacity-90">
+            Ver planes
+          </a>
         </div>
       </div>
     </div>

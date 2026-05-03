@@ -114,6 +114,7 @@
         {{ playMode ? 'Detener Presentación' : 'Iniciar Presentación' }}
       </button>
 
+
       <div class="user-menu-container" v-if="authStore.isAuthenticated" ref="userMenuRef">
         <button type="button" class="avatar-btn" ref="avatarBtnRef" @click="toggleUserMenu">
           <div class="avatar-circle">
@@ -133,16 +134,25 @@
             <span class="user-name">{{ authStore.user?.username || 'Usuario' }}</span>
             <span class="user-email">{{ authStore.user?.email || 'email@ejemplo.com' }}</span>
           </div>
+          <div class="plan-row">
+            <span class="plan-label">Plan actual</span>
+            <span class="plan-value" :class="{ 'plan-value-pro': isPaidPlan }">{{ currentPlanLabel }}</span>
+          </div>
           <div class="dropdown-divider"></div>
 
           <button type="button" class="dropdown-item" @click="navigate('/devpresent/projects')">
             <i class="ph ph-books"></i> Proyectos
           </button>
-          <button type="button" class="dropdown-item" @click="navigate('/editorpresentaciones')">
-            <i class="ph ph-presentation-chart"></i> Editor
-          </button>
           <button type="button" class="dropdown-item" @click="navigate('/devpresent/templates')">
             <i class="ph ph-storefront"></i> Plantillas
+          </button>
+
+          <button
+            type="button"
+            class="dropdown-item"
+            @click="navigate('/devpresent/perfil')"
+          >
+            <i class="ph ph-crown"></i> Ver planes
           </button>
 
           <div class="dropdown-divider"></div>
@@ -171,6 +181,7 @@ const userDropdownStyle = ref<Record<string, string>>({
   top: '60px',
   left: 'calc(100vw - 240px)',
 });
+
 
 const updateUserDropdownPosition = () => {
   if (!avatarBtnRef.value) return;
@@ -228,6 +239,26 @@ const navigate = (path: string) => {
 const userInitial = computed(() => {
   const username = authStore.user?.username;
   return username ? username.charAt(0).toUpperCase() : 'U';
+});
+
+const isPaidPlan = computed(() => {
+  const sub = authStore.user?.subscription;
+  if (!sub) return false;
+  if (sub.plan === 'free') return false;
+  const now = new Date();
+  if (sub.endDate) {
+    const end = new Date(sub.endDate);
+    if (!Number.isNaN(end.getTime())) {
+      return end > now;
+    }
+  }
+  if (!['active', 'canceled'].includes(sub.status)) return false;
+  return true;
+});
+
+const currentPlanLabel = computed(() => {
+  if (!isPaidPlan.value) return 'Gratuito';
+  return authStore.user?.subscription?.plan === 'yearly' ? 'Pro Anual' : 'Pro Mensual';
 });
 
 const props = withDefaults(defineProps<{
@@ -528,6 +559,22 @@ const emit = defineEmits<{
   box-shadow: var(--shadow-xs);
 }
 
+.subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9a3412;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(251, 191, 36, 0.12));
+  box-shadow: 0 10px 20px rgba(245, 158, 11, 0.14);
+  white-space: nowrap;
+}
+
 .tool-btn {
   font-size: 1rem;
   width: 34px;
@@ -619,6 +666,47 @@ const emit = defineEmits<{
   gap: 4px;
 }
 
+.plan-row {
+  padding: 10px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plan-label {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.plan-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.plan-value-pro {
+  color: #0f5132;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.plan-meta {
+  padding: 0 16px 12px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.plan-meta-canceled {
+  color: #b45309;
+}
+
 .user-name {
   color: var(--text-primary);
   font-weight: 600;
@@ -687,6 +775,15 @@ const emit = defineEmits<{
   .header-right {
     justify-content: center;
     width: 100%;
+  }
+
+  .subscription-badge {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+    min-height: 40px;
+    padding: 8px 12px;
   }
 }
 </style>

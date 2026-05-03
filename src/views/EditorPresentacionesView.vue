@@ -4997,6 +4997,26 @@
     :baseHeight="baseHeight"
     @ai-action="handleAiAction"
   />
+
+  <!-- Modal de actualización a Pro -->
+  <Teleport to="body">
+    <div v-if="showUpgradeModal" class="upgrade-modal-overlay" @click.self="showUpgradeModal = false">
+      <div class="upgrade-modal">
+        <button class="upgrade-modal__close" @click="showUpgradeModal = false"><i class="ph ph-x"></i></button>
+        <div class="upgrade-modal__icon"><i class="ph ph-crown"></i></div>
+        <h2 class="upgrade-modal__title">Función exclusiva Pro</h2>
+        <p class="upgrade-modal__desc">
+          La exportación HTML está disponible únicamente para usuarios con suscripción activa.<br>
+          Actualiza tu plan para descargar presentaciones interactivas listas para la web.
+        </p>
+        <div class="upgrade-modal__actions">
+          <a class="upgrade-modal__btn-primary" href="/devpresent/perfil">
+            <i class="ph ph-crown"></i> Ver planes
+          </a>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </div>
 </template>
   <script setup lang="ts">
@@ -5516,7 +5536,9 @@ const getElementDisplayName = (el: any) => {
 };
   const authStore = useAuthStore();
 
-  // --- REORDENACIÓN DE DIAPOSITIVAS POR DRAG & DROP Y POS. NUMÉRICA ---
+  // --- UPGRADE MODAL (suscripción Pro requerida para exportar) ---
+  const showUpgradeModal = ref(false)
+
 const thumbDragSource = ref<number | null>(null)
 const thumbDragTarget = ref<number | null>(null)
 const thumbEditingPage = ref<number | null>(null)
@@ -13544,6 +13566,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
   // --- EXPORTACIÓN HTML ---
   const exportPresentation = async () => {
+    if (!authStore.isPro) {
+      showUpgradeModal.value = true
+      return
+    }
+
     if (Object.keys(documentState.value).length === 0 && !_RAW_PDF_DOC && docType.value === 'blank')
       return alert('El proyecto está vacío.')
 
@@ -14811,6 +14838,122 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   <style scoped>
   @import url('https://unpkg.com/cropperjs@1.6.2/dist/cropper.css');
   /* O mejor aún, usa el local: @import 'cropperjs/dist/cropper.css'; */
+
+  /* ---- UPGRADE MODAL ---- */
+  .upgrade-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  .upgrade-modal {
+    position: relative;
+    background: var(--bg-surface, #1e1e2e);
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    color: var(--text-primary, #f1f5f9);
+  }
+  .upgrade-modal__close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .upgrade-modal__close:hover { background: var(--bg-hover, rgba(255,255,255,0.07)); }
+  .upgrade-modal__icon {
+    font-size: 2.8rem;
+    margin-bottom: 0.75rem;
+    color: #f59e0b;
+  }
+  .upgrade-modal__title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+  }
+  .upgrade-modal__desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #94a3b8);
+    line-height: 1.55;
+    margin-bottom: 1.25rem;
+  }
+  .upgrade-modal__perks {
+    list-style: none;
+    margin: 0 0 1.75rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    text-align: left;
+  }
+  .upgrade-modal__perks li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-primary, #e2e8f0);
+  }
+  .upgrade-modal__perks li i {
+    color: #22c55e;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .upgrade-modal__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .upgrade-modal__btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.7rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    transition: opacity 0.15s;
+  }
+  .upgrade-modal__btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .upgrade-modal__btn-primary:not(:disabled):hover { opacity: 0.88; }
+  .upgrade-modal__btn-secondary {
+    background: var(--bg-hover, rgba(255,255,255,0.06));
+    color: var(--text-primary, #e2e8f0);
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.1));
+    border-radius: 8px;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    transition: background 0.15s;
+  }
+  .upgrade-modal__btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .upgrade-modal__btn-secondary:not(:disabled):hover { background: var(--bg-hover2, rgba(255,255,255,0.1)); }
+
   .pro-editor-app {
     display: flex;
     flex-direction: column;

@@ -20,6 +20,22 @@ export const useAuthStore = defineStore('auth', () => {
   // Computed para verificar sesión
   const isAuthenticated = computed(() => !!token.value)
 
+  // Computed para verificar suscripción activa (monthly o yearly, no expirada)
+  const isPro = computed(() => {
+    const sub = user.value?.subscription
+    if (!sub) return false
+    if (sub.plan === 'free') return false
+    const now = new Date()
+    if (sub.endDate) {
+      const end = new Date(sub.endDate)
+      if (!Number.isNaN(end.getTime())) {
+        return end > now
+      }
+    }
+    if (!['active', 'canceled'].includes(sub.status)) return false
+    return true
+  })
+
   // 2. ✨ MAGIA: Observadores automáticos.
   watch(user, (newUser) => {
     if (newUser) {
@@ -83,5 +99,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, user, isAuthenticated, login, logout, refreshUser }
+  return { token, user, isAuthenticated, isPro, login, logout, refreshUser }
 })

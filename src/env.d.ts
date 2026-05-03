@@ -21,5 +21,6 @@ declare module '@/services/presentacion.service' {
 
 declare module '@/config/api.js' {
   export const PRESENTATIONS_API: any;
+  export const SUBSCRIPTIONS_API: any;
   export const API_BASE: string;
 }

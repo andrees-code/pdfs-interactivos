@@ -6,7 +6,14 @@ import DevPresentAuthView from '@/views/DevPresentAuthView.vue'
 import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import DevPresentProjectsView from '@/views/DevPresentProjectsView.vue'
 import DevPresentTemplatesView from '@/views/DevPresentTemplatesView.vue'
+import DevPresentPlanesView from '@/views/DevPresentPlanesView.vue'
 import { useAuthStore } from '@/stores/auth' // Importamos el store
+
+// Legal pages (lazy-loaded)
+const LegalPrivacidadView = () => import('@/views/LegalPrivacidadView.vue')
+const LegalTerminosView = () => import('@/views/LegalTerminosView.vue')
+const LegalAvisoView = () => import('@/views/LegalAvisoView.vue')
+const LegalCookiesView = () => import('@/views/LegalCookiesView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -71,7 +78,34 @@ const router = createRouter({
       name: 'devpresent-templates',
       component: DevPresentTemplatesView,
       meta: { requiresAuth: true }
-    }
+    },
+    {
+      path: '/devpresent/perfil',
+      name: 'devpresent-perfil',
+      component: DevPresentPlanesView,
+      meta: { requiresAuth: true }
+    },
+    // ── Legal ──────────────────────────────────────────────
+    {
+      path: '/legal/privacidad',
+      name: 'legal-privacidad',
+      component: LegalPrivacidadView
+    },
+    {
+      path: '/legal/terminos',
+      name: 'legal-terminos',
+      component: LegalTerminosView
+    },
+    {
+      path: '/legal/aviso',
+      name: 'legal-aviso',
+      component: LegalAvisoView
+    },
+    {
+      path: '/legal/cookies',
+      name: 'legal-cookies',
+      component: LegalCookiesView
+    },
   ],
 })
 
