@@ -121,11 +121,18 @@ export const useAuthStore = defineStore('auth', () => {
           return
         }
 
-        // Si el endpoint existe pero falla por otro motivo, no probamos la siguiente URL.
+        // Si falla por ruta (404/405), probamos la siguiente variante de URL.
+        if ((response.status === 404 || response.status === 405) && i < userUrls.length - 1) {
+          continue
+        }
+
+        // En otros errores HTTP, no tiene sentido seguir probando variantes.
         return
       } catch (error) {
         if (i === userUrls.length - 1) {
-          console.warn('No se pudo refrescar usuario en segundo plano:', error)
+          if (import.meta.env.DEV) {
+            console.warn('No se pudo refrescar usuario en segundo plano:', error)
+          }
         }
       }
     }

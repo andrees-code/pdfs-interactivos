@@ -3,11 +3,16 @@
 // En local: .env -> VITE_BACKEND_URL=http://localhost:3000
 // En producción (Vercel): utiliza https://pdfs-bakend.vercel.app
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (() => {
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || (() => {
   const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   if (isDev) return 'http://localhost:3000'
   return 'https://pdfs-bakend.vercel.app'
 })()
+
+const isHttpsSite = typeof window !== 'undefined' && window.location.protocol === 'https:'
+const BACKEND_URL = isHttpsSite && rawBackendUrl.startsWith('http://')
+  ? rawBackendUrl.replace('http://', 'https://')
+  : rawBackendUrl
 
 const API_PREFIX = '/api'
 
