@@ -47,7 +47,10 @@ const redirectToCheckout = async (plan: 'monthly' | 'yearly') => {
       },
       body: JSON.stringify({ plan }),
     })
-    if (!res.ok) throw new Error('No se pudo iniciar el proceso de pago')
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}))
+      throw new Error(payload?.message || `No se pudo iniciar el proceso de pago (HTTP ${res.status})`)
+    }
     const data = await res.json()
     if (data.url) window.location.href = data.url
   } catch (e: any) {
