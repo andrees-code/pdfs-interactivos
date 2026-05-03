@@ -49,6 +49,9 @@ const redirectToCheckout = async (plan: 'monthly' | 'yearly') => {
     })
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}))
+      if (import.meta.env.DEV || import.meta.env.PROD) {
+        console.error('Checkout error payload:', payload)
+      }
       throw new Error(payload?.message || `No se pudo iniciar el proceso de pago (HTTP ${res.status})`)
     }
     const data = await res.json()

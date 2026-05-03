@@ -29,6 +29,7 @@ const pendingUploadFile = ref<File | null>(null)
 const isDropZoneActive = ref(false)
 const isUploadModalDragActive = ref(false)
 const isDeletingProject = ref(false)
+const brokenCoverIds = ref<Set<string>>(new Set())
 const deleteModal = ref({
   open: false,
   id: '',
@@ -319,7 +320,7 @@ const formatDate = (dateString?: string) => {
 }
 
 const getCardBackground = (project: ProjectItem) => {
-  if (project.coverImage) {
+  if (project.coverImage && !brokenCoverIds.value.has(project._id)) {
     return {
       backgroundImage: `url(${project.coverImage})`,
       backgroundSize: 'cover',
@@ -336,6 +337,13 @@ const getCardBackground = (project: ProjectItem) => {
   return {
     backgroundImage: 'radial-gradient(circle at 75% 18%, rgba(120, 170, 255, 0.38), transparent 35%), linear-gradient(130deg, #0a1a2e, #1b355a)',
   }
+}
+
+const markCoverAsBroken = (projectId: string) => {
+  if (brokenCoverIds.value.has(projectId)) return
+  const next = new Set(brokenCoverIds.value)
+  next.add(projectId)
+  brokenCoverIds.value = next
 }
 
 onMounted(async () => {
@@ -421,7 +429,14 @@ onMounted(async () => {
         <div v-else class="grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3">
           <article v-for="project in presentations" :key="project._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:border-primary-700/70 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
             <div class="relative aspect-video overflow-hidden bg-surface-container-highest" :style="getCardBackground(project)">
-              <div class="absolute inset-0 flex items-center justify-center" v-if="!project.coverImage">
+              <img
+                v-if="project.coverImage && !brokenCoverIds.has(project._id)"
+                :src="project.coverImage"
+                alt=""
+                class="hidden"
+                @error="markCoverAsBroken(project._id)"
+              />
+              <div class="absolute inset-0 flex items-center justify-center" v-if="!project.coverImage || brokenCoverIds.has(project._id)">
                 <span class="material-symbols-outlined text-[64px] text-surface-variant">{{ project.docType === 'pdf' ? 'picture_as_pdf' : 'slideshow' }}</span>
               </div>
               <div class="absolute inset-0 z-10 flex items-center justify-center bg-background/80 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
