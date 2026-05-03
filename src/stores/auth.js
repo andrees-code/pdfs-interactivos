@@ -128,11 +128,9 @@ export const useAuthStore = defineStore('auth', () => {
 
         // En otros errores HTTP, no tiene sentido seguir probando variantes.
         return
-      } catch (error) {
+      } catch (_error) {
         if (i === userUrls.length - 1) {
-          if (import.meta.env.DEV) {
-            console.warn('No se pudo refrescar usuario en segundo plano:', error)
-          }
+          // Fallo silencioso: mantener sesión local y evitar ruido en consola de producción.
         }
       }
     }

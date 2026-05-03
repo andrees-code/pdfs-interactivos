@@ -3,16 +3,20 @@
 // En local: .env -> VITE_BACKEND_URL=http://localhost:3000
 // En producción (Vercel): utiliza https://pdfs-bakend.vercel.app
 
-const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || (() => {
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  if (isDev) return 'http://localhost:3000'
-  return 'https://pdfs-bakend.vercel.app'
-})()
+const isBrowser = typeof window !== 'undefined'
+const isLocalHost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
-const isHttpsSite = typeof window !== 'undefined' && window.location.protocol === 'https:'
-const BACKEND_URL = isHttpsSite && rawBackendUrl.startsWith('http://')
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || (isLocalHost
+  ? 'http://localhost:3000'
+  : 'https://pdfs-bakend.vercel.app')
+
+const isHttpsSite = isBrowser && window.location.protocol === 'https:'
+const normalizedBackendUrl = isHttpsSite && rawBackendUrl.startsWith('http://')
   ? rawBackendUrl.replace('http://', 'https://')
   : rawBackendUrl
+
+// En producción usamos proxy same-origin para evitar problemas de CORS/mixed content.
+const BACKEND_URL = isLocalHost ? normalizedBackendUrl : '/api-proxy'
 
 const API_PREFIX = '/api'
 
