@@ -3,6 +3,32 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { USERS_API } from '@/config/api.js'
 
+const REQUEST_TIMEOUT_MS = 12000
+
+const withTimeout = async (url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const buildUserUrlCandidates = (userId) => {
+  const primary = `${USERS_API}/user/${userId}`
+  const candidates = [primary]
+
+  if (primary.includes('/api/api/v1/')) {
+    candidates.push(primary.replace('/api/api/v1/', '/api/v1/'))
+  } else if (primary.includes('/api/v1/')) {
+    candidates.push(primary.replace('/api/v1/', '/api/api/v1/'))
+  }
+
+  return [...new Set(candidates)]
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // 1. Recuperamos datos iniciales de forma segura
   const token = ref(localStorage.getItem('userToken') || null)
@@ -67,35 +93,41 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 4. Refresco en segundo plano
   const refreshUser = async () => {
-    const userId = user.value?._id || user.value?.id;
-    if (!token.value || !userId) return;
+    const userId = user.value?._id || user.value?.id
+    if (!token.value || !userId) return
 
-    const userUrl = `${USERS_API}/user/${userId}`
+    const userUrls = buildUserUrlCandidates(userId)
 
-    try {
-      const response = await fetch(userUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token.value}`
+    for (let i = 0; i < userUrls.length; i += 1) {
+      const userUrl = userUrls[i]
+
+      try {
+        const response = await withTimeout(userUrl, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token.value}`,
+          },
+        })
+
+        if (response.ok) {
+          const jsonResponse = await response.json()
+          user.value = jsonResponse.data || jsonResponse.user || jsonResponse
+          return
         }
-      })
 
-      if (response.ok) {
-        const jsonResponse = await response.json()
-        console.log('♻️ Datos traídos al recargar (F5):', jsonResponse)
+        if (response.status === 401) {
+          console.warn('El token ha expirado, cerrando sesión...')
+          logout()
+          return
+        }
 
-        // CORRECCIÓN CLAVE AQUÍ:
-        // Si el backend devuelve { status: true, data: { username: "..." } }
-        // debemos extraer jsonResponse.data
-        user.value = jsonResponse.data || jsonResponse.user || jsonResponse;
-
-      } else if (response.status === 401) {
-        console.warn('El token ha expirado, cerrando sesión...')
-        logout()
+        // Si el endpoint existe pero falla por otro motivo, no probamos la siguiente URL.
+        return
+      } catch (error) {
+        if (i === userUrls.length - 1) {
+          console.warn('No se pudo refrescar usuario en segundo plano:', error)
+        }
       }
-    } catch (error) {
-      console.error('Error de red al refrescar usuario:', error)
     }
   }
 
