@@ -76,7 +76,8 @@ export const authService = {
   },
 
   getGoogleOAuthUrl(redirectUrl) {
-    const url = new URL(`${API_URL}/auth/google`)
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+    const url = new URL(`${API_URL}/auth/google`, base)
     if (redirectUrl) url.searchParams.set('redirect', redirectUrl)
     return url.toString()
   },

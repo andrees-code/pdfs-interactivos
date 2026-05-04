@@ -35,27 +35,44 @@ const isCancellationScheduled = computed(() => {
   return !!sub.cancelAtPeriodEnd || sub.status === 'canceled'
 })
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 const redirectToCheckout = async (plan: 'monthly' | 'yearly') => {
   checkoutError.value = ''
   isLoadingCheckout.value = plan
   try {
-    const res = await fetch(`${SUBSCRIPTIONS_API}/create-checkout-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify({ plan }),
-    })
-    if (!res.ok) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(`${SUBSCRIPTIONS_API}/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({ plan }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          window.location.href = data.url
+          return
+        }
+        throw new Error('No se recibió URL de checkout')
+      }
+
       const payload = await res.json().catch(() => ({}))
       if (import.meta.env.DEV || import.meta.env.PROD) {
         console.error('Checkout error payload:', payload)
       }
+
+      const isRetryable = res.status === 503
+      if (isRetryable && attempt === 0) {
+        await wait(500)
+        continue
+      }
+
       throw new Error(payload?.message || `No se pudo iniciar el proceso de pago (HTTP ${res.status})`)
     }
-    const data = await res.json()
-    if (data.url) window.location.href = data.url
   } catch (e: any) {
     checkoutError.value = e?.message || 'Error al conectar con el servicio de pago'
   } finally {

@@ -143,6 +143,15 @@ const setCreateSource = (source: 'blank' | 'upload') => {
 
 const userId = computed(() => authStore.user?._id || authStore.user?.id || null)
 
+const isValidMediaUrl = (value?: string) => {
+  if (!value || typeof value !== 'string') return false
+  const normalized = value.trim()
+  if (!normalized) return false
+  if (/^(https?:|data:|blob:)/i.test(normalized)) return true
+  if (normalized.startsWith('/')) return true
+  return false
+}
+
 const loadPresentations = async () => {
   if (!userId.value) return
 
@@ -152,7 +161,12 @@ const loadPresentations = async () => {
   try {
     const allData = await presentationService.getUserPresentations(userId.value)
     const list = Array.isArray(allData) ? allData : []
-    presentations.value = list.filter((project: ProjectItem) => String(project.userId) === String(userId.value))
+    presentations.value = list
+      .filter((project: ProjectItem) => String(project.userId) === String(userId.value))
+      .map((project: ProjectItem) => ({
+        ...project,
+        coverImage: isValidMediaUrl(project.coverImage) ? project.coverImage : undefined,
+      }))
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'No se pudieron cargar los proyectos.'
   } finally {

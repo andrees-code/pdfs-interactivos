@@ -35,6 +35,20 @@ const selectedTemplate = ref<TemplateItem | null>(null)
 
 const currentUserId = computed(() => authStore.user?._id || authStore.user?.id || null)
 
+const normalizeCoverImage = (value?: string) => {
+  if (!value || typeof value !== 'string') return undefined
+  const normalized = value.trim()
+  if (!normalized) return undefined
+  if (/^(https?:|data:|blob:)/i.test(normalized)) return normalized
+  if (normalized.startsWith('/')) return normalized
+  return undefined
+}
+
+const sanitizeTemplate = (tpl: TemplateItem): TemplateItem => ({
+  ...tpl,
+  coverImage: normalizeCoverImage(tpl.coverImage),
+})
+
 const categories = computed(() => {
   const values = new Set<string>(['Todas'])
   for (const tpl of publicTemplates.value) {
@@ -109,8 +123,8 @@ const loadData = async () => {
       userId ? templateService.getUserTemplates(String(userId)) : Promise.resolve([]),
     ])
 
-    publicTemplates.value = Array.isArray(pub) ? pub : []
-    myTemplates.value = Array.isArray(mine) ? mine : []
+    publicTemplates.value = Array.isArray(pub) ? pub.map(sanitizeTemplate) : []
+    myTemplates.value = Array.isArray(mine) ? mine.map(sanitizeTemplate) : []
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'No se pudieron cargar las plantillas.'
   } finally {
@@ -171,7 +185,7 @@ const openTemplatePreview = async (tpl: TemplateItem) => {
   selectedTemplate.value = tpl
   try {
     const fullTemplate = await templateService.getTemplateById(tpl._id)
-    selectedTemplate.value = fullTemplate
+    selectedTemplate.value = sanitizeTemplate(fullTemplate)
   } catch {
     // fallback con metadata actual
   }
@@ -189,7 +203,7 @@ const publishSelectedTemplate = async () => {
   try {
     await templateService.publishTemplate(selectedTemplate.value._id, String(currentUserId.value))
     const updated = await templateService.getTemplateById(selectedTemplate.value._id)
-    selectedTemplate.value = updated
+    selectedTemplate.value = sanitizeTemplate(updated)
     await loadData()
   } finally {
     isActionLoading.value = false
