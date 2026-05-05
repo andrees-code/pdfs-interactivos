@@ -16,18 +16,7 @@ const withTimeout = async (url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) =>
   }
 }
 
-const buildUserUrlCandidates = (userId) => {
-  const primary = `${USERS_API}/user/${userId}`
-  const candidates = [primary]
-
-  if (primary.includes('/api/api/v1/')) {
-    candidates.push(primary.replace('/api/api/v1/', '/api/v1/'))
-  } else if (primary.includes('/api/v1/')) {
-    candidates.push(primary.replace('/api/v1/', '/api/api/v1/'))
-  }
-
-  return [...new Set(candidates)]
-}
+const buildUserUrlCandidates = () => ([`${USERS_API}/me`])
 
 export const useAuthStore = defineStore('auth', () => {
   // 1. Recuperamos datos iniciales de forma segura
@@ -93,10 +82,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 4. Refresco en segundo plano
   const refreshUser = async () => {
-    const userId = user.value?._id || user.value?.id
-    if (!token.value || !userId) return
+    if (!token.value) return
 
-    const userUrls = buildUserUrlCandidates(userId)
+    const userUrls = buildUserUrlCandidates()
 
     for (let i = 0; i < userUrls.length; i += 1) {
       const userUrl = userUrls[i]
@@ -116,7 +104,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         if (response.status === 401) {
-          console.warn('El token ha expirado, cerrando sesión...')
+          // Token inválido o expirado: limpiar sesión local.
           logout()
           return
         }

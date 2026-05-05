@@ -6502,7 +6502,10 @@ const commitThumbMove = (currentPage: number, e: Event) => {
 
             const response = await fetch(url, {
               method: method,
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                ...(authStore.token ? { 'Authorization': `Bearer ${authStore.token}` } : {}),
+              },
               body: payloadJson,
               signal: controller.signal,
             });

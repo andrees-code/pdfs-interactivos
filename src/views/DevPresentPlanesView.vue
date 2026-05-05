@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EditorHeader from '@/components/EditorHeader.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -40,13 +40,20 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const redirectToCheckout = async (plan: 'monthly' | 'yearly') => {
   checkoutError.value = ''
   isLoadingCheckout.value = plan
+
+  const authToken = authStore.token || localStorage.getItem('userToken')
+  if (!authToken) {
+    router.push('/devpresent/auth')
+    return
+  }
+
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       const res = await fetch(`${SUBSCRIPTIONS_API}/create-checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ plan }),
       })
@@ -69,6 +76,12 @@ const redirectToCheckout = async (plan: 'monthly' | 'yearly') => {
       if (isRetryable && attempt === 0) {
         await wait(500)
         continue
+      }
+
+      if (res.status === 401) {
+        authStore.logout()
+        router.push('/devpresent/auth')
+        return
       }
 
       throw new Error(payload?.message || `No se pudo iniciar el proceso de pago (HTTP ${res.status})`)
@@ -137,7 +150,12 @@ const plans = [
 ]
 
 onMounted(() => {
-  authStore.refreshUser()
+  // App.vue ya llama a refreshUser() al montar. Solo refresca si el usuario
+  // vuelve de Stripe (parámetros ?success o ?canceled en la URL).
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.has('success') || urlParams.has('canceled')) {
+    authStore.refreshUser()
+  }
 })
 </script>
 

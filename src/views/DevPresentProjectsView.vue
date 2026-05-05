@@ -159,10 +159,9 @@ const loadPresentations = async () => {
   errorMessage.value = ''
 
   try {
-    const allData = await presentationService.getUserPresentations(userId.value)
+    const allData = await presentationService.getUserPresentations()
     const list = Array.isArray(allData) ? allData : []
     presentations.value = list
-      .filter((project: ProjectItem) => String(project.userId) === String(userId.value))
       .map((project: ProjectItem) => ({
         ...project,
         coverImage: isValidMediaUrl(project.coverImage) ? project.coverImage : undefined,

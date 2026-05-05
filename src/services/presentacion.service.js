@@ -2,13 +2,19 @@ import { PRESENTATIONS_API } from '@/config/api.js'
 
 const API_URL = PRESENTATIONS_API
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('userToken')
+  return token ? { 'Authorization': `Bearer ${token}` } : {}
+}
 
 export const presentationService = {
   /**
    * Obtiene una presentación por su ID
    */
   async getPresentation(id) {
-    const response = await fetch(`${API_URL}/${id}`)
+    const response = await fetch(`${API_URL}/${id}`, {
+      headers: { ...getAuthHeaders() }
+    })
 
     if (!response.ok) {
       throw new Error(`Error al obtener la presentación: ${response.statusText}`)
@@ -30,6 +36,7 @@ export const presentationService = {
       method,
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
       },
       body: JSON.stringify(payload),
     })
@@ -42,11 +49,12 @@ export const presentationService = {
   },
 
   /**
-   * Obtiene todas las presentaciones de un usuario específico
+   * Obtiene todas las presentaciones del usuario autenticado
    */
-  async getUserPresentations(userId) {
-    // Dependiendo de tu backend, puedes mandar el userId por query params
-    const response = await fetch(`${API_URL}?userId=${userId}`)
+  async getUserPresentations() {
+    const response = await fetch(API_URL, {
+      headers: { ...getAuthHeaders() }
+    })
 
     if (!response.ok) {
       throw new Error(`Error al obtener la lista: ${response.statusText}`)
@@ -56,12 +64,13 @@ export const presentationService = {
     return data
   },
 
-/**
+  /**
    * Elimina una presentación por su ID
    */
   async deletePresentation(id) {
     const response = await fetch(`${API_URL}/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: { ...getAuthHeaders() }
     })
 
     if (!response.ok) {
@@ -79,6 +88,7 @@ export const presentationService = {
   async publishPresentation(id) {
     const response = await fetch(`${API_URL}/${id}/publish`, {
       method: 'PATCH',
+      headers: { ...getAuthHeaders() }
     })
 
     if (!response.ok) {
@@ -91,6 +101,7 @@ export const presentationService = {
   async unpublishPresentation(id) {
     const response = await fetch(`${API_URL}/${id}/unpublish`, {
       method: 'PATCH',
+      headers: { ...getAuthHeaders() }
     })
 
     if (!response.ok) {
