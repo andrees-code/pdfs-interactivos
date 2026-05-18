@@ -713,6 +713,7 @@
               class="pro-canvas-area"
               ref="workspaceRef"
               @mousedown="handleCanvasPanStart"
+              @wheel.prevent="handleCanvasWheel"
               @click="handleCanvasClickOutside"
               :style="themeVariables"
               :class="{ 'is-panning': isPanning, 'space-pressed': isSpacePressed, 'is-picking-target': isSelectingTargetForEvent }"
@@ -720,7 +721,7 @@
               <div
                 class="canvas-wrapper"
                 :class="{ 'play-mode-active': playMode }"
-                :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }"
+                :style="{ transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }"
               >
                 <Transition :name="playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" mode="out-in">
                   <div
@@ -9273,8 +9274,6 @@ watch(activeTransition, (newVal, oldVal) => {
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
     window.addEventListener('beforeunload', handleBeforeUnload)
-    workspaceRef.value?.addEventListener('wheel', handleCanvasWheel, { passive: false })
-
     // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
     document.addEventListener('mousemove', wakeUpPlayNav);
     document.addEventListener('keydown', wakeUpPlayNav);
@@ -9293,8 +9292,6 @@ watch(activeTransition, (newVal, oldVal) => {
     document.removeEventListener('fullscreenchange', onFullscreenChange)
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
     window.removeEventListener('beforeunload', handleBeforeUnload)
-    workspaceRef.value?.removeEventListener('wheel', handleCanvasWheel)
-
     // 👉 NUEVO: Limpiar los eventos de movimiento al salir
     document.removeEventListener('mousemove', wakeUpPlayNav);
     document.removeEventListener('keydown', wakeUpPlayNav);
@@ -12422,13 +12419,16 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
     if (e.ctrlKey || e.metaKey) {
       // Zoom con Ctrl + Rueda
-      e.preventDefault();
       const zoomDelta = e.deltaY * -0.002; // Ajusta la sensibilidad aquí
       zoom.value = Math.max(0.1, Math.min(zoom.value + zoomDelta, 4));
     } else {
       // Desplazamiento libre (Pan) con trackpad o rueda normal
-      panX.value -= e.deltaX;
-      panY.value -= e.deltaY;
+      const unitFactor = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1
+      const dx = e.deltaX * unitFactor
+      const dy = e.deltaY * unitFactor
+      const touchpadBoost = Math.abs(dx) < 40 && Math.abs(dy) < 40 ? 1.35 : 1
+      panX.value -= dx * touchpadBoost
+      panY.value -= dy * touchpadBoost
     }
   };
 
@@ -15709,7 +15709,7 @@ watch(isMobile, (newVal) => {
     background-image: radial-gradient(circle, var(--canvas-dot) 0.95px, transparent 1px);
     flex: 1;
     position: relative;
-    overflow: auto;
+    overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -16357,15 +16357,17 @@ watch(isMobile, (newVal) => {
 
   /* ÁREA DE LIENZO Y ELEMENTOS */
   .canvas-wrapper {
-  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-  will-change: transform;
-
+    transition: none;
+    will-change: transform;
     position: relative;
     transform-origin: center center;
-    transition: transform 0.1s ease-out;
     box-shadow: var(--shadow-lg);
     user-select: none;
     -webkit-user-select: none;
+    backface-visibility: hidden;
+  }
+  .pro-canvas-area.is-panning .canvas-wrapper {
+    transition: none !important;
   }
   .canvas-wrapper.play-mode-active {
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
