@@ -225,413 +225,478 @@
 
           <div class="center-workspace" v-if="hasDoc">
             <div class="pro-top-toolbar" v-if="!playMode" @click.stop>
-              <div class="toolbar-category">
-                <span class="category-label">Básicos</span>
-                <div class="category-tools">
+              <div class="toolbar-window">
+                <div class="toolbar-tabs" role="tablist" aria-label="Pestañas de inserción">
                   <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'select' }"
-                    @click="activeTool = 'select'"
-                    title="Seleccionar (V)"
+                    type="button"
+                    class="toolbar-tab-btn"
+                    :class="{ active: activeToolbarTab === 'basicos' }"
+                    role="tab"
+                    :aria-selected="activeToolbarTab === 'basicos'"
+                    @click="setToolbarTab('basicos')"
                   >
-                    <i class="ph ph-cursor"></i>
+                    Básicos
                   </button>
                   <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'text' }"
-                    @click="activeTool = 'text'"
-                    title="Texto Libre"
+                    type="button"
+                    class="toolbar-tab-btn"
+                    :class="{ active: activeToolbarTab === 'datos' }"
+                    role="tab"
+                    :aria-selected="activeToolbarTab === 'datos'"
+                    @click="setToolbarTab('datos')"
                   >
-                    <i class="ph ph-text-t"></i>
+                    Datos y mapas
                   </button>
                   <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'list' }"
-                    @click="activeTool = 'list'"
-                    title="Lista de Texto"
+                    type="button"
+                    class="toolbar-tab-btn"
+                    :class="{ active: activeToolbarTab === 'multimedia' }"
+                    role="tab"
+                    :aria-selected="activeToolbarTab === 'multimedia'"
+                    @click="setToolbarTab('multimedia')"
                   >
-                    <i class="ph ph-list-bullets"></i>
+                    Multimedia
                   </button>
                   <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'checkbox' }"
-                    @click="activeTool = 'checkbox'"
-                    title="Lista de Tareas"
+                    type="button"
+                    class="toolbar-tab-btn"
+                    :class="{ active: activeToolbarTab === 'interactividad' }"
+                    role="tab"
+                    :aria-selected="activeToolbarTab === 'interactividad'"
+                    @click="setToolbarTab('interactividad')"
                   >
-                    <i class="ph ph-check-square"></i>
+                    Interactividad
                   </button>
                   <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'sticky' }"
-                    @click="activeTool = 'sticky'"
-                    title="Nota Adhesiva"
+                    type="button"
+                    class="toolbar-tab-btn"
+                    :class="{ active: activeToolbarTab === 'efectos' }"
+                    role="tab"
+                    :aria-selected="activeToolbarTab === 'efectos'"
+                    @click="setToolbarTab('efectos')"
                   >
-                    <i class="ph ph-note"></i>
-                  </button>
-                  <div class="shape-tool-wrap" :class="{ open: showShapeDropdown }">
-                    <button
-                      class="tool-btn shape-dropdown-btn"
-                      :class="{ active: activeTool === 'shape' || showShapeDropdown }"
-                      @click="toggleShapeDropdown"
-                      :title="shapeDropdownTitle"
-                    >
-                      <span class="shape-tool-icon" :style="getShapePreviewStyle(selectedShapePreset)"></span>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showShapeDropdown" class="shape-dropdown-menu">
-                      <button
-                        v-for="shapePreset in SHAPE_PRESETS"
-                        :key="shapePreset.id"
-                        type="button"
-                        class="shape-dropdown-item"
-                        :class="{ active: selectedShapePreset === shapePreset.id }"
-                        @click="selectShapePreset(shapePreset.id)"
-                      >
-                        <span class="shape-chip" :style="getShapePreviewStyle(shapePreset.id)"></span>
-                        <span>{{ shapePreset.label }}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="arrow-tool-wrap" :class="{ open: showArrowDropdown }">
-                    <button
-                      class="tool-btn arrow-dropdown-btn"
-                      :class="{ active: activeTool === 'arrow' || showArrowDropdown }"
-                      @click="toggleArrowDropdown"
-                      :title="arrowDropdownTitle"
-                    >
-                      <i class="ph" :class="`ph-${getArrowPreset(selectedArrowPreset).icon}`"></i>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showArrowDropdown" class="arrow-dropdown-menu">
-                      <button
-                        v-for="arrowPreset in ARROW_PRESETS"
-                        :key="arrowPreset.id"
-                        type="button"
-                        class="arrow-dropdown-item"
-                        :class="{ active: selectedArrowPreset === arrowPreset.id }"
-                        @click="selectArrowPreset(arrowPreset.id)"
-                      >
-                        <i class="ph" :class="`ph-${arrowPreset.icon}`"></i>
-                        <span>{{ arrowPreset.label }}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="icon-tool-wrap" :class="{ open: showIconDropdown }">
-                    <button
-                      class="tool-btn icon-dropdown-btn"
-                      :class="{ active: activeTool === 'icon' || showIconDropdown }"
-                      @click="toggleIconDropdown"
-                      :title="iconDropdownTitle"
-                    >
-                      <i class="ph" :class="`ph-${selectedIconPreset}`"></i>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showIconDropdown" class="icon-dropdown-menu">
-                      <button
-                        v-for="iconName in ICON_TOOL_PRESETS"
-                        :key="iconName"
-                        type="button"
-                        class="icon-dropdown-item"
-                        :class="{ active: selectedIconPreset === iconName }"
-                        @click="selectIconPreset(iconName)"
-                      >
-                        <i class="ph" :class="`ph-${iconName}`"></i>
-                        <span>{{ iconName }}</span>
-                      </button>
-                      <button type="button" class="icon-dropdown-item more" @click="openIconPicker('toolbar')">
-                        <i class="ph ph-dots-three"></i>
-                        <span>Más iconos...</span>
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'draw' }"
-                    @click="activeTool = 'draw'"
-                    title="Dibujo Libre"
-                  >
-                    <i class="ph ph-pencil-simple"></i>
+                    Efectos visuales
                   </button>
                 </div>
-              </div>
 
-              <div class="toolbar-category">
-                <span class="category-label">Datos & Mapas</span>
-                <div class="category-tools">
-                  <div class="mindmap-tool-wrap" :class="{ open: showMindmapDropdown }">
-                    <button
-                      class="tool-btn mindmap-dropdown-btn"
-                      :class="{ active: activeTool === 'mindmap' || showMindmapDropdown }"
-                      @click="toggleMindmapDropdown"
-                      :title="mindmapDropdownTitle"
-                    >
-                      <i class="ph" :class="`ph-${getMindmapPreset(selectedMindmapPreset).icon}`"></i>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showMindmapDropdown" class="mindmap-dropdown-menu">
+                <div class="toolbar-tab-panel" v-if="activeToolbarTab === 'basicos'">
+                  <div class="toolbar-category">
+                    <span class="category-label">Básicos</span>
+                    <div class="category-tools">
                       <button
-                        v-for="mindmapPreset in MINDMAP_PRESETS"
-                        :key="mindmapPreset.id"
-                        type="button"
-                        class="mindmap-dropdown-item"
-                        :class="{ active: selectedMindmapPreset === mindmapPreset.id }"
-                        @click="selectMindmapPreset(mindmapPreset.id)"
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'select' }"
+                        @click="activeTool = 'select'"
+                        title="Seleccionar (V)"
                       >
-                        <i class="ph" :class="`ph-${mindmapPreset.icon}`"></i>
-                        <span>{{ mindmapPreset.label }}</span>
+                        <i class="ph ph-cursor"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'text' }"
+                        @click="activeTool = 'text'"
+                        title="Texto Libre"
+                      >
+                        <i class="ph ph-text-t"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'list' }"
+                        @click="activeTool = 'list'"
+                        title="Lista de Texto"
+                      >
+                        <i class="ph ph-list-bullets"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'checkbox' }"
+                        @click="activeTool = 'checkbox'"
+                        title="Lista de Tareas"
+                      >
+                        <i class="ph ph-check-square"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'sticky' }"
+                        @click="activeTool = 'sticky'"
+                        title="Nota Adhesiva"
+                      >
+                        <i class="ph ph-note"></i>
+                      </button>
+                      <div class="shape-tool-wrap" :class="{ open: showShapeDropdown }">
+                        <button
+                          class="tool-btn shape-dropdown-btn"
+                          :class="{ active: activeTool === 'shape' || showShapeDropdown }"
+                          @click="toggleShapeDropdown"
+                          :title="shapeDropdownTitle"
+                        >
+                          <span class="shape-tool-icon" :style="getShapePreviewStyle(selectedShapePreset)"></span>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showShapeDropdown" class="shape-dropdown-menu">
+                          <button
+                            v-for="shapePreset in SHAPE_PRESETS"
+                            :key="shapePreset.id"
+                            type="button"
+                            class="shape-dropdown-item"
+                            :class="{ active: selectedShapePreset === shapePreset.id }"
+                            @click="selectShapePreset(shapePreset.id)"
+                          >
+                            <span class="shape-chip" :style="getShapePreviewStyle(shapePreset.id)"></span>
+                            <span>{{ shapePreset.label }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="arrow-tool-wrap" :class="{ open: showArrowDropdown }">
+                        <button
+                          class="tool-btn arrow-dropdown-btn"
+                          :class="{ active: activeTool === 'arrow' || showArrowDropdown }"
+                          @click="toggleArrowDropdown"
+                          :title="arrowDropdownTitle"
+                        >
+                          <i class="ph" :class="`ph-${getArrowPreset(selectedArrowPreset).icon}`"></i>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showArrowDropdown" class="arrow-dropdown-menu">
+                          <button
+                            v-for="arrowPreset in ARROW_PRESETS"
+                            :key="arrowPreset.id"
+                            type="button"
+                            class="arrow-dropdown-item"
+                            :class="{ active: selectedArrowPreset === arrowPreset.id }"
+                            @click="selectArrowPreset(arrowPreset.id)"
+                          >
+                            <i class="ph" :class="`ph-${arrowPreset.icon}`"></i>
+                            <span>{{ arrowPreset.label }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="icon-tool-wrap" :class="{ open: showIconDropdown }">
+                        <button
+                          class="tool-btn icon-dropdown-btn"
+                          :class="{ active: activeTool === 'icon' || showIconDropdown }"
+                          @click="toggleIconDropdown"
+                          :title="iconDropdownTitle"
+                        >
+                          <i class="ph" :class="`ph-${selectedIconPreset}`"></i>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showIconDropdown" class="icon-dropdown-menu">
+                          <button
+                            v-for="iconName in ICON_TOOL_PRESETS"
+                            :key="iconName"
+                            type="button"
+                            class="icon-dropdown-item"
+                            :class="{ active: selectedIconPreset === iconName }"
+                            @click="selectIconPreset(iconName)"
+                          >
+                            <i class="ph" :class="`ph-${iconName}`"></i>
+                            <span>{{ iconName }}</span>
+                          </button>
+                          <button type="button" class="icon-dropdown-item more" @click="openIconPicker('toolbar')">
+                            <i class="ph ph-dots-three"></i>
+                            <span>Más iconos...</span>
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'draw' }"
+                        @click="activeTool = 'draw'"
+                        title="Dibujo Libre"
+                      >
+                        <i class="ph ph-pencil-simple"></i>
                       </button>
                     </div>
                   </div>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'map' }"
-                    @click="activeTool = 'map'"
-                    title="Mapa"
-                  >
-                    <i class="ph ph-map-trifold"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'calendar' }"
-                    @click="activeTool = 'calendar'"
-                    title="Calendario"
-                  >
-                    <i class="ph ph-calendar-blank"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'finance' }"
-                    @click="activeTool = 'finance'"
-                    title="Gráfico Financiero"
-                  >
-                    <i class="ph ph-trend-up"></i>
-                  </button>
-                  <div class="table-tool-wrap" :class="{ open: showTableDropdown }">
-                    <button
-                      class="tool-btn table-dropdown-btn"
-                      :class="{ active: activeTool === 'table' || showTableDropdown }"
-                      @click="toggleTableDropdown"
-                      :title="tableDropdownTitle"
-                    >
-                      <i class="ph" :class="`ph-${getTablePreset(selectedTablePreset).icon}`"></i>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showTableDropdown" class="table-dropdown-menu">
-                      <button
-                        v-for="tablePreset in TABLE_PRESETS"
-                        :key="tablePreset.id"
-                        type="button"
-                        class="table-dropdown-item"
-                        :class="{ active: selectedTablePreset === tablePreset.id }"
-                        @click="selectTablePreset(tablePreset.id)"
-                      >
-                        <i class="ph" :class="`ph-${tablePreset.icon}`"></i>
-                        <span>{{ tablePreset.label }}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="chart-tool-wrap" :class="{ open: showChartDropdown }">
-                    <button
-                      class="tool-btn chart-dropdown-btn"
-                      :class="{ active: activeTool === 'chart' || showChartDropdown }"
-                      @click="toggleChartDropdown"
-                      :title="chartDropdownTitle"
-                    >
-                      <i class="ph" :class="`ph-${getChartPreset(selectedChartPreset).icon}`"></i>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showChartDropdown" class="chart-dropdown-menu">
-                      <button
-                        v-for="chartPreset in CHART_PRESETS"
-                        :key="chartPreset.id"
-                        type="button"
-                        class="chart-dropdown-item"
-                        :class="{ active: selectedChartPreset === chartPreset.id }"
-                        @click="selectChartPreset(chartPreset.id)"
-                      >
-                        <i class="ph" :class="`ph-${chartPreset.icon}`"></i>
-                        <span>{{ chartPreset.label }}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'poll' }"
-                    @click="activeTool = 'poll'"
-                    title="Encuesta"
-                  >
-                    <i class="ph ph-chart-pie-slice"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'rating' }"
-                    @click="activeTool = 'rating'"
-                    title="Estrellas"
-                  >
-                    <i class="ph ph-star-half"></i>
-                  </button>
-                  <div class="qr-tool-wrap" :class="{ open: showQrDropdown }">
-                    <button
-                      class="tool-btn qr-dropdown-btn"
-                      :class="{ active: activeTool === 'qrcode' || showQrDropdown }"
-                      @click="toggleQrDropdown"
-                      :title="qrDropdownTitle"
-                    >
-                      <i class="ph" :class="`ph-${getQrPreset(selectedQrPreset).icon}`"></i>
-                      <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div v-if="showQrDropdown" class="qr-dropdown-menu">
-                      <button
-                        v-for="qrPreset in QR_PRESETS"
-                        :key="qrPreset.id"
-                        type="button"
-                        class="qr-dropdown-item"
-                        :class="{ active: selectedQrPreset === qrPreset.id }"
-                        @click="selectQrPreset(qrPreset.id)"
-                      >
-                        <i class="ph" :class="`ph-${qrPreset.icon}`"></i>
-                        <span>{{ qrPreset.label }}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'progress' }"
-                    @click="activeTool = 'progress'"
-                    title="Progreso"
-                  >
-                    <i class="ph ph-sliders-horizontal"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'timer' }"
-                    @click="activeTool = 'timer'"
-                    title="Temporizador"
-                  >
-                    <i class="ph ph-timer"></i>
-                  </button>
                 </div>
-              </div>
 
-              <div class="toolbar-category">
-                <span class="category-label">Multimedia</span>
-                <div class="category-tools">
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'image' }"
-                    @click="activeTool = 'image'"
-                    title="Imagen"
-                  >
-                    <i class="ph ph-image"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'video' }"
-                    @click="activeTool = 'video'"
-                    title="Vídeo"
-                  >
-                    <i class="ph ph-video-camera"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'audio' }"
-                    @click="activeTool = 'audio'"
-                    title="Audio"
-                  >
-                    <i class="ph ph-speaker-high"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'magnifier' }"
-                    @click="activeTool = 'magnifier'"
-                    title="Lupa Mágica"
-                  >
-                    <i class="ph ph-magnifying-glass"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === '3d' }"
-                    @click="activeTool = '3d'"
-                    title="Modelo 3D"
-                  >
-                    <i class="ph ph-cube"></i>
-                  </button>
+                <div class="toolbar-tab-panel" v-if="activeToolbarTab === 'datos'">
+                  <div class="toolbar-category">
+                    <span class="category-label">Datos y mapas</span>
+                    <div class="category-tools">
+                      <div class="mindmap-tool-wrap" :class="{ open: showMindmapDropdown }">
+                        <button
+                          class="tool-btn mindmap-dropdown-btn"
+                          :class="{ active: activeTool === 'mindmap' || showMindmapDropdown }"
+                          @click="toggleMindmapDropdown"
+                          :title="mindmapDropdownTitle"
+                        >
+                          <i class="ph" :class="`ph-${getMindmapPreset(selectedMindmapPreset).icon}`"></i>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showMindmapDropdown" class="mindmap-dropdown-menu">
+                          <button
+                            v-for="mindmapPreset in MINDMAP_PRESETS"
+                            :key="mindmapPreset.id"
+                            type="button"
+                            class="mindmap-dropdown-item"
+                            :class="{ active: selectedMindmapPreset === mindmapPreset.id }"
+                            @click="selectMindmapPreset(mindmapPreset.id)"
+                          >
+                            <i class="ph" :class="`ph-${mindmapPreset.icon}`"></i>
+                            <span>{{ mindmapPreset.label }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'map' }"
+                        @click="activeTool = 'map'"
+                        title="Mapa"
+                      >
+                        <i class="ph ph-map-trifold"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'calendar' }"
+                        @click="activeTool = 'calendar'"
+                        title="Calendario"
+                      >
+                        <i class="ph ph-calendar-blank"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'finance' }"
+                        @click="activeTool = 'finance'"
+                        title="Gráfico Financiero"
+                      >
+                        <i class="ph ph-trend-up"></i>
+                      </button>
+                      <div class="table-tool-wrap" :class="{ open: showTableDropdown }">
+                        <button
+                          class="tool-btn table-dropdown-btn"
+                          :class="{ active: activeTool === 'table' || showTableDropdown }"
+                          @click="toggleTableDropdown"
+                          :title="tableDropdownTitle"
+                        >
+                          <i class="ph" :class="`ph-${getTablePreset(selectedTablePreset).icon}`"></i>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showTableDropdown" class="table-dropdown-menu">
+                          <button
+                            v-for="tablePreset in TABLE_PRESETS"
+                            :key="tablePreset.id"
+                            type="button"
+                            class="table-dropdown-item"
+                            :class="{ active: selectedTablePreset === tablePreset.id }"
+                            @click="selectTablePreset(tablePreset.id)"
+                          >
+                            <i class="ph" :class="`ph-${tablePreset.icon}`"></i>
+                            <span>{{ tablePreset.label }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="chart-tool-wrap" :class="{ open: showChartDropdown }">
+                        <button
+                          class="tool-btn chart-dropdown-btn"
+                          :class="{ active: activeTool === 'chart' || showChartDropdown }"
+                          @click="toggleChartDropdown"
+                          :title="chartDropdownTitle"
+                        >
+                          <i class="ph" :class="`ph-${getChartPreset(selectedChartPreset).icon}`"></i>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showChartDropdown" class="chart-dropdown-menu">
+                          <button
+                            v-for="chartPreset in CHART_PRESETS"
+                            :key="chartPreset.id"
+                            type="button"
+                            class="chart-dropdown-item"
+                            :class="{ active: selectedChartPreset === chartPreset.id }"
+                            @click="selectChartPreset(chartPreset.id)"
+                          >
+                            <i class="ph" :class="`ph-${chartPreset.icon}`"></i>
+                            <span>{{ chartPreset.label }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'poll' }"
+                        @click="activeTool = 'poll'"
+                        title="Encuesta"
+                      >
+                        <i class="ph ph-chart-pie-slice"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'rating' }"
+                        @click="activeTool = 'rating'"
+                        title="Estrellas"
+                      >
+                        <i class="ph ph-star-half"></i>
+                      </button>
+                      <div class="qr-tool-wrap" :class="{ open: showQrDropdown }">
+                        <button
+                          class="tool-btn qr-dropdown-btn"
+                          :class="{ active: activeTool === 'qrcode' || showQrDropdown }"
+                          @click="toggleQrDropdown"
+                          :title="qrDropdownTitle"
+                        >
+                          <i class="ph" :class="`ph-${getQrPreset(selectedQrPreset).icon}`"></i>
+                          <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div v-if="showQrDropdown" class="qr-dropdown-menu">
+                          <button
+                            v-for="qrPreset in QR_PRESETS"
+                            :key="qrPreset.id"
+                            type="button"
+                            class="qr-dropdown-item"
+                            :class="{ active: selectedQrPreset === qrPreset.id }"
+                            @click="selectQrPreset(qrPreset.id)"
+                          >
+                            <i class="ph" :class="`ph-${qrPreset.icon}`"></i>
+                            <span>{{ qrPreset.label }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'progress' }"
+                        @click="activeTool = 'progress'"
+                        title="Progreso"
+                      >
+                        <i class="ph ph-sliders-horizontal"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'timer' }"
+                        @click="activeTool = 'timer'"
+                        title="Temporizador"
+                      >
+                        <i class="ph ph-timer"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="toolbar-category">
-                <span class="category-label">Interactividad</span>
-                <div class="category-tools">
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'codeblock' }"
-                    @click="activeTool = 'codeblock'"
-                    title="Código"
-                  >
-                    <i class="ph ph-code"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'iframe' }"
-                    @click="activeTool = 'iframe'"
-                    title="Web"
-                  >
-                    <i class="ph ph-globe"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'interactive' }"
-                    @click="activeTool = 'interactive'"
-                    title="Hotspot"
-                  >
-                    <i class="ph ph-lightning"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'link' }"
-                    @click="activeTool = 'link'"
-                    title="Enlace"
-                  >
-                    <i class="ph ph-link"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'accordion' }"
-                    @click="activeTool = 'accordion'"
-                    title="Acordeón"
-                  >
-                    <i class="ph ph-list-dashes"></i>
-                  </button>
+                <div class="toolbar-tab-panel" v-if="activeToolbarTab === 'multimedia'">
+                  <div class="toolbar-category">
+                    <span class="category-label">Multimedia</span>
+                    <div class="category-tools">
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'image' }"
+                        @click="activeTool = 'image'"
+                        title="Imagen"
+                      >
+                        <i class="ph ph-image"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'video' }"
+                        @click="activeTool = 'video'"
+                        title="Vídeo"
+                      >
+                        <i class="ph ph-video-camera"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'audio' }"
+                        @click="activeTool = 'audio'"
+                        title="Audio"
+                      >
+                        <i class="ph ph-speaker-high"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'magnifier' }"
+                        @click="activeTool = 'magnifier'"
+                        title="Lupa Mágica"
+                      >
+                        <i class="ph ph-magnifying-glass"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === '3d' }"
+                        @click="activeTool = '3d'"
+                        title="Modelo 3D"
+                      >
+                        <i class="ph ph-cube"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="toolbar-category">
-                <span class="category-label">Efectos Visuales</span>
-                <div class="category-tools">
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'imagecomparator' }"
-                    @click="activeTool = 'imagecomparator'"
-                    title="Comparador de Imágenes"
-                  >
-                    <i class="ph ph-swap"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'marquee' }"
-                    @click="activeTool = 'marquee'"
-                    title="Marquesina"
-                  >
-                    <i class="ph ph-text-aa"></i>
-                  </button>
-                  <button
-                    class="tool-btn"
-                    :class="{ active: activeTool === 'typewriter' }"
-                    @click="activeTool = 'typewriter'"
-                    title="Máquina de Escribir"
-                  >
-                    <i class="ph ph-keyboard"></i>
-                  </button>
+                <div class="toolbar-tab-panel" v-if="activeToolbarTab === 'interactividad'">
+                  <div class="toolbar-category">
+                    <span class="category-label">Interactividad</span>
+                    <div class="category-tools">
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'codeblock' }"
+                        @click="activeTool = 'codeblock'"
+                        title="Código"
+                      >
+                        <i class="ph ph-code"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'iframe' }"
+                        @click="activeTool = 'iframe'"
+                        title="Web"
+                      >
+                        <i class="ph ph-globe"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'interactive' }"
+                        @click="activeTool = 'interactive'"
+                        title="Hotspot"
+                      >
+                        <i class="ph ph-lightning"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'link' }"
+                        @click="activeTool = 'link'"
+                        title="Enlace"
+                      >
+                        <i class="ph ph-link"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'accordion' }"
+                        @click="activeTool = 'accordion'"
+                        title="Acordeón"
+                      >
+                        <i class="ph ph-list-dashes"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="toolbar-tab-panel" v-if="activeToolbarTab === 'efectos'">
+                  <div class="toolbar-category">
+                    <span class="category-label">Efectos Visuales</span>
+                    <div class="category-tools">
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'imagecomparator' }"
+                        @click="activeTool = 'imagecomparator'"
+                        title="Comparador de Imágenes"
+                      >
+                        <i class="ph ph-swap"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'marquee' }"
+                        @click="activeTool = 'marquee'"
+                        title="Marquesina"
+                      >
+                        <i class="ph ph-text-aa"></i>
+                      </button>
+                      <button
+                        class="tool-btn"
+                        :class="{ active: activeTool === 'typewriter' }"
+                        @click="activeTool = 'typewriter'"
+                        title="Máquina de Escribir"
+                      >
+                        <i class="ph ph-keyboard"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -7772,6 +7837,7 @@ const wakeUpPlayNav = () => {
   ]
 
   const activeTool = ref<ToolType>('select')
+  const activeToolbarTab = ref<'basicos' | 'datos' | 'multimedia' | 'interactividad' | 'efectos'>('basicos')
   const selectedShapePreset = ref('rectangle')
   const showShapeDropdown = ref(false)
   const selectedArrowPreset = ref('arrowRight')
@@ -7959,6 +8025,22 @@ const wakeUpPlayNav = () => {
       selectedElement.value.iconName = name
       selectedIconPreset.value = name
     }
+  }
+
+  const closeToolbarDropdowns = () => {
+    showShapeDropdown.value = false
+    showArrowDropdown.value = false
+    showMindmapDropdown.value = false
+    showIconDropdown.value = false
+    showTableDropdown.value = false
+    showQrDropdown.value = false
+    showChartDropdown.value = false
+  }
+
+  const setToolbarTab = (tab: 'basicos' | 'datos' | 'multimedia' | 'interactividad' | 'efectos') => {
+    if (activeToolbarTab.value === tab) return
+    activeToolbarTab.value = tab
+    closeToolbarDropdowns()
   }
 
   const applyShapePresetToElement = (el: any, presetId?: string, preserveSize = true) => {
@@ -13786,9 +13868,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   z-index: 1400;
 }
 .pro-top-toolbar {
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-wrap: nowrap;
+  overflow: visible;
 }
 @media (max-width: 992px) {
   .pro-sidebar {
@@ -13828,18 +13908,32 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
   
   .pro-top-toolbar {
+    top: 4px;
+  }
+
+  .toolbar-window {
+    width: calc(100% - 12px);
     padding-left: 50px;
     padding-right: 50px;
   }
 }
 
 @media (max-width: 768px) {
-  .pro-top-toolbar {
+  .toolbar-window {
     padding: 8px;
-    gap: 12px;
+    gap: 8px;
+  }
+  .toolbar-tabs {
+    gap: 4px;
+    padding-bottom: 6px;
+  }
+  .toolbar-tab-btn {
+    padding: 6px 10px;
+    font-size: 0.76rem;
   }
   .toolbar-category {
     gap: 4px;
+    padding: 8px;
   }
   .category-tools {
     gap: 4px;
@@ -15144,49 +15238,85 @@ watch(isMobile, (newVal) => {
     transition: all 0.3s ease;
   }
   .pro-top-toolbar {
+    position: sticky;
+    top: 8px;
+    z-index: 11000;
+    padding: 0;
+    margin: 6px 0 14px;
+    flex-shrink: 0;
+  }
+  .toolbar-window {
+    width: min(1180px, calc(100% - 16px));
+    margin: 0 auto;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     padding: 10px;
     background: var(--glass-bg) !important;
     backdrop-filter: blur(var(--blur-md));
     -webkit-backdrop-filter: blur(var(--blur-md));
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--radius-xl);
-    width: max-content;
-    max-width: min(1120px, calc(100% - 40px));
-    margin: 6px auto 14px;
-    z-index: 30;
-    flex-shrink: 0;
-    align-items: center;
     box-shadow: var(--shadow-float);
+  }
+  .toolbar-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 8px;
+  }
+  .toolbar-tab-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    font-weight: 620;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+  }
+  .toolbar-tab-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .toolbar-tab-btn.active {
+    color: var(--accent-primary);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.12));
+    border-color: rgba(var(--accent-rgb), 0.18);
+  }
+  .toolbar-tab-panel {
+    min-height: auto;
+    display: flex;
+    justify-content: flex-start;
+    padding-top: 2px;
   }
   .toolbar-category {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 7px;
-    background: var(--surface-soft);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
-    transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-bounce);
+    align-items: flex-start;
+    width: 100%;
+    gap: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    transition: none;
   }
   .toolbar-category:hover {
-    background: var(--bg-hover);
-    border-color: rgba(var(--accent-rgb), 0.2);
-    transform: translateY(-1px);
+    background: transparent;
+    border-color: transparent;
+    transform: none;
   }
   .category-label {
-    font-size: 0.66rem;
-    font-weight: 620;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    display: none;
   }
   .category-tools {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
     gap: 4px;
   }
   .tool-btn {
@@ -15249,7 +15379,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .shape-dropdown-item {
     width: 100%;
@@ -15298,7 +15428,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .arrow-dropdown-item {
     width: 100%;
@@ -15347,7 +15477,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .icon-dropdown-item {
     width: 100%;
@@ -15401,7 +15531,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .mindmap-dropdown-item {
     width: 100%;
@@ -15450,7 +15580,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .table-dropdown-item {
     width: 100%;
@@ -15499,7 +15629,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .qr-dropdown-item {
     width: 100%;
@@ -15548,7 +15678,7 @@ watch(isMobile, (newVal) => {
     border-radius: 5px;
     box-shadow: var(--shadow-md);
     padding: 6px;
-    z-index: 60;
+    z-index: 11020;
   }
   .chart-dropdown-item {
     width: 100%;
@@ -17568,68 +17698,4 @@ watch(isMobile, (newVal) => {
   }
 
 
-.pro-top-toolbar {
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-wrap: nowrap;
-}
-@media (max-width: 992px) {
-  .pro-sidebar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    z-index: 1500;
-    box-shadow: var(--shadow-lg);
-    transition: transform 0.3s ease;
-  }
-
-  .left-sidebar {
-    left: 0;
-    transform: translateX(-100%);
-  }
-
-  .left-sidebar.is-open {
-    transform: translateX(0);
-  }
-
-  .right-sidebar {
-    right: 0;
-    transform: translateX(100%);
-  }
-
-  .right-sidebar.is-open {
-    transform: translateX(0);
-  }
-
-  .sidebar-resizer {
-    display: none;
-  }
-
-  .sidebar-toggle-btn {
-    top: 15px;
-    z-index: 1600;
-  }
-  
-  .pro-top-toolbar {
-    padding-left: 50px;
-    padding-right: 50px;
-  }
-}
-
-@media (max-width: 768px) {
-  .pro-top-toolbar {
-    padding: 8px;
-    gap: 12px;
-  }
-  .toolbar-category {
-    gap: 4px;
-  }
-  .category-tools {
-    gap: 4px;
-  }
-  .tool-btn, .shape-dropdown-btn, .arrow-dropdown-btn, .icon-dropdown-btn, .mindmap-dropdown-btn, .table-dropdown-btn, .chart-dropdown-btn, .qr-dropdown-btn {
-    width: 38px;
-    height: 38px;
-  }
-}
 </style>
