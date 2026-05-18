@@ -6543,6 +6543,9 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         coverImage: generatedThumbnails.value[1] || null,
       };
 
+      await _normalizePayloadMedia(payload)
+      _tryCompressProjectState(payload)
+
       // Payload limpio: solo metadata + elementos + URLs públicas
       const payloadJson = JSON.stringify(payload)
       const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2)
@@ -10857,29 +10860,12 @@ watch(
 
       const extension = ((mime ?? 'application/octet-stream').split('/')[1] || 'bin').split(';')[0]
       const blob = new Blob([array], { type: mime ?? 'application/octet-stream' })
-      const formData = new FormData()
-      formData.append('file', blob, `${suggestedName}.${extension}`)
-
-      const response = await fetch(`${API_BASE}/upload/media`, {
-        method: 'POST',
-        body: formData,
+      const uploadResult = await cloudinaryService.uploadFile(blob, {
+        resourceType: mime === 'application/pdf' ? 'raw' : 'auto',
+        folder: 'docflow-assets',
+        fileName: `${suggestedName}.${extension}`,
       })
-
-      if (!response.ok) {
-        console.warn('No se pudo subir dataURL:', response.statusText)
-        return dataURL
-      }
-
-      const jsonRes = await response.json()
-      let finalUrl = dataURL;
-      if (jsonRes.url) {
-        finalUrl = jsonRes.url;
-      }
-      if (typeof finalUrl === 'string' && finalUrl.startsWith('/')) {
-        const origin = API_BASE.replace(/\/api\/?$/, '');
-        finalUrl = `${origin}${finalUrl}`;
-      }
-      return finalUrl;
+      return uploadResult.secureUrl || dataURL
     } catch (error) {
       console.warn('Error al subir dataURL:', error)
       return dataURL
@@ -10887,6 +10873,63 @@ watch(
   }
 
   const _normalizePayloadMedia = async (payload: any) => {
+    const MEDIA_KEYS = new Set([
+      'pdfBase64',
+      'bgImage',
+      'src',
+      'envImage',
+      'image',
+      'imageBefore',
+      'imageAfter',
+      'coverImage',
+      'poster',
+      'thumbnail',
+    ])
+
+    let uploadCounter = 0
+
+    const sanitizeName = (name: string) =>
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'media'
+
+    const shouldUploadField = (key: string, value: string) => {
+      if (typeof value !== 'string' || value.length < 2000) return false
+      if (key === 'pdfBase64') return isDataURL(value) || isLikelyBase64(value)
+      if (!MEDIA_KEYS.has(key)) return false
+      if (isDataURL(value)) {
+        return value.length > 120000
+      }
+      return isLikelyBase64(value)
+    }
+
+    const normalizeEmbeddedMedia = async (node: any, hint = 'media'): Promise<void> => {
+      if (!node || typeof node !== 'object') return
+
+      if (Array.isArray(node)) {
+        for (let i = 0; i < node.length; i++) {
+          await normalizeEmbeddedMedia(node[i], `${hint}_${i}`)
+        }
+        return
+      }
+
+      for (const key of Object.keys(node)) {
+        const value = node[key]
+        if (typeof value === 'string' && shouldUploadField(key, value)) {
+          uploadCounter += 1
+          const suggestedName = sanitizeName(`${hint}_${key}_${uploadCounter}`)
+          const forceMimeType = key === 'pdfBase64' ? 'application/pdf' : undefined
+          node[key] = await uploadDataURL(value, suggestedName, forceMimeType)
+          continue
+        }
+
+        if (value && typeof value === 'object') {
+          await normalizeEmbeddedMedia(value, `${hint}_${key}`)
+        }
+      }
+    }
+
     if (payload.pdfBase64 && (isDataURL(payload.pdfBase64) || isLikelyBase64(payload.pdfBase64))) {
       payload.pdfBase64 = await uploadDataURL(payload.pdfBase64, 'presentation_pdf', 'application/pdf')
       // Evita re-subir los ~30MB de PDF si el usuario pulsa Guardar varias veces
@@ -10912,10 +10955,28 @@ watch(
             if (element && element.src && isDataURL(element.src)) {
               element.src = await uploadDataURL(element.src, `element_${element.type || 'img'}`)
             }
+            if (element && element.envImage && isDataURL(element.envImage)) {
+              element.envImage = await uploadDataURL(element.envImage, `element_env_${element.type || 'media'}`)
+            }
+            if (element && element.imageBefore && isDataURL(element.imageBefore)) {
+              element.imageBefore = await uploadDataURL(element.imageBefore, 'element_image_before')
+            }
+            if (element && element.imageAfter && isDataURL(element.imageAfter)) {
+              element.imageAfter = await uploadDataURL(element.imageAfter, 'element_image_after')
+            }
+
+            await normalizeEmbeddedMedia(element, `element_${element?.type || 'media'}`)
           }
         }
       }
     }
+
+    if (payload.coverImage && isDataURL(payload.coverImage) && payload.coverImage.length > 120000) {
+      payload.coverImage = await uploadDataURL(payload.coverImage, 'cover_image')
+    }
+
+    await normalizeEmbeddedMedia(payload.slideConfigs, 'slide_configs')
+    await normalizeEmbeddedMedia(payload.documentState, 'document_state')
 
     return payload
   }
@@ -11661,9 +11722,40 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         if (!stateDataNode || !configsDataNode) {
           throw new Error('El archivo HTML no es un proyecto válido de PresentPro.')
         }
+
+        const optimizeImportedStateMedia = async (state: Record<string, any[]>, configs: Record<string, any>) => {
+          const isLargeDataImage = (value: unknown) =>
+            typeof value === 'string' && value.startsWith('data:image/') && value.length > 350000
+
+          for (const page in configs || {}) {
+            const cfg = configs[page]
+            if (!cfg || !isLargeDataImage(cfg.bgImage)) continue
+            cfg.bgImage = await uploadDataURL(cfg.bgImage, `html_import_bg_${page}`)
+          }
+
+          for (const page in state || {}) {
+            const elements = state[page]
+            if (!Array.isArray(elements)) continue
+            for (const element of elements) {
+              if (!element) continue
+              if (isLargeDataImage(element.src)) {
+                element.src = await uploadDataURL(element.src, `html_import_el_${element.id || Date.now()}`)
+              }
+              if (isLargeDataImage(element.envImage)) {
+                element.envImage = await uploadDataURL(element.envImage, `html_import_env_${element.id || Date.now()}`)
+              }
+            }
+          }
+        }
+
         resetHistory()
-        documentState.value = JSON.parse(stateDataNode.textContent || '{}')
-        slideConfigs.value = JSON.parse(configsDataNode.textContent || '{}')
+        const parsedState = JSON.parse(stateDataNode.textContent || '{}')
+        const parsedConfigs = JSON.parse(configsDataNode.textContent || '{}')
+
+        await optimizeImportedStateMedia(parsedState, parsedConfigs)
+
+        documentState.value = parsedState
+        slideConfigs.value = parsedConfigs
 
         const pdfMapNode = doc.getElementById('app-pdf-map')
         if (pdfMapNode) pdfPageMap.value = JSON.parse(pdfMapNode.textContent || '{}')
@@ -11719,6 +11811,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
         await renderPage(1)
         setTimeout(fitToScreen, 100)
+        setTimeout(() => {
+          savePresentation(true)
+        }, 120)
       } catch (error) {
         console.error(error)
         showToast('Error al importar. Formato de archivo inválido.', 'error');
@@ -13664,17 +13759,38 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
 
     // 🚀 NUEVO: Helper para convertir URLs de fondos/imágenes a Base64 y hacer el HTML 100% Offline
+    const blobToDataURL = (blob: Blob): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve((reader.result as string) || '');
+        reader.readAsDataURL(blob);
+      });
+    };
+
     const urlToBase64 = async (url: string) => {
       if (!url || url.startsWith('data:')) return url;
       try {
         const response = await fetch(url, { mode: 'cors' });
         if (!response.ok) throw new Error('Fetch fallido');
         const blob = await response.blob();
-        return await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
+
+        if (blob.type.startsWith('image/') && !blob.type.includes('svg')) {
+          try {
+            const maxWidth = Math.max(1920, Math.round(snapshotBaseWidth * 1.6));
+            const maxHeight = Math.max(1080, Math.round(snapshotBaseHeight * 1.6));
+            const optimizedBlob = await optimizeImage(
+              new File([blob], 'export-image', { type: blob.type || 'image/png' }),
+              maxWidth,
+              maxHeight,
+              0.82,
+            );
+            return await blobToDataURL(optimizedBlob);
+          } catch (optError) {
+            console.warn('No se pudo optimizar imagen para exportación, se usa original.', optError);
+          }
+        }
+
+        return await blobToDataURL(blob);
       } catch (error) {
         console.warn('CORS o Red: No se pudo descargar la imagen para incrustar. Dejando URL absoluta:', error);
         return url; // Fallback a la URL si el servidor bloquea la lectura
@@ -13691,7 +13807,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         try {
           const pdfPage = await _RAW_PDF_DOC.getPage(mappedPage);
           const viewport = pdfPage.getViewport({ scale: 1.0 });
-          const qualityMultiplier = 2.0;
+          const qualityMultiplier = 1.35;
 
           const canvas = document.createElement('canvas');
           canvas.width = Math.floor(viewport.width * qualityMultiplier);
@@ -13715,7 +13831,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             ctx.strokeText = origStrokeText;
           }
 
-          return canvas.toDataURL('image/jpeg', 0.92);
+          return canvas.toDataURL('image/webp', 0.82);
         } catch (err) {
           console.warn('getExportPdfBackground: fallo render sin texto, usando thumbnail precalculado.', err);
         }
