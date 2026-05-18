@@ -28,7 +28,10 @@ const ensureNamedFile = (file: File | Blob, fallbackName = 'upload.bin') => {
 }
 
 export const cloudinaryService = {
-  async uploadFile(file: File | Blob, options: CloudinaryUploadOptions = {}): Promise<CloudinaryUploadResult> {
+  async uploadFile(
+    file: File | Blob,
+    options: CloudinaryUploadOptions = {},
+  ): Promise<CloudinaryUploadResult> {
     const resourceType = options.resourceType || 'auto'
 
     const payloadFile = ensureNamedFile(file, options.fileName || 'upload.bin')

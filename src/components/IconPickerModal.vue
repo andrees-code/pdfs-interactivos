@@ -45,8 +45,8 @@
           </div>
 
           <!-- Grid -->
-          <div class="ipm-grid-wrap" ref="gridRef">
-            <div class="ipm-count" v-if="filteredIcons.length > 0">
+          <div ref="gridRef" class="ipm-grid-wrap">
+            <div v-if="filteredIcons.length > 0" class="ipm-count">
               {{ filteredIcons.length }} iconos
             </div>
 
@@ -72,7 +72,7 @@
           </div>
 
           <!-- Footer -->
-          <div class="ipm-footer" v-if="currentIcon">
+          <div v-if="currentIcon" class="ipm-footer">
             <div class="ipm-preview">
               <i :class="`ph ph-${currentIcon}`"></i>
               <span>{{ currentIcon }}</span>

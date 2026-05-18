@@ -1,6 +1,6 @@
 <template>
   <div class="pdf-viewer-container">
-    <canvas ref="pdfCanvas" class="layer-pdf" v-show="true"></canvas>
+    <canvas v-show="true" ref="pdfCanvas" class="layer-pdf"></canvas>
   </div>
 </template>
 

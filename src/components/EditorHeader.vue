@@ -14,14 +14,14 @@
         <span class="logo-text">Doc<span class="text-accent">Flow</span></span>
       </div>
 
-      <div class="file-menu" v-if="isEditorMode">
+      <div v-if="isEditorMode" class="file-menu">
         <label class="menu-item menu-item-ghost" :class="{ 'is-loading': isConverting }">
           <input
             type="file"
-            @change="emit('file-upload', $event)"
             accept=".pdf, .pptx, .ppsx, .potx, .html"
             hidden
             :disabled="isConverting"
+            @change="emit('file-upload', $event)"
           />
           <i class="ph ph-upload-simple"></i>
           {{ isConverting ? 'Convirtiendo...' : 'Importar Archivo' }}
@@ -37,7 +37,7 @@
           {{ isSaving ? 'Guardando...' : 'Guardar' }}
         </button>
 
-        <div class="cloud-status" v-if="hasDoc" :class="{ 'is-syncing': isAutosaving || isSaving }" aria-live="polite">
+        <div v-if="hasDoc" class="cloud-status" :class="{ 'is-syncing': isAutosaving || isSaving }" aria-live="polite">
           <i class="ph" :class="isAutosaving || isSaving ? 'ph-arrows-clockwise icon-spin text-sync' : 'ph-cloud-check text-success'"></i>
           <span class="cloud-tooltip">{{ isAutosaving || isSaving ? 'Guardando cambios...' : 'Todos los cambios guardados' }}</span>
         </div>
@@ -62,7 +62,7 @@
 
       </div>
 
-      <div class="file-menu" v-else>
+      <div v-else class="file-menu">
         <button
           type="button"
           class="menu-item menu-item-ghost"
@@ -92,31 +92,31 @@
       </div>
     </div>
 
-    <div class="header-center" v-if="hasDoc && isEditorMode">
+    <div v-if="hasDoc && isEditorMode" class="header-center">
       <div class="zoom-controls">
-        <button type="button" @click="emit('change-zoom', -0.1)" class="tool-btn" title="Alejar">
+        <button type="button" class="tool-btn" title="Alejar" @click="emit('change-zoom', -0.1)">
           <i class="ph ph-minus"></i>
         </button>
         <span class="zoom-level">{{ Math.round(zoom * 100) }}%</span>
-        <button type="button" @click="emit('change-zoom', 0.1)" class="tool-btn" title="Acercar">
+        <button type="button" class="tool-btn" title="Acercar" @click="emit('change-zoom', 0.1)">
           <i class="ph ph-plus"></i>
         </button>
         <div class="divider-vertical"></div>
-        <button type="button" @click="emit('fit-screen')" class="tool-btn" title="Ajustar a pantalla">
+        <button type="button" class="tool-btn" title="Ajustar a pantalla" @click="emit('fit-screen')">
           <i class="ph ph-corners-out"></i>
         </button>
       </div>
     </div>
 
     <div class="header-right">
-      <button type="button" class="btn-play" v-if="hasDoc && isEditorMode" :class="{ 'is-active': playMode }" @click="emit('toggle-play')">
+      <button v-if="hasDoc && isEditorMode" type="button" class="btn-play" :class="{ 'is-active': playMode }" @click="emit('toggle-play')">
         <i class="ph" :class="playMode ? 'ph-stop' : 'ph-play'"></i>
         {{ playMode ? 'Detener Presentación' : 'Iniciar Presentación' }}
       </button>
 
 
-      <div class="user-menu-container" v-if="authStore.isAuthenticated" ref="userMenuRef">
-        <button type="button" class="avatar-btn" ref="avatarBtnRef" @click="toggleUserMenu">
+      <div v-if="authStore.isAuthenticated" ref="userMenuRef" class="user-menu-container">
+        <button ref="avatarBtnRef" type="button" class="avatar-btn" @click="toggleUserMenu">
           <div class="avatar-circle">
             {{ userInitial }}
           </div>
@@ -125,9 +125,9 @@
 
       <Teleport to="body">
         <div
+          v-show="isUserMenuOpen"
           ref="userDropdownRef"
           class="user-dropdown user-dropdown-portal"
-          v-show="isUserMenuOpen"
           :style="userDropdownStyle"
         >
           <div class="user-info">
@@ -764,26 +764,80 @@ const emit = defineEmits<{
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1200px) {
   .pro-header {
     flex-wrap: wrap;
-    justify-content: center;
+    gap: 8px;
+    padding: 12px;
   }
-
-  .header-left,
-  .header-center,
-  .header-right {
-    justify-content: center;
-    width: 100%;
-  }
-
-  .subscription-badge {
+  .header-left, .header-center, .header-right {
     width: 100%;
     justify-content: center;
-    white-space: normal;
-    text-align: center;
-    min-height: 40px;
+  }
+  .file-menu {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    max-width: 100%;
+    padding: 4px;
+  }
+  .file-menu::-webkit-scrollbar {
+    display: none;
+  }
+  .menu-item {
+    font-size: 0.78rem;
+    padding: 0 12px;
+    min-height: 36px;
+  }
+  .pro-logo {
     padding: 8px 12px;
+  }
+  .btn-play {
+    min-height: 40px;
+    padding: 0 16px;
+    font-size: 0.9rem;
+  }
+  .zoom-controls {
+    padding: 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  .logo-text {
+    display: none;
+  }
+  .pro-logo {
+    min-width: unset;
+  }
+  .header-left {
+    justify-content: flex-start;
+  }
+  .header-center {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+  .header-right {
+    justify-content: flex-end;
+  }
+  .menu-item span {
+    display: none;
+  }
+  .menu-item .ph {
+    font-size: 1.1rem;
+  }
+  .file-menu {
+    gap: 4px;
+  }
+  .menu-item, .tool-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+  .zoom-level {
+    min-width: 50px;
   }
 }
 </style>

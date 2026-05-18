@@ -1,10 +1,10 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
-const file = path.resolve('./src/views/BibliotecaView.vue');
-let content = fs.readFileSync(file, 'utf8');
+const file = path.resolve('./src/views/BibliotecaView.vue')
+let content = fs.readFileSync(file, 'utf8')
 
-const targetIndex = content.indexOf('const createNewProject = () => {');
+const targetIndex = content.indexOf('const createNewProject = () => {')
 
 if (targetIndex !== -1) {
   const insert = `
@@ -26,22 +26,22 @@ const loadPresentations = async () => {
   }
 }
 
-`;
-  
-  content = content.slice(0, targetIndex) + insert + content.slice(targetIndex);
-  
+`
+
+  content = content.slice(0, targetIndex) + insert + content.slice(targetIndex)
+
   // Limpiar basura residual de la inyeccion fallida anterior ("const userId = authStore.user._id || authStore.user.id" sin función)
   const badStr1 = `    const userId = authStore.user._id || authStore.user.id
     if (!userId) return
     const allData = await presentationService.getUserPresentations(userId)
     generateThumbnailsForLibrary(allData)
     presentations.value = allData.sort(
-      (a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),\n`;
+      (a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),\n`
 
-  content = content.replace(badStr1, '');
-  
-  fs.writeFileSync(file, content, 'utf8');
-  console.log('Repaired loadPresentations logic successfully.');
+  content = content.replace(badStr1, '')
+
+  fs.writeFileSync(file, content, 'utf8')
+  console.log('Repaired loadPresentations logic successfully.')
 } else {
-  console.log('Failed to find anchor to inject.');
+  console.log('Failed to find anchor to inject.')
 }

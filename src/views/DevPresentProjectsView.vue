@@ -449,7 +449,7 @@ onMounted(async () => {
                 class="hidden"
                 @error="markCoverAsBroken(project._id)"
               />
-              <div class="absolute inset-0 flex items-center justify-center" v-if="!project.coverImage || brokenCoverIds.has(project._id)">
+              <div v-if="!project.coverImage || brokenCoverIds.has(project._id)" class="absolute inset-0 flex items-center justify-center">
                 <span class="material-symbols-outlined text-[64px] text-surface-variant">{{ project.docType === 'pdf' ? 'picture_as_pdf' : 'slideshow' }}</span>
               </div>
               <div class="absolute inset-0 z-10 flex items-center justify-center bg-background/80 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
@@ -543,16 +543,20 @@ onMounted(async () => {
           <div v-if="createSource === 'blank'">
             <label class="mb-1 block text-label-caps text-on-surface-variant">Plantilla base</label>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button
+type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'blank' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'blank'">En blanco</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button
+type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'modern' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'modern'">Moderna</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button
+type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'dark' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'dark'">Oscura</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button
+type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'custom' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'custom'">Mi plantilla</button>
             </div>

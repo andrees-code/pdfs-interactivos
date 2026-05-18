@@ -1,12 +1,12 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
-const file = path.resolve('./src/views/BibliotecaView.vue');
-let content = fs.readFileSync(file, 'utf8');
+const file = path.resolve('./src/views/BibliotecaView.vue')
+let content = fs.readFileSync(file, 'utf8')
 
 // 1. INYECTAR LA FUNCIÓN getMiniElementStyle
 if (!content.includes('getMiniElementStyle')) {
-  const methodAnchor = content.indexOf('const formatTime =');
+  const methodAnchor = content.indexOf('const formatTime =')
   const styleMethod = `
 const getMiniElementStyle = (el: any, p: any) => {
    const bw = p.baseWidth || 1280;
@@ -39,13 +39,13 @@ const getMiniElementStyle = (el: any, p: any) => {
       border: el.borderWidth ? (el.borderWidth * fontScale) + 'px solid ' + el.borderColor : 'none',
    };
 };
-`;
-  content = content.slice(0, methodAnchor) + styleMethod + content.slice(methodAnchor);
+`
+  content = content.slice(0, methodAnchor) + styleMethod + content.slice(methodAnchor)
 }
 
 // 2. INYECTAR EL DOM DEL MINI-CANVAS DENTRO DE PROJECT-THUMBNAIL
 // Buscamos: <div class="thumb-actions"> y lo reemplazamos con el canvas Y el thumb actions
-const domAnchor = `<div class="thumb-actions">`;
+const domAnchor = `<div class="thumb-actions">`
 if (content.includes(domAnchor) && !content.includes('class="mini-canvas-layer"')) {
   const domInsert = `
             <!-- Capa Miniatura Nativa para "las herramientas" -->
@@ -66,9 +66,9 @@ if (content.includes(domAnchor) && !content.includes('class="mini-canvas-layer"'
               </div>
             </div>
 
-            <div class="thumb-actions">`;
-  content = content.replace(domAnchor, domInsert);
+            <div class="thumb-actions">`
+  content = content.replace(domAnchor, domInsert)
 }
 
-fs.writeFileSync(file, content, 'utf8');
-console.log('Script injection of mini-canvas successful.');
+fs.writeFileSync(file, content, 'utf8')
+console.log('Script injection of mini-canvas successful.')

@@ -4,7 +4,7 @@ const API_URL = PRESENTATIONS_API
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('userToken')
-  return token ? { 'Authorization': `Bearer ${token}` } : {}
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export const presentationService = {
@@ -13,7 +13,7 @@ export const presentationService = {
    */
   async getPresentation(id) {
     const response = await fetch(`${API_URL}/${id}`, {
-      headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() },
     })
 
     if (!response.ok) {
@@ -53,7 +53,7 @@ export const presentationService = {
    */
   async getUserPresentations() {
     const response = await fetch(API_URL, {
-      headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() },
     })
 
     if (!response.ok) {
@@ -70,7 +70,7 @@ export const presentationService = {
   async deletePresentation(id) {
     const response = await fetch(`${API_URL}/${id}`, {
       method: 'DELETE',
-      headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() },
     })
 
     if (!response.ok) {
@@ -82,13 +82,13 @@ export const presentationService = {
       throw new Error('El servidor no confirmó el borrado de la presentación')
     }
 
-    return data;
+    return data
   },
 
   async publishPresentation(id) {
     const response = await fetch(`${API_URL}/${id}/publish`, {
       method: 'PATCH',
-      headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() },
     })
 
     if (!response.ok) {
@@ -101,7 +101,7 @@ export const presentationService = {
   async unpublishPresentation(id) {
     const response = await fetch(`${API_URL}/${id}/unpublish`, {
       method: 'PATCH',
-      headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() },
     })
 
     if (!response.ok) {
@@ -119,5 +119,5 @@ export const presentationService = {
     }
 
     return await response.json()
-  }
+  },
 }

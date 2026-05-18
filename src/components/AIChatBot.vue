@@ -7,12 +7,12 @@
             <div class="ai-avatar">AI</div>
             <h3>Asistente IA</h3>
           </div>
-          <button @click="toggleChat" class="close-btn">
+          <button class="close-btn" @click="toggleChat">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
 
-        <div class="chat-messages" ref="messagesContainer">
+        <div ref="messagesContainer" class="chat-messages">
           <div v-if="messages.length === 0" class="empty-state">
             <p>¡Hola! Puedo ayudarte a crear, modificar o buscar presentaciones y responder tus dudas.</p>
           </div>
@@ -30,7 +30,7 @@
           </div>
         </div>
 
-        <form @submit.prevent="sendMessage" class="chat-input-area">
+        <form class="chat-input-area" @submit.prevent="sendMessage">
           <input
             v-model="inputText"
             type="text"
@@ -44,7 +44,7 @@
       </div>
     </transition>
 
-    <button @click="toggleChat" class="chat-trigger-btn" :class="{ 'is-open': isOpen }">
+    <button class="chat-trigger-btn" :class="{ 'is-open': isOpen }" @click="toggleChat">
       <svg v-if="!isOpen" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
       <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
     </button>

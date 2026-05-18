@@ -182,7 +182,8 @@ onMounted(() => {
         <p class="mt-2 text-body-lg text-on-surface-variant">Sin sorpresas. Cancela cuando quieras.</p>
 
         <!-- Plan activo -->
-        <div v-if="currentPlan !== 'free'" class="mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm"
+        <div
+v-if="currentPlan !== 'free'" class="mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm"
           :class="isCancellationScheduled
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
             : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'"

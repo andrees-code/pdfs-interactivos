@@ -1,13 +1,13 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
-const file = path.resolve('./src/views/BibliotecaView.vue');
-let content = fs.readFileSync(file, 'utf8');
+const file = path.resolve('./src/views/BibliotecaView.vue')
+let content = fs.readFileSync(file, 'utf8')
 
-const badAnchorInfo = content.indexOf('const getMiniElementStyle = (el: any, p: any) => {');
+const badAnchorInfo = content.indexOf('const getMiniElementStyle = (el: any, p: any) => {')
 if (badAnchorInfo !== -1) {
-    // Tomamos la logica de la funcion desde la caida EOF
-    const methodBody = `
+  // Tomamos la logica de la funcion desde la caida EOF
+  const methodBody = `
 const getMiniElementStyle = (el: any, p: any) => {
    const bw = p.baseWidth || 1280;
    const bh = p.baseHeight || 720;
@@ -39,37 +39,37 @@ const getMiniElementStyle = (el: any, p: any) => {
       border: el.borderWidth ? (el.borderWidth * fontScale) + 'px solid ' + el.borderColor : 'none',
    };
 };
-`;
-    // Borramos el bloque mal formado (TODO el bloque hasta el penultimo caracter, que sería \n o similar)
-    // Es mas seguro reemplazar literalmente la versión inyectada que ya sabemos cómo luce.
-    // Usaremos un substring.
-    content = content.replace(methodBody, ''); // Asume comillas exactas. Si falla, localizamos por string.
-    
-    // Si no funcionó el replace exacto, removemos manualmente
-    const badStart = content.indexOf('const getMiniElementStyle =');
-    if (badStart !== -1) {
-       content = content.slice(0, badStart);
-       const closeTag = '</style>';
-       if (!content.includes(closeTag)) content += '\n</style>\n';
-    }
+`
+  // Borramos el bloque mal formado (TODO el bloque hasta el penultimo caracter, que sería \n o similar)
+  // Es mas seguro reemplazar literalmente la versión inyectada que ya sabemos cómo luce.
+  // Usaremos un substring.
+  content = content.replace(methodBody, '') // Asume comillas exactas. Si falla, localizamos por string.
 
-    // Inyectarlo ANTES de formatDate
-    const goodAnchor = content.indexOf('const formatDate =');
-    if (goodAnchor !== -1) {
-        content = content.slice(0, goodAnchor) + methodBody + content.slice(goodAnchor);
-    } else {
-        // En caso remoto de no encontrar formatDate
-        const setupAnchor = content.indexOf('const loadPresentations =');
-        content = content.slice(0, setupAnchor) + methodBody + content.slice(setupAnchor);
-    }
-    
-    // Fix: the missing '>' from the eof slice glitch
-    if (content.endsWith('</style')) {
-         content += '>';
-    }
+  // Si no funcionó el replace exacto, removemos manualmente
+  const badStart = content.indexOf('const getMiniElementStyle =')
+  if (badStart !== -1) {
+    content = content.slice(0, badStart)
+    const closeTag = '</style>'
+    if (!content.includes(closeTag)) content += '\n</style>\n'
+  }
 
-    fs.writeFileSync(file, content, 'utf8');
-    console.log('Function scope repaired successfully.');
+  // Inyectarlo ANTES de formatDate
+  const goodAnchor = content.indexOf('const formatDate =')
+  if (goodAnchor !== -1) {
+    content = content.slice(0, goodAnchor) + methodBody + content.slice(goodAnchor)
+  } else {
+    // En caso remoto de no encontrar formatDate
+    const setupAnchor = content.indexOf('const loadPresentations =')
+    content = content.slice(0, setupAnchor) + methodBody + content.slice(setupAnchor)
+  }
+
+  // Fix: the missing '>' from the eof slice glitch
+  if (content.endsWith('</style')) {
+    content += '>'
+  }
+
+  fs.writeFileSync(file, content, 'utf8')
+  console.log('Function scope repaired successfully.')
 } else {
-    console.log('Function not found.');
+  console.log('Function not found.')
 }

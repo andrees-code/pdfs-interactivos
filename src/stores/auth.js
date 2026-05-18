@@ -16,7 +16,7 @@ const withTimeout = async (url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) =>
   }
 }
 
-const buildUserUrlCandidates = () => ([`${USERS_API}/me`])
+const buildUserUrlCandidates = () => [`${USERS_API}/me`]
 
 export const useAuthStore = defineStore('auth', () => {
   // 1. Recuperamos datos iniciales de forma segura
@@ -52,13 +52,17 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   // 2. ✨ MAGIA: Observadores automáticos.
-  watch(user, (newUser) => {
-    if (newUser) {
-      localStorage.setItem('userData', JSON.stringify(newUser))
-    } else {
-      localStorage.removeItem('userData')
-    }
-  }, { deep: true })
+  watch(
+    user,
+    (newUser) => {
+      if (newUser) {
+        localStorage.setItem('userData', JSON.stringify(newUser))
+      } else {
+        localStorage.removeItem('userData')
+      }
+    },
+    { deep: true },
+  )
 
   watch(token, (newToken) => {
     if (newToken) {

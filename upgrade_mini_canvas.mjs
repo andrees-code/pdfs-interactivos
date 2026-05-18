@@ -1,15 +1,15 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
-const file = path.resolve('./src/views/BibliotecaView.vue');
-let content = fs.readFileSync(file, 'utf8');
+const file = path.resolve('./src/views/BibliotecaView.vue')
+let content = fs.readFileSync(file, 'utf8')
 
 // 1. REEMPLAZAR getMiniElementStyle
-const oldMethodStart = content.indexOf('const getMiniElementStyle =');
-const oldMethodEnd = content.indexOf('};', oldMethodStart) + 2;
+const oldMethodStart = content.indexOf('const getMiniElementStyle =')
+const oldMethodEnd = content.indexOf('};', oldMethodStart) + 2
 
 if (oldMethodStart !== -1 && oldMethodEnd !== -1) {
-    const updatedMethod = `const getMiniElementStyle = (el: any, p: any) => {
+  const updatedMethod = `const getMiniElementStyle = (el: any, p: any) => {
    const bw = p.baseWidth || 1280;
    const bh = p.baseHeight || 720;
    const scaleX = 100 / bw;
@@ -51,25 +51,25 @@ if (oldMethodStart !== -1 && oldMethodEnd !== -1) {
       padding: el.type === 'sticky' || (el.type === 'text' && el.textBgColor !== 'transparent') ? '2px' : '0',
       border: el.borderWidth ? (el.borderWidth * fontScale) + 'px solid ' + el.borderColor : 'none',
    };
-};`;
-    // We overwrite ONLY the function
-    const endFunctionBound = content.indexOf('};', oldMethodStart) + 2;
-    content = content.slice(0, oldMethodStart) + updatedMethod + content.slice(endFunctionBound);
+};`
+  // We overwrite ONLY the function
+  const endFunctionBound = content.indexOf('};', oldMethodStart) + 2
+  content = content.slice(0, oldMethodStart) + updatedMethod + content.slice(endFunctionBound)
 }
 
 // 2. AÑADIR LOS ESTILOS DEL BOTON DE EDITAR Y ZINDEX
-const cssTarget = '.thumb-actions {';
+const cssTarget = '.thumb-actions {'
 const cssReplace = `.thumb-actions {
-  z-index: 20; /* Elevado sobre el mini-canvas */`;
+  z-index: 20; /* Elevado sobre el mini-canvas */`
 
 if (content.includes(cssTarget) && !content.includes('z-index: 20; /* Elevado')) {
-    content = content.replace(cssTarget, cssReplace);
+  content = content.replace(cssTarget, cssReplace)
 }
 
 // Y el hover espectacular del botón
 const hoverTarget = `.project-thumbnail:hover .thumb-actions {
   opacity: 1;
-}`;
+}`
 
 const hoverReplace = `.project-thumbnail:hover .thumb-actions {
   opacity: 1;
@@ -84,11 +84,11 @@ const hoverReplace = `.project-thumbnail:hover .thumb-actions {
   transform: scale(1.15) translateY(-2px);
   box-shadow: 0 8px 25px rgba(56, 139, 253, 0.6);
   background: var(--accent-primary-hover);
-}`;
+}`
 
 if (content.includes(hoverTarget) && !content.includes('cubic-bezier(0.34')) {
-    content = content.replace(hoverTarget, hoverReplace);
+  content = content.replace(hoverTarget, hoverReplace)
 }
 
-fs.writeFileSync(file, content, 'utf8');
-console.log('DOM parser fidelity updated successfully.');
+fs.writeFileSync(file, content, 'utf8')
+console.log('DOM parser fidelity updated successfully.')

@@ -265,7 +265,7 @@ onMounted(async () => {
               <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface text-sm transition-colors group-focus-within:text-primary-700">search</span>
               <input v-model="searchQuery" aria-label="Buscar plantillas" placeholder="Buscar por nombre o estilo..." class="w-full rounded-lg border border-outline bg-surface-container py-2 pl-9 pr-4 text-body-md text-on-surface shadow-inner transition-all placeholder:text-on-surface-variant focus:border-primary-700 focus:outline-none focus:ring-1 focus:ring-primary-700 md:w-64" />
             </div>
-            <button type="button" class="flex items-center justify-center rounded-lg border border-primary-700/60 bg-primary-50 p-2 text-primary-900 transition-colors hover:bg-primary-100" @click="openTemplateEngine" title="Crear plantilla privada">
+            <button type="button" class="flex items-center justify-center rounded-lg border border-primary-700/60 bg-primary-50 p-2 text-primary-900 transition-colors hover:bg-primary-100" title="Crear plantilla privada" @click="openTemplateEngine">
               <span class="material-symbols-outlined">add</span>
             </button>
           </div>
@@ -292,9 +292,9 @@ onMounted(async () => {
           <div class="mx-2 h-4 w-px shrink-0 bg-outline"></div>
 
           <button
-            type="button"
             v-for="category in categories"
             :key="category"
+            type="button"
             class="whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2 text-label-caps"
             :class="selectedCategory === category ? 'border-primary-700 text-primary-800 bg-primary-100/70' : 'border-transparent text-on-surface hover:bg-primary-50 hover:text-primary-800'"
             @click="selectedCategory = category"

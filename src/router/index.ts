@@ -21,7 +21,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'landing',
-      component: DevPresentLandingView
+      component: DevPresentLandingView,
     },
     {
       // ✨ AQUÍ ESTÁ EL CAMBIO CLAVE: agregamos /:id?
@@ -29,7 +29,7 @@ const router = createRouter({
       path: '/editorpresentaciones/:id?',
       name: 'editor',
       component: EditorPresentaciones,
-      meta: { requiresAuth: true } // 🔒 Requiere estar logueado
+      meta: { requiresAuth: true }, // 🔒 Requiere estar logueado
     },
     {
       path: '/biblioteca',
@@ -49,18 +49,18 @@ const router = createRouter({
     {
       path: '/v/:slug',
       name: 'public-viewer',
-      component: () => import('@/views/PublicViewerView.vue')
+      component: () => import('@/views/PublicViewerView.vue'),
     },
     {
       path: '/devpresent',
       name: 'devpresent-landing',
-      component: DevPresentLandingView
+      component: DevPresentLandingView,
     },
     {
       path: '/devpresent/auth',
       name: 'devpresent-auth',
       component: DevPresentAuthView,
-      meta: { requiresGuest: true }
+      meta: { requiresGuest: true },
     },
     {
       path: '/reset-password',
@@ -71,40 +71,40 @@ const router = createRouter({
       path: '/devpresent/projects',
       name: 'devpresent-projects',
       component: DevPresentProjectsView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/devpresent/templates',
       name: 'devpresent-templates',
       component: DevPresentTemplatesView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/devpresent/perfil',
       name: 'devpresent-perfil',
       component: DevPresentPlanesView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     // ── Legal ──────────────────────────────────────────────
     {
       path: '/legal/privacidad',
       name: 'legal-privacidad',
-      component: LegalPrivacidadView
+      component: LegalPrivacidadView,
     },
     {
       path: '/legal/terminos',
       name: 'legal-terminos',
-      component: LegalTerminosView
+      component: LegalTerminosView,
     },
     {
       path: '/legal/aviso',
       name: 'legal-aviso',
-      component: LegalAvisoView
+      component: LegalAvisoView,
     },
     {
       path: '/legal/cookies',
       name: 'legal-cookies',
-      component: LegalCookiesView
+      component: LegalCookiesView,
     },
   ],
 })

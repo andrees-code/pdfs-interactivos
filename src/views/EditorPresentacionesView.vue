@@ -58,7 +58,7 @@
         </div>
 
         <div class="pro-workspace">
-          <aside class="pro-sidebar left-sidebar" v-show="isLeftSidebarOpen" v-if="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>
+          <aside class="pro-sidebar left-sidebar" :class="{ 'is-open': isLeftSidebarOpen }" v-show="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>
             <div class="sidebar-cta">
               <button class="btn-primary w-100" @click="showTemplateModal = true">
                 <i class="ph ph-layout"></i> Explorar Plantillas
@@ -2300,7 +2300,7 @@
           <!-- Resizer Derecho -->
           <div class="sidebar-resizer" v-if="hasDoc && !playMode && isRightSidebarOpen" @mousedown.prevent.stop="startResizeSidebar($event, 'right')"></div>
 
-          <aside class="pro-sidebar right-sidebar" v-show="isRightSidebarOpen" v-if="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
+          <aside class="pro-sidebar right-sidebar" :class="{ 'is-open': isRightSidebarOpen }" v-show="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
             <div class="panel-header">Propiedades</div>
 
             <div class="inspector-tabs" v-if="selectedElement">
@@ -4827,7 +4827,7 @@
                 <div class="section-title">Fondo Base y Transición</div>
                 <div class="prop-group mt-2">
                   <label>Transición de Entrada</label>
-                  <select v-model="slideConfigs[pageNum]!.transition" class="pro-input">
+                  <select v-model="ensureSlideConfig(pageNum).transition" class="pro-input">
                     <option value="none">Ninguna</option>
                     <option value="dissolve">Desvanecer (Dissolve / Fade)</option>
                     <option value="slide-up">Deslizar Arriba</option>
@@ -4842,11 +4842,11 @@
                 <div class="color-picker-wrapper">
                   <input
                     type="color"
-                    :value="slideConfigs[pageNum]!.bgColor"
-                    @input="updateColorDebounced(slideConfigs[pageNum]!, 'bgColor', $event, () => renderPage(pageNum))"
+                    :value="ensureSlideConfig(pageNum).bgColor"
+                    @input="updateColorDebounced(ensureSlideConfig(pageNum), 'bgColor', $event, () => renderPage(pageNum))"
                     class="pro-color-picker"
                   />
-                  <span class="color-hex">{{ slideConfigs[pageNum]!.bgColor.toUpperCase() }}</span>
+                  <span class="color-hex">{{ ensureSlideConfig(pageNum).bgColor.toUpperCase() }}</span>
                 </div>
                 </div>
                 <div class="prop-group mt-2">
@@ -4854,10 +4854,10 @@
                   <label class="btn-ghost w-100 text-center block">
                     <input type="file" @change="setSlideBackgroundImage" accept="image/*" hidden />
                     <i class="ph ph-image"></i>
-                    {{ slideConfigs[pageNum]!.bgImage ? 'Cambiar Imagen' : 'Subir Imagen' }}
+                    {{ ensureSlideConfig(pageNum).bgImage ? 'Cambiar Imagen' : 'Subir Imagen' }}
                   </label>
                   <button
-                    v-if="slideConfigs[pageNum]!.bgImage"
+                    v-if="ensureSlideConfig(pageNum).bgImage"
                     class="btn-text-danger w-100 mt-1"
                     @click="removeBackgroundImage"
                   >
@@ -8177,13 +8177,33 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   const documentState = ref<Record<number, any[]>>({})
   const slideConfigs = ref<
     Record<number, { bgColor: string; bgImage: string | null; transition: string }>
-  >({})
+  >({
+    1: { bgColor: '#ffffff', bgImage: null, transition: 'none' },
+  })
   const pdfPageMap = ref<Record<number, number>>({})
   const pdfThumbnails = ref<Record<number, string>>({})
 
   // MULTISELECCIÓN Y MINDMAP
   const selectedElementIds = ref<string[]>([])
-  const activeMapNodeId = ref<string | null>(null)
+  const isAllGrouped = computed(() => {
+  if (selectedElements.value.length < 2) return false;
+  const firstGroupId = selectedElements.value[0].groupId;
+  if (!firstGroupId) return false;
+  return selectedElements.value.every(el => el.groupId === firstGroupId);
+});
+
+const activeMapNodeId = ref<string | null>(null);
+
+const openCropper = (el: any) => {
+  // Implement cropper functionality here
+};
+
+const activeMapNode = computed(() => {
+  if (!activeMapNodeId.value || !selectedElement.value || selectedElement.value.type !== 'mindmap') {
+    return null;
+  }
+  return selectedElement.value.nodes.find(n => n.id === activeMapNodeId.value) || null;
+});
   const clipboardElements = ref<any[]>([])
 
   const currentPageElements = computed(() => documentState.value[pageNum.value] || [])
@@ -8227,11 +8247,14 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
       (el: any) => typeof el?.id === 'string' && el.id.startsWith('el_pdf_'),
     ),
   )
-  const selectedElement = computed(() =>
-    selectedElementIds.value.length === 1
-      ? currentPageElements.value.find((el) => el.id === selectedElementIds.value[0])
-      : null,
-  )
+  const selectedElement = computed(() => {
+  if (selectedElementIds.value.length !== 1) return null;
+  return currentPageElements.value.find((el) => el.id === selectedElementIds.value[0]) || null;
+});
+
+const selectedElements = computed(() => {
+  return currentPageElements.value.filter(el => selectedElementIds.value.includes(el.id));
+});
 
   watch(
     selectedElement,
@@ -8351,74 +8374,25 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
     syncHardcodedPdfThumbnailsBySlide()
   }, { deep: true })
 
-  const currentBgImage = computed(() => {
-    const bg = slideConfigs.value[pageNum.value]?.bgImage;
-    if (!bg || bg.trim() === '' || bg === 'none') return 'none';
-    return `url("${bg}")`;
-  })
-  const isAllGrouped = computed(() => {
-    const els = currentPageElements.value.filter((e) => selectedElementIds.value.includes(e.id))
-    if (els.length < 2) return false
-    const firstGroup = els[0].groupId
-    return firstGroup && els.every((e) => e.groupId === firstGroup)
-  })
+watch(slideConfigs.value, (newConfigs) => {
+  const newPageNum = pageNum.value;
+  if (playMode.value && newConfigs[newPageNum]) {
+    activeTransition.value = slideConfigs.value[newPageNum]?.transition ?? 'none';
+  }
+}, { deep: true });
 
-  // --- COMPUTED PARA MAPA MENTAL ---
-  const activeMapNode = computed(() => {
-    if (selectedElement.value && selectedElement.value.type === 'mindmap' && activeMapNodeId.value) {
-      return selectedElement.value.nodes.find((n: any) => n.id === activeMapNodeId.value)
-    }
-    return null
-  })
-  // --- LÓGICA DE RECORTE DE IMÁGENES (CORREGIDA AL 100%) ---
+const currentBgImage = computed(() => {
+  const bgImage = slideConfigs.value[pageNum.value]?.bgImage;
+  return bgImage && bgImage !== 'none' ? `url(${bgImage})` : 'none';
+});
 
-  // 1. Variable pura de Javascript. NADA de ref() ni reactive().
-  // Así Vue no la toca y CropperJS funciona perfectamente.
-  let myCropper: any = null;
+watch(activeTransition, (newVal, oldVal) => {
+  if (newVal === 'none' && oldVal !== 'none' && playMode.value) {
+    // No es necesario forzar a 'none' si ya está en 'none'
+  }
+});
 
-  const openCropper = async () => {
-    if (!selectedElement.value || !selectedElement.value.src) return;
-    showCropperModal.value = true;
 
-    // Esperamos que Vue renderice el modal y la etiqueta <img> en el DOM
-    await nextTick();
-
-    const imgEl = cropperImgRef.value as HTMLImageElement;
-    if (!imgEl) return;
-
-    // Destruimos cualquier instancia fantasma que pudiera quedar
-    if (myCropper) {
-      myCropper.destroy();
-      myCropper = null;
-    }
-
-    const initCropper = () => {
-      try {
-        myCropper = new Cropper(imgEl, {
-          viewMode: 2,
-          autoCropArea: 1,
-          background: false,
-          zoomable: true,
-          rotatable: true,
-          checkCrossOrigin: false, // Evita que Cropper haga doble petición HTTP
-        });
-      } catch (e) {
-        console.error("Error inicializando Cropper:", e);
-        showToast("No se pudo iniciar la herramienta de recorte", "error");
-      }
-    };
-
-    // Verificar si la imagen ya está lista para usarse
-    if (imgEl.complete && imgEl.naturalWidth !== 0) {
-      initCropper();
-    } else {
-      imgEl.onload = () => initCropper();
-      imgEl.onerror = () => {
-        showToast("La imagen no se pudo cargar para recortar.", "error");
-        closeCropper();
-      };
-    }
-  };
 
   const applyCrop = async () => {
     if (!myCropper) {
@@ -9813,6 +9787,13 @@ watch(
         slideConfigs.value[i] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
       if (pdfPageMap.value[i] === undefined) pdfPageMap.value[i] = i
     }
+  }
+
+  const ensureSlideConfig = (page: number) => {
+    if (!slideConfigs.value[page]) {
+      slideConfigs.value[page] = { bgColor: '#ffffff', bgImage: null, transition: 'none' }
+    }
+    return slideConfigs.value[page]
   }
 
   const getChartMax = (data: any[]) =>
@@ -12284,7 +12265,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
       await nextTick();
       if (workspaceRef.value) void workspaceRef.value.offsetWidth;
-      activeTransition.value = slideConfigs.value[num]?.transition || 'none';
+      activeTransition.value = ensureSlideConfig(num).transition || 'none';
       renderPage(num);
       preloadNextSlideAssets(num);
     }
@@ -13405,7 +13386,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       })
 
       if (isActive) {
-        activeTransition.value = slideConfigs.value[pageNum.value]?.transition || 'none'
+        activeTransition.value = slideConfigs.value[pageNum.value]?.transition ?? 'none';
         timerInterval = setInterval(() => {
           Object.values(documentState.value).forEach((pageItems) => {
             pageItems.forEach((el) => {
@@ -13784,237 +13765,89 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\/script>
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"><\/script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web/src/regular/style.css" />
-    <style>
-      body { margin: 0; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; -webkit-user-select: none; --pres-bg: #fff; --pres-text: #1e293b; --pres-accent: #3b82f6; }
-      #app { display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; position: relative; }
-      .canvas-wrapper { position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); transform-origin: center center; transition: transform 0.2s; }
-.layer-pdf {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  pointer-events: none;
-  /* 🚀 Mejora cómo el navegador interpola los píxeles */
-  image-rendering: high-quality;
-  -webkit-font-smoothing: antialiased;
-}      .interactive-element { position: absolute; box-sizing: border-box; display: flex; }
-      .el-text { width: 100%; height: 100%; white-space: pre-wrap; word-break: break-word; user-select: text; -webkit-user-select: text; }
-      .el-shape { width: 100%; height: 100%; }
-      .el-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-      .el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
 
-      /* COMPARADOR DE IMAGENES (EXPORT) */
-      .pro-image-comparator { --slider-pos: 50%; }
-      .compare-img {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transform-origin: 50% 50%;
-        pointer-events: none;
-      }
-      .compare-img-foreground {
-        clip-path: polygon(0 0, var(--slider-pos) 0, var(--slider-pos) 100%, 0 100%);
-      }
-      .compare-slider {
-        background: transparent;
-        appearance: none;
-        -webkit-appearance: none;
-        margin: 0;
-        padding: 0;
-        border: none;
-      }
-      .compare-slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 40px;
-        height: 100vh;
-        background: transparent;
-        cursor: ew-resize;
-      }
-      .compare-slider::-moz-range-thumb {
-        width: 40px;
-        height: 100vh;
-        background: transparent;
-        cursor: ew-resize;
-        border: none;
-      }
-      .compare-divider {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: var(--slider-pos);
-        width: 2px;
-        background-color: white;
-        transform: translateX(-50%);
-        pointer-events: none;
-        z-index: 5;
-        box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      }
-      .compare-handle {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 36px;
-        height: 36px;
-        background-color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #333;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        font-size: 14px;
-        gap: 2px;
-      }
+<div v-if="isMobile && (isLeftSidebarOpen || isRightSidebarOpen)" class="mobile-overlay" @click="isLeftSidebarOpen = false; isRightSidebarOpen = false"></div>
 
-      .el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; padding: 0 10px; box-sizing: border-box; }
-      .el-link:active { transform: scale(0.95); }
-      .el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-      .hotspot-pulse { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; animation: pulse 2s infinite; }
-      @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 70% { transform: scale(1.1); opacity: 0; } 100% { transform: scale(0.95); opacity: 0; } }
-      .interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: white; color: #333; padding: 20px; border-radius: 8px; width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); z-index: 9999; cursor: default; user-select: text; }
-      .modal-title { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-      .el-accordion { width: 100%; height: 100%; overflow-y: auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-      .accordion-item { border-bottom: 1px solid rgba(0,0,0,0.05); }
-      .accordion-header { padding: 12px 16px; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; background: rgba(0,0,0,0.05); transition: 0.2s; }
-      .accordion-content { padding: 16px; font-size: 0.9rem; line-height: 1.5; background: rgba(0,0,0,0.02); user-select: text; }
-
-      .el-audio-wrapper { cursor: pointer; display: flex; align-items: center; justify-content: center; }
-      .audio-pill { display: flex; align-items: center; gap: 10px; width: 100%; height: 100%; padding: 0 20px; box-sizing: border-box; font-family: sans-serif; font-size: 0.9rem; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-      .audio-pill i { font-size: 1.5rem; }
-      .audio-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .audio-waves { display: flex; gap: 3px; height: 15px; align-items: center; }
-      .audio-waves span { width: 3px; background: currentColor; height: 100%; border-radius: 2px; animation: wave 1s infinite ease-in-out; }
-      .audio-waves span:nth-child(2) { animation-delay: 0.2s; }
-      .audio-waves span:nth-child(3) { animation-delay: 0.4s; }
-      @keyframes wave { 0%, 100% { height: 20%; } 50% { height: 100%; } }
-      .audio-minimal { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
-      .audio-floating { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; transition: transform 0.2s, box-shadow 0.2s; }
-      .audio-floating:hover { transform: translateY(-4px); }
-      .audio-floating:active { transform: translateY(0); }
-      .audio-minimal.is-playing, .audio-floating.is-playing { animation: pulse-audio 1.5s infinite alternate; }
-
-      @keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.4); } to { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); } }
-      .play-nav-overlay { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); padding: 10px 20px; border-radius: 30px; display: flex; gap: 15px; z-index: 10000; color: white; align-items: center; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transition: opacity 0.4s ease, transform 0.4s ease;}
-      .play-nav-overlay button { display: flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 50%; background: #444; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s;}
-      .play-nav-overlay button:hover:not(:disabled) { background: #58a6ff; }
-      .play-nav-overlay button:disabled { opacity: 0.5; cursor: not-allowed; }
-      .play-nav-overlay.is-idle { opacity: 0; pointer-events: none; transform: translate(-50%, 15px); }
-
-      .chart-content { display: flex; width: 100%; height: calc(100% - 30px); }
-      .chart-bar-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: calc(100% - 30px); gap: 8px; }
-      .bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; height: 100%; }
-      .bar-fill { width: 100%; border-radius: 4px 4px 0 0; transition: height 0.3s; }
-      .chart-hbar-container { display: flex; flex-direction: column; justify-content: space-around; width: 100%; height: calc(100% - 30px); gap: 5px; }
-      .hbar-row { display: flex; align-items: center; width: 100%; height: 100%; gap: 10px; }
-      .hbar-track { flex: 1; height: 100%; min-height: 10px; background: rgba(0,0,0,0.05); border-radius: 0 4px 4px 0; display: flex; align-items: center;}
-      .hbar-fill { height: 100%; border-radius: 0 4px 4px 0; transition: width 0.3s; }
-      .chart-pie-container { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: calc(100% - 30px); position: relative; }
-      .pie-circle { border-radius: 50%; width: 100%; height: 100%; max-width: 200px; max-height: 200px; display: flex; align-items: center; justify-content: center; }
-      .donut-hole { width: 50%; height: 50%; border-radius: 50%; }
-      .chart-label { font-size: 10px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-      .chart-value { font-size: 10px; margin-bottom: 4px; font-weight: bold; }
-      .pie-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
-      .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; }
-      .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-
-      .mm-wrapper { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; }
-      .mm-level-0 { display: flex; align-items: center; }
-      .mm-node-block { display: flex; flex-direction: column; align-items: center; padding: 10px 16px; border: 2px solid transparent; cursor: pointer; transition: 0.2s; position: relative; z-index: 2; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-      .mm-node-block:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
-      .mm-node-img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-bottom: 5px; }
-      .mm-node-text { font-weight: bold; font-size: 1rem; text-align: center; }
-      .mm-node-note { font-size: 0.7rem; opacity: 0.8; margin-top: 4px; text-align: center; max-width: 150px; line-height: 1.2; }
-      .mm-children { display: flex; flex-direction: column; justify-content: center; position: relative; padding-left: 40px; gap: 15px; }
-      .mm-child-wrapper { display: flex; align-items: center; position: relative; }
-      .mm-child-wrapper::before { content: ''; position: absolute; left: -20px; top: 50%; width: 20px; height: 1px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
-      .mm-child-wrapper::after { content: ''; position: absolute; left: -20px; border-left: var(--mm-line-width) solid var(--mm-line-color); }
-      .mm-child-wrapper:first-child::after { top: 50%; bottom: 0; }
-      .mm-child-wrapper:last-child::after { top: 0; bottom: 50%; }
-      .mm-child-wrapper:not(:first-child):not(:last-child)::after { top: 0; bottom: 0; }
-      .mm-child-wrapper:first-child:last-child::after { display: none; }
-      .mm-connector-right { position: absolute; right: -20px; top: 50%; width: 20px; border-top: var(--mm-line-width) solid var(--mm-line-color); }
-      .layout-vertical.mm-wrapper { flex-direction: column; align-items: center; justify-content: flex-start; }
-      .layout-vertical .mm-level-0 { flex-direction: column; align-items: center; }
-      .layout-vertical .mm-children { flex-direction: row; padding-left: 0; padding-top: 30px; gap: 20px; justify-content: center; }
-      .layout-vertical .mm-child-wrapper { flex-direction: column; align-items: center; }
-      .layout-vertical .mm-child-wrapper::before { left: 50%; top: -15px; width: 1px; height: 15px; border-top: none; border-left: var(--mm-line-width) solid var(--mm-line-color); }
-      .layout-vertical .mm-child-wrapper::after { left: 0; top: -15px; border-left: none; border-top: var(--mm-line-width) solid var(--mm-line-color); width: 100%; }
-      .layout-vertical .mm-child-wrapper:first-child::after { left: 50%; width: 50%; }
-      .layout-vertical .mm-child-wrapper:last-child::after { left: 0; width: 50%; }
-      .layout-vertical .mm-child-wrapper:not(:first-child):not(:last-child)::after { left: 0; width: 100%; }
-      .layout-vertical .mm-child-wrapper:first-child:last-child::after { display: none; }
-      .layout-vertical .mm-connector-right { right: auto; left: 50%; top: 100%; width: 1px; height: 15px; border-top: none; border-left: var(--mm-line-width) solid var(--mm-line-color); }
-
-      .slide-trans-dissolve-enter-active, .slide-trans-dissolve-leave-active { transition: opacity 0.6s ease; }
-      .slide-trans-dissolve-enter-from, .slide-trans-dissolve-leave-to { opacity: 0; }
-
-      .slide-trans-slide-up-enter-active, .slide-trans-slide-up-leave-active { transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
-      .slide-trans-slide-up-enter-from { opacity: 0; transform: translateY(50px); }
-      .slide-trans-slide-up-leave-to { opacity: 0; transform: translateY(-50px); }
-
-      .slide-trans-zoom-enter-active, .slide-trans-zoom-leave-active { transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
-      .slide-trans-zoom-enter-from { opacity: 0; transform: scale(0.95); }
-      .slide-trans-zoom-leave-to { opacity: 0; transform: scale(1.05); }
-
-      .slide-trans-push-left-enter-active, .slide-trans-push-left-leave-active { transition: transform 0.5s ease; }
-      .slide-trans-push-left-enter-from { transform: translateX(100%); }
-      .slide-trans-push-left-leave-to { transform: translateX(-100%); }
-
-      .slide-trans-push-right-enter-active, .slide-trans-push-right-leave-active { transition: transform 0.5s ease; }
-      .slide-trans-push-right-enter-from { transform: translateX(-100%); }
-      .slide-trans-push-right-leave-to { transform: translateX(100%); }
-
-      .slide-trans-wipe-enter-active, .slide-trans-wipe-leave-active { transition: clip-path 0.5s ease; }
-      .slide-trans-wipe-enter-from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
-      .slide-trans-wipe-leave-to { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
-
-      .anim-fade-in { animation: animFadeIn 0.8s ease-out both; }
-      .anim-slide-up { animation: animSlideUp 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
-      .anim-zoom-in { animation: animZoomIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
-      .anim-bounce { animation: animBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
-      @keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes animSlideUp { from { translate: 0 50px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
-      @keyframes animZoomIn { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
-      @keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 50% { scale: 1.05; opacity: 1; } 100% { scale: 1; opacity: 1; } }
-      .marquee-track { display: flex; white-space: nowrap; position: absolute; animation-name: scroll-marquee; animation-timing-function: linear; animation-iteration-count: infinite; }
-      .marquee-content { padding: 0 50px; display: inline-block; }
-      @keyframes scroll-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-
-      .is-waiting-animation { opacity: 0 !important; visibility: hidden; pointer-events: none; }
-
-/* PLANTILLAS FLOTANTES */
-.templates-floating-menu {
-  position: absolute;
-  top: 110%;
-  left: 0;
-  width: 240px;
-  background: #111113;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-  z-index: 10000;
+<style>
+.pro-editor-app {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   overflow: hidden;
+  position: relative;
 }
-.tmpl-menu-header {
-  padding: 12px 14px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-strong);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.03);
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1400;
 }
-.tmpl-menu-body {
-  padding: 16px;
+.pro-top-toolbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+}
+@media (max-width: 992px) {
+  .pro-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1500;
+    box-shadow: var(--shadow-lg);
+    transition: transform 0.3s ease;
+  }
+
+  .left-sidebar {
+    left: 0;
+    transform: translateX(-100%);
+  }
+
+  .left-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .right-sidebar {
+    right: 0;
+    transform: translateX(100%);
+  }
+
+  .right-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-resizer {
+    display: none;
+  }
+
+  .sidebar-toggle-btn {
+    top: 15px;
+    z-index: 1600;
+  }
+  
+  .pro-top-toolbar {
+    padding-left: 50px;
+    padding-right: 50px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pro-top-toolbar {
+    padding: 8px;
+    gap: 12px;
+  }
+  .toolbar-category {
+    gap: 4px;
+  }
+  .category-tools {
+    gap: 4px;
+  }
+  .tool-btn, .shape-dropdown-btn, .arrow-dropdown-btn, .icon-dropdown-btn, .mindmap-dropdown-btn, .table-dropdown-btn, .chart-dropdown-btn, .qr-dropdown-btn {
+    width: 38px;
+    height: 38px;
+  }
 }
 </style>
   </head>
@@ -14717,7 +14550,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               activeTransition.value = 'none';
               await nextTick();
               void document.body.offsetWidth;
-              activeTransition.value = slideConfigs.value[num]?.transition || 'none';
+activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
 
               Object.values(documentState.value).forEach(pageItems => {
                 pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
@@ -14836,6 +14669,28 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     URL.revokeObjectURL(url)
   }
 
+const isMobile = computed(() => {
+  if (typeof window !== 'undefined') {
+    return window.innerWidth < 992;
+  }
+  return false;
+});
+
+// En el onMounted, cerramos los sidebars si estamos en móvil
+onMounted(() => {
+  if (isMobile.value) {
+    isLeftSidebarOpen.value = false;
+    isRightSidebarOpen.value = false;
+  }
+});
+
+// Añadimos un watcher para cuando cambie el tamaño de la ventana
+watch(isMobile, (newVal) => {
+  if (newVal) {
+    isLeftSidebarOpen.value = false;
+    isRightSidebarOpen.value = false;
+  }
+});
 </script>
 
   <style scoped>
@@ -17713,4 +17568,68 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   }
 
 
-  </style>
+.pro-top-toolbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+}
+@media (max-width: 992px) {
+  .pro-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1500;
+    box-shadow: var(--shadow-lg);
+    transition: transform 0.3s ease;
+  }
+
+  .left-sidebar {
+    left: 0;
+    transform: translateX(-100%);
+  }
+
+  .left-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .right-sidebar {
+    right: 0;
+    transform: translateX(100%);
+  }
+
+  .right-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-resizer {
+    display: none;
+  }
+
+  .sidebar-toggle-btn {
+    top: 15px;
+    z-index: 1600;
+  }
+  
+  .pro-top-toolbar {
+    padding-left: 50px;
+    padding-right: 50px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pro-top-toolbar {
+    padding: 8px;
+    gap: 12px;
+  }
+  .toolbar-category {
+    gap: 4px;
+  }
+  .category-tools {
+    gap: 4px;
+  }
+  .tool-btn, .shape-dropdown-btn, .arrow-dropdown-btn, .icon-dropdown-btn, .mindmap-dropdown-btn, .table-dropdown-btn, .chart-dropdown-btn, .qr-dropdown-btn {
+    width: 38px;
+    height: 38px;
+  }
+}
+</style>

@@ -1,11 +1,11 @@
 <template>
-  <div class="pro-color-picker-wrapper" ref="pickerRef">
+  <div ref="pickerRef" class="pro-color-picker-wrapper">
     <!-- Botón visible -->
     <div
       class="pro-color-trigger"
       :style="{ backgroundColor: modelValue === 'transparent' ? '#ffffff' : modelValue }"
-      @click.stop="togglePicker"
       title="Elegir color"
+      @click.stop="togglePicker"
     >
       <div v-if="modelValue === 'transparent'" class="transparent-line"></div>
     </div>
@@ -35,17 +35,17 @@
             <input
               type="color"
               :value="modelValue === 'transparent' ? '#ffffff' : modelValue"
-              @change="handleNativeChange"
               class="native-input-hidden"
+              @change="handleNativeChange"
             />
           </label>
           <!-- Texto HEX -->
           <input
             type="text"
             :value="modelValue"
-            @change="handleTextChange"
             class="hex-input"
             placeholder="#HEX"
+            @change="handleTextChange"
           />
         </div>
       </div>

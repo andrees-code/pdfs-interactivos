@@ -17,7 +17,7 @@
         </div>
       </header>
 
-      <main class="viewer-stage-wrap" ref="stageWrapRef">
+      <main ref="stageWrapRef" class="viewer-stage-wrap">
         <div class="stage-scale" :style="{ transform: `scale(${stageScale})` }">
           <div
             class="viewer-stage"

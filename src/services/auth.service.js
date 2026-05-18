@@ -55,7 +55,9 @@ export const authService = {
     })
 
     if (!response.ok) {
-      throw new Error(await extractApiError(response, 'No se pudo enviar la solicitud de recuperacion'))
+      throw new Error(
+        await extractApiError(response, 'No se pudo enviar la solicitud de recuperacion'),
+      )
     }
 
     return await response.json()
@@ -85,5 +87,5 @@ export const authService = {
   logout() {
     localStorage.removeItem('userToken')
     localStorage.removeItem('userData')
-  }
+  },
 }

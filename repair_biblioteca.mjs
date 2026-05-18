@@ -1,14 +1,16 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
-const file = path.resolve('./src/views/BibliotecaView.vue');
-let content = fs.readFileSync(file, 'utf8');
+const file = path.resolve('./src/views/BibliotecaView.vue')
+let content = fs.readFileSync(file, 'utf8')
 
 // The multi_replace_file_content deleted loadPresentations and left dangling code.
 // Let's replace the broken block with the correct loadPresentations block.
 
-const brokenSnippetStart = content.indexOf('    const userId = authStore.user._id || authStore.user.id');
-const brokenSnippetEnd = content.indexOf('const createNewProject = () => {');
+const brokenSnippetStart = content.indexOf(
+  '    const userId = authStore.user._id || authStore.user.id',
+)
+const brokenSnippetEnd = content.indexOf('const createNewProject = () => {')
 
 if (brokenSnippetStart !== -1 && brokenSnippetEnd !== -1) {
   const correctSnippet = `
@@ -40,11 +42,11 @@ const loadPresentations = async () => {
   }
 };
 
-`;
-  
-  content = content.slice(0, brokenSnippetStart) + correctSnippet + content.slice(brokenSnippetEnd);
-  fs.writeFileSync(file, content, 'utf8');
-  console.log('Restored loadPresentations successfully.');
+`
+
+  content = content.slice(0, brokenSnippetStart) + correctSnippet + content.slice(brokenSnippetEnd)
+  fs.writeFileSync(file, content, 'utf8')
+  console.log('Restored loadPresentations successfully.')
 } else {
-  console.log('Could not find broken snippet boundaries.');
+  console.log('Could not find broken snippet boundaries.')
 }

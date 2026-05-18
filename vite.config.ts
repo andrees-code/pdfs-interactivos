@@ -18,15 +18,15 @@ export default defineConfig({
       template: {
         compilerOptions: {
           // Ignorar la etiqueta de 3D para que Vue no se queje
-          isCustomElement: (tag) => tag === 'model-viewer' || tag.startsWith('model-')
-        }
-      }
+          isCustomElement: (tag) => tag === 'model-viewer' || tag.startsWith('model-'),
+        },
+      },
     }),
     vueDevTools(),
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
 })

@@ -125,7 +125,7 @@ onUnmounted(() => {
     </header>
 
     <main class="main-shell">
-      <section class="hero reveal" id="producto">
+      <section id="producto" class="hero reveal">
         <div class="hero-copy">
           <p class="section-label">DocFlow Studio</p>
           <h1>Editor de presentaciones WEB (html).</h1>
@@ -167,7 +167,7 @@ onUnmounted(() => {
               />
             </Transition>
             <Transition name="hero-content" mode="out-in">
-              <div class="carousel-overlay" :key="activeSlide.title">
+              <div :key="activeSlide.title" class="carousel-overlay">
                 <h2>{{ activeSlide.title }}</h2>
                 <p>{{ activeSlide.description }}</p>
               </div>
@@ -175,7 +175,7 @@ onUnmounted(() => {
           </div>
 
           <div class="carousel-controls">
-            <button type="button" class="carousel-arrow" @click="prevSlide" aria-label="Slide anterior">&#8592;</button>
+            <button type="button" class="carousel-arrow" aria-label="Slide anterior" @click="prevSlide">&#8592;</button>
             <div class="carousel-dots">
               <button
                 v-for="(slide, index) in slides"
@@ -183,16 +183,16 @@ onUnmounted(() => {
                 type="button"
                 class="dot"
                 :class="{ active: index === currentSlide }"
-                @click="goToSlide(index)"
                 :aria-label="`Ir a slide ${index + 1}`"
+                @click="goToSlide(index)"
               ></button>
             </div>
-            <button type="button" class="carousel-arrow" @click="nextSlide" aria-label="Slide siguiente">&#8594;</button>
+            <button type="button" class="carousel-arrow" aria-label="Slide siguiente" @click="nextSlide">&#8594;</button>
           </div>
         </div>
       </section>
 
-      <section class="capabilities reveal" id="secciones">
+      <section id="secciones" class="capabilities reveal">
         <header class="section-header">
           <p class="section-label">Capacidades</p>
           <h2>Arquitectura pensada para operación real</h2>
@@ -222,7 +222,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="use-cases reveal" id="casos">
+      <section id="casos" class="use-cases reveal">
         <header class="section-header">
           <p class="section-label">Casos de uso</p>
           <h2>Una plataforma para diferentes equipos</h2>
@@ -244,7 +244,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="process reveal" id="proceso">
+      <section id="proceso" class="process reveal">
         <header class="section-header">
           <p class="section-label">Proceso</p>
           <h2>Tres pasos para pasar de archivo a experiencia web</h2>
@@ -275,7 +275,7 @@ onUnmounted(() => {
         </ol>
       </section>
 
-      <section class="templates reveal" id="plantillas">
+      <section id="plantillas" class="templates reveal">
         <header class="section-header">
           <p class="section-label">Plantillas</p>
           <h2>Base visual lista para acelerar entregas</h2>
