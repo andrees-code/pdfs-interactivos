@@ -58,7 +58,13 @@
         </div>
 
         <div class="pro-workspace">
-          <aside class="pro-sidebar left-sidebar" :class="{ 'is-open': isLeftSidebarOpen }" v-show="hasDoc && !playMode" :style="{ width: leftSidebarWidth + 'px' }" @click.stop>
+          <aside
+            class="pro-sidebar left-sidebar"
+            :class="{ 'is-open': isLeftSidebarOpen, 'is-collapsed': !isLeftSidebarOpen }"
+            v-show="hasDoc && !playMode"
+            :style="{ width: isLeftSidebarOpen ? leftSidebarWidth + 'px' : '0px' }"
+            @click.stop
+          >
             <div class="sidebar-cta">
               <button class="btn-primary w-100" @click="showTemplateModal = true">
                 <i class="ph ph-layout"></i> Explorar Plantillas
@@ -2366,7 +2372,13 @@
           <!-- Resizer Derecho -->
           <div class="sidebar-resizer" v-if="hasDoc && !playMode && isRightSidebarOpen" @mousedown.prevent.stop="startResizeSidebar($event, 'right')"></div>
 
-          <aside class="pro-sidebar right-sidebar" :class="{ 'is-open': isRightSidebarOpen }" v-show="hasDoc && !playMode" :style="{ width: rightSidebarWidth + 'px' }" @click.stop>
+          <aside
+            class="pro-sidebar right-sidebar"
+            :class="{ 'is-open': isRightSidebarOpen, 'is-collapsed': !isRightSidebarOpen }"
+            v-show="hasDoc && !playMode"
+            :style="{ width: isRightSidebarOpen ? rightSidebarWidth + 'px' : '0px' }"
+            @click.stop
+          >
             <div class="panel-header">Propiedades</div>
 
             <div class="inspector-tabs" v-if="selectedElement">
@@ -15859,6 +15871,11 @@ watch(isMobile, (newVal) => {
     box-shadow: var(--shadow-float);
     backdrop-filter: blur(var(--blur-md));
     -webkit-backdrop-filter: blur(var(--blur-md));
+    transition: width 0.24s ease, border-color var(--transition-normal), box-shadow var(--transition-normal);
+  }
+  .pro-sidebar.is-collapsed {
+    border-color: transparent !important;
+    box-shadow: none;
   }
   .right-sidebar {
     border-right: 1px solid var(--glass-border) !important;
