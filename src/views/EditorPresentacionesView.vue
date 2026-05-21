@@ -4148,7 +4148,11 @@
                       />
                     </div>
                     <div class="prop-group mt-4" v-if="selectedElement.src">
-      <button class="btn-primary w-100" @click="openCropper">
+      <button
+        type="button"
+        class="btn-primary w-100"
+        @pointerdown.prevent.stop="openCropperById(selectedElement.id)"
+      >
         <i class="ph ph-crop"></i> Recortar Imagen
       </button>
     </div>
@@ -5034,7 +5038,7 @@
             <div class="cropper-stage">
               <img
                 ref="cropperImgRef"
-                :src="selectedElement?.src"
+                :src="cropperSource"
                 class="cropper-stage-image"
                 crossorigin="anonymous"
               />
@@ -6414,6 +6418,8 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   // 2. Añade estas variables de estado (por ejemplo debajo de "const activeTool = ref...")
   const showCropperModal = ref(false);
   const cropperImgRef = ref<HTMLImageElement | null>(null);
+  const cropperSource = ref('');
+  let myCropper: Cropper | null = null;
   const API_BASE = API_BASE_CONFIG
   const API_URL = PRESENTATIONS_API
   const presentationId = ref<string | null>(null);
@@ -8322,8 +8328,71 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
 const activeMapNodeId = ref<string | null>(null);
 
-const openCropper = (el: any) => {
-  // Implement cropper functionality here
+const openCropperById = async (elementId?: string) => {
+  if (!elementId) {
+    showToast('No se encontro la imagen para recortar.', 'warning');
+    return;
+  }
+
+  const target = currentPageElements.value.find((item) => item.id === elementId);
+
+  if (!target || target.type !== 'image' || !target.src) {
+    showToast('Selecciona una imagen valida para recortar.', 'warning');
+    return;
+  }
+
+  cropperSource.value = target.src;
+  showCropperModal.value = true;
+  await nextTick();
+
+  const img = cropperImgRef.value;
+  if (!img) {
+    showToast('No se pudo inicializar el recortador.', 'error');
+    return;
+  }
+
+  const mountCropper = () => {
+    const cropperImg = cropperImgRef.value;
+    if (!cropperImg) return;
+
+    if (myCropper) {
+      myCropper.destroy();
+      myCropper = null;
+    }
+
+    try {
+      myCropper = new Cropper(cropperImg, {
+        viewMode: 1,
+        dragMode: 'move',
+        responsive: true,
+        autoCropArea: 1,
+        background: false,
+        checkOrientation: false,
+      });
+    } catch (error) {
+      console.error('Error al iniciar Cropper:', error);
+      showToast('No se pudo abrir el modo de recorte.', 'error');
+      closeCropper();
+    }
+  };
+
+  if (img.complete && img.naturalWidth > 0) {
+    mountCropper();
+    return;
+  }
+
+  img.onload = () => {
+    img.onload = null;
+    img.onerror = null;
+    mountCropper();
+  };
+
+  img.onerror = () => {
+    img.onload = null;
+    img.onerror = null;
+    showToast('No se pudo cargar la imagen para recortar.', 'error');
+    closeCropper();
+  };
 };
 
 const activeMapNode = computed(() => {
@@ -8565,6 +8634,7 @@ watch(activeTransition, (newVal, oldVal) => {
       myCropper = null;
     }
     showCropperModal.value = false;
+    cropperSource.value = '';
   };
 
   // Botones de rotar y voltear con protección anti-crasheos
@@ -17716,6 +17786,10 @@ watch(isMobile, (newVal) => {
     z-index: 10002;
   }
   .cropper-modal {
+    background: var(--surface-panel, #1f2430);
+    opacity: 1;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     width: 800px;
     max-width: 95vw;
     height: 80vh;
