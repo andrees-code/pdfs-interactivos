@@ -57,8 +57,9 @@
           </button>
         </div>
 
-        <div class="pro-workspace">
+        <div class="pro-workspace" :class="{ 'is-sidebar-resizing': isSidebarResizing }">
           <aside
+            ref="leftSidebarEl"
             class="pro-sidebar left-sidebar"
             :class="{ 'is-open': isLeftSidebarOpen, 'is-collapsed': !isLeftSidebarOpen }"
             v-show="hasDoc && !playMode"
@@ -2373,6 +2374,7 @@
           <div class="sidebar-resizer" v-if="hasDoc && !playMode && isRightSidebarOpen" @mousedown.prevent.stop="startResizeSidebar($event, 'right')"></div>
 
           <aside
+            ref="rightSidebarEl"
             class="pro-sidebar right-sidebar"
             :class="{ 'is-open': isRightSidebarOpen, 'is-collapsed': !isRightSidebarOpen }"
             v-show="hasDoc && !playMode"
@@ -8216,6 +8218,9 @@ const wakeUpPlayNav = () => {
 
   const leftSidebarWidth = ref(240)
   const rightSidebarWidth = ref(280)
+  const leftSidebarEl = ref<HTMLElement | null>(null)
+  const rightSidebarEl = ref<HTMLElement | null>(null)
+  const isSidebarResizing = ref(false)
   const isLeftSidebarOpen = ref(true)
   const isRightSidebarOpen = ref(true)
   const showTemplateModal = ref(false)
@@ -8226,6 +8231,7 @@ const wakeUpPlayNav = () => {
 const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   if (playMode.value) return;
   e.preventDefault();
+  isSidebarResizing.value = true;
 
   const startX = e.clientX;
   const startLeftWidth = leftSidebarWidth.value;
@@ -8234,16 +8240,30 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   // Límites para que no se hagan invisibles ni ocupen toda la pantalla
   const MIN_WIDTH = 200;
   const MAX_WIDTH = 600;
+  let latestWidth = side === 'left' ? startLeftWidth : startRightWidth;
+  let rafId: number | null = null;
+
+  const renderSidebarWidth = (width: number) => {
+    latestWidth = width;
+    if (rafId !== null) return;
+    rafId = window.requestAnimationFrame(() => {
+      rafId = null;
+      const targetSidebar = side === 'left' ? leftSidebarEl.value : rightSidebarEl.value;
+      if (targetSidebar) {
+        targetSidebar.style.width = `${latestWidth}px`;
+      }
+    });
+  };
 
   const onMouseMove = (moveEvent: MouseEvent) => {
     if (side === 'left') {
       // Si movemos a la derecha, suma al ancho inicial
       const newWidth = startLeftWidth + (moveEvent.clientX - startX);
-      leftSidebarWidth.value = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
+      renderSidebarWidth(Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH)));
     } else if (side === 'right') {
       // Para el panel derecho, si movemos el ratón a la izquierda (negativo), sumamos ancho
       const newWidth = startRightWidth - (moveEvent.clientX - startX);
-      rightSidebarWidth.value = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
+      renderSidebarWidth(Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH)));
     }
 
     // Opcional: reajustar el zoom del lienzo al cambiar el tamaño de los paneles
@@ -8251,6 +8271,16 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
   };
 
   const onMouseUp = () => {
+    isSidebarResizing.value = false;
+    if (rafId !== null) {
+      window.cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    if (side === 'left') {
+      leftSidebarWidth.value = latestWidth;
+    } else {
+      rightSidebarWidth.value = latestWidth;
+    }
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
 
@@ -15365,6 +15395,9 @@ watch(isMobile, (newVal) => {
     border-radius: calc(var(--radius-xl) + 4px);
     transition: all 0.3s ease;
   }
+  .pro-workspace.is-sidebar-resizing .center-workspace {
+    transition: none;
+  }
   .pro-top-toolbar {
     position: sticky;
     top: 8px;
@@ -15872,6 +15905,9 @@ watch(isMobile, (newVal) => {
     backdrop-filter: blur(var(--blur-md));
     -webkit-backdrop-filter: blur(var(--blur-md));
     transition: width 0.24s ease, border-color var(--transition-normal), box-shadow var(--transition-normal);
+  }
+  .pro-workspace.is-sidebar-resizing .pro-sidebar {
+    transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
   }
   .pro-sidebar.is-collapsed {
     border-color: transparent !important;
