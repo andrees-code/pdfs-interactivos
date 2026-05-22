@@ -48,7 +48,7 @@ let pdfjsLibInstance: Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist
 const getPdfjsLib = async () => {
   if (pdfjsLibInstance) return pdfjsLibInstance
   const pdfLib = await import('pdfjs-dist')
-  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.js?worker')
+  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.mjs?worker')
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker()
   pdfjsLibInstance = pdfLib
   return pdfLib

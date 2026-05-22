@@ -5130,7 +5130,7 @@ const getPdfjsLib = async (): Promise<PdfjsLib> => {
   const pdfLib = await import('pdfjs-dist');
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore -- pdfjs worker bundled as Vite ?worker import has no TS declaration
-  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.js?worker');
+  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.mjs?worker');
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker();
   pdfjsLibInstance = pdfLib;
   return pdfLib;
