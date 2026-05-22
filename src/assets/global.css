@@ -17,6 +17,7 @@
 
 html {
   background: var(--surface-base);
+  scrollbar-color: rgba(var(--accent-rgb), 0.3) #ffffff;
   font-size: calc(16px * var(--app-global-scale));
 }
 
@@ -30,6 +31,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   min-height: 100vh;
+  scrollbar-color: rgba(var(--accent-rgb), 0.3) #ffffff;
 }
 
 #app {
@@ -138,16 +140,16 @@ i.ph {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #ffffff;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(var(--accent-rgb), 0.3);
   border-radius: var(--radius-full);
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(var(--accent-rgb), 0.45);
   background-clip: content-box;
 }
 

@@ -199,8 +199,8 @@ const sendMessage = async () => {
   height: 60px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, #ffffff, #f3f4f6);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.35);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -210,7 +210,7 @@ const sendMessage = async () => {
 
 .chat-trigger-btn:hover {
   transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.45);
 }
 
 .chat-trigger-btn.is-open {
@@ -255,8 +255,8 @@ const sendMessage = async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white;
+  background: linear-gradient(135deg, #ffffff, #f3f4f6);
+  color: #111827;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -339,8 +339,8 @@ const sendMessage = async () => {
 }
 
 .message-wrapper.user .message-bubble {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white;
+  background: linear-gradient(135deg, #ffffff, #f3f4f6);
+  color: #111827;
   border-bottom-right-radius: 4px;
 }
 
@@ -372,7 +372,7 @@ const sendMessage = async () => {
 }
 
 .chat-input-area input:focus {
-  border-color: #8b5cf6;
+  border-color: #ffffff;
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -385,8 +385,8 @@ const sendMessage = async () => {
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: #6366f1;
-  color: white;
+  background: #ffffff;
+  color: #111827;
   cursor: pointer;
   display: flex;
   align-items: center;

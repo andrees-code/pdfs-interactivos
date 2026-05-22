@@ -155,7 +155,7 @@
         >
           <i class="ph ph-trash"></i>
         </button>
-      </div>
+      </button>
     </div>
 
                   <div
@@ -1713,28 +1713,15 @@
                     <div
                       v-else-if="el.type === 'image'"
                       class="el-image-container"
-                      :style="{
-                        borderRadius: (el.borderRadius || 0) + 'px',
-                        border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
-                        filter:
-                          'grayscale(' +
-                          (el.grayscale || 0) +
-                          '%) blur(' +
-                          (el.blur || 0) +
-                          'px) sepia(' +
-                          (el.sepia || 0) +
-                          '%)',
-                        overflow: 'hidden',
-                        width: '100%',
-                        height: '100%',
-                        boxShadow: el.boxShadow || 'none',
-                      }"
+                      :class="{ 'is-inline-cropping': showCropperModal && cropperTargetElementId === el.id }"
+                      :style="getImageFrameStyle(el)"
+                      @dblclick.stop="!playMode ? toggleCropperById(el.id) : null"
                     >
                       <img
-                v-if="el.src && el.src.trim() !== ''"
+                        v-if="el.src && el.src.trim() !== ''"
                         :src="el.src"
                         class="el-content-fitted"
-                        :style="{ objectFit: el.fit }"
+                        :style="getImageContentStyle(el)"
                         draggable="false"
                       />
                       <div v-else class="placeholder-box">
@@ -2213,17 +2200,18 @@
                         !el.isLocked
                       "
                       class="figma-bounding-box"
+                      :class="{ 'is-crop-mode': el.type === 'image' && showCropperModal && cropperTargetElementId === el.id }"
                     >
                       <template v-if="selectedElementIds.length === 1">
-                      <div class="rotate-handle nw" @mousedown.stop.prevent="startRotate($event, el)"></div>
-                      <div class="rotate-handle ne" @mousedown.stop.prevent="startRotate($event, el)"></div>
-                      <div class="rotate-handle sw" @mousedown.stop.prevent="startRotate($event, el)"></div>
-                      <div class="rotate-handle se" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                        <div class="rotate-handle nw" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                        <div class="rotate-handle ne" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                        <div class="rotate-handle sw" @mousedown.stop.prevent="startRotate($event, el)"></div>
+                        <div class="rotate-handle se" @mousedown.stop.prevent="startRotate($event, el)"></div>
 
-                      <div class="resize-handle nw" @mousedown.stop.prevent="startResize($event, el, 'nw')"></div>
-                      <div class="resize-handle ne" @mousedown.stop.prevent="startResize($event, el, 'ne')"></div>
-                      <div class="resize-handle sw" @mousedown.stop.prevent="startResize($event, el, 'sw')"></div>
-                      <div class="resize-handle se" @mousedown.stop.prevent="startResize($event, el, 'se')"></div>
+                        <div class="resize-handle nw" @mousedown.stop.prevent="startResize($event, el, 'nw')"></div>
+                        <div class="resize-handle ne" @mousedown.stop.prevent="startResize($event, el, 'ne')"></div>
+                        <div class="resize-handle sw" @mousedown.stop.prevent="startResize($event, el, 'sw')"></div>
+                        <div class="resize-handle se" @mousedown.stop.prevent="startResize($event, el, 'se')"></div>
                       </template>
                     </div>
                     </div>
@@ -4150,6 +4138,15 @@
                     <div class="prop-group mt-4" v-if="selectedElement.src">
       <button
         type="button"
+        class="btn-secondary w-100 mb-2"
+        @pointerdown.prevent.stop="toggleCropperById(selectedElement.id)"
+      >
+        <i class="ph ph-frame-corners"></i>
+        {{ showCropperModal && cropperTargetElementId === selectedElement.id ? 'Desactivar recorte' : 'Recortar en diapositiva' }}
+      </div>
+
+      <button
+        type="button"
         class="btn-primary w-100"
         @pointerdown.prevent.stop="openCropperById(selectedElement.id)"
       >
@@ -5420,12 +5417,16 @@ const getElementAnimationStyle = (el: any, index: number) => {
 }
 
 const getElementMemo = (el: any, index: number) => {
+  const isCropModeElement = showCropperModal.value && cropperTargetElementId.value === el?.id;
   // Si el elemento está seleccionado, incluir un JSON completo para que cualquier
   // cambio de propiedad en el inspector se refleje de inmediato en el canvas.
   if (selectedElementIds.value.includes(el?.id)) {
     return [
       el?.id,
       JSON.stringify(el),
+      isCropModeElement,
+      cropperTargetElementId.value,
+      showCropperModal.value,
       editingElementId.value === el?.id,
       playMode.value,
       currentAnimationStep.value,
@@ -5471,6 +5472,9 @@ const getElementMemo = (el: any, index: number) => {
     el?.animationDelay,
     el?.animationEasing,
     el?.animationOrder,
+    isCropModeElement,
+    cropperTargetElementId.value,
+    showCropperModal.value,
     editingElementId.value === el?.id,
     selectedElementIds.value.includes(el?.id),
     playMode.value,
@@ -6417,6 +6421,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const SNAP_THRESHOLD = 8 // Distancia en píxeles para que el "imán" actúe
   // 2. Añade estas variables de estado (por ejemplo debajo de "const activeTool = ref...")
   const showCropperModal = ref(false);
+  const cropperTargetElementId = ref<string | null>(null);
   const cropperImgRef = ref<HTMLImageElement | null>(null);
   const cropperSource = ref('');
   let myCropper: Cropper | null = null;
@@ -8341,6 +8346,8 @@ const openCropperById = async (elementId?: string) => {
     return;
   }
 
+  cropperTargetElementId.value = target.id;
+
   cropperSource.value = target.src;
   showCropperModal.value = true;
   await nextTick();
@@ -8363,7 +8370,10 @@ const openCropperById = async (elementId?: string) => {
     try {
       myCropper = new Cropper(cropperImg, {
         viewMode: 1,
-        dragMode: 'move',
+        dragMode: 'crop',
+        movable: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
         responsive: true,
         autoCropArea: 1,
         background: false,
@@ -8392,6 +8402,74 @@ const openCropperById = async (elementId?: string) => {
     img.onerror = null;
     showToast('No se pudo cargar la imagen para recortar.', 'error');
     closeCropper();
+  };
+};
+
+const toggleCropperById = async (elementId?: string) => {
+  if (!elementId) return;
+  if (showCropperModal.value && cropperTargetElementId.value === elementId) {
+    closeCropper();
+    return;
+  }
+  await openCropperById(elementId);
+};
+
+const normalizeImageCropState = (el: any) => {
+  if (typeof el.cropX !== 'number') el.cropX = 0;
+  if (typeof el.cropY !== 'number') el.cropY = 0;
+  if (typeof el.cropScale !== 'number' || Number.isNaN(el.cropScale)) el.cropScale = 1;
+  el.cropScale = Math.max(1, Math.min(3, el.cropScale));
+};
+
+const clampImageCropOffset = (el: any) => {
+  const width = Math.max(1, Number(el?.width) || 1);
+  const height = Math.max(1, Number(el?.height) || 1);
+  const scale = Math.max(1, Number(el?.cropScale) || 1);
+
+  const maxOffsetX = ((scale - 1) * width) / 2;
+  const maxOffsetY = ((scale - 1) * height) / 2;
+  const currentOffsetX = ((Number(el?.cropX) || 0) / 100) * width;
+  const currentOffsetY = ((Number(el?.cropY) || 0) / 100) * height;
+
+  const nextOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, currentOffsetX));
+  const nextOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, currentOffsetY));
+
+  el.cropX = (nextOffsetX / width) * 100;
+  el.cropY = (nextOffsetY / height) * 100;
+};
+
+const getImageFrameStyle = (el: any) => ({
+  borderRadius: (el.borderRadius || 0) + 'px',
+  border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+  filter:
+    'grayscale(' +
+    (el.grayscale || 0) +
+    '%) blur(' +
+    (el.blur || 0) +
+    'px) sepia(' +
+    (el.sepia || 0) +
+    '%)',
+  overflow: 'hidden',
+  width: '100%',
+  height: '100%',
+  boxShadow: el.boxShadow || 'none',
+  cursor: 'default',
+});
+
+const getImageContentStyle = (el: any) => {
+  normalizeImageCropState(el);
+  clampImageCropOffset(el);
+  const tx = ((el.cropX || 0) / 100) * (el.width || 0);
+  const ty = ((el.cropY || 0) / 100) * (el.height || 0);
+  const isCropMode = showCropperModal.value && cropperTargetElementId.value === el?.id;
+
+  return {
+    objectFit: el.fit || 'cover',
+    transform: `translate(${tx}px, ${ty}px) scale(${el.cropScale || 1})`,
+    transformOrigin: 'center center',
+    transition: isCropMode ? 'none' : 'transform 0.15s ease',
+    pointerEvents: 'none',
+    userSelect: 'none',
   };
 };
 
@@ -8614,7 +8692,17 @@ watch(activeTransition, (newVal, oldVal) => {
           folder: 'presentaciones/media',
           fileName: `cropped_${Date.now()}.webp`,
         });
-        selectedElement.value.src = upload.secureUrl;
+        const targetId = cropperTargetElementId.value || selectedElement.value?.id;
+        const targetEl = currentPageElements.value.find((item) => item.id === targetId);
+        if (!targetEl) {
+          showToast('No se encontro la imagen objetivo para aplicar el recorte.', 'warning');
+          return;
+        }
+
+        targetEl.src = upload.secureUrl;
+        if (selectedElement.value?.id === targetEl.id) {
+          selectedElement.value.src = upload.secureUrl;
+        }
         saveHistory();
 
         closeCropper();
@@ -8634,6 +8722,7 @@ watch(activeTransition, (newVal, oldVal) => {
       myCropper = null;
     }
     showCropperModal.value = false;
+    cropperTargetElementId.value = null;
     cropperSource.value = '';
   };
 
@@ -9012,6 +9101,9 @@ watch(activeTransition, (newVal, oldVal) => {
       height: 250,
       src: '',
       fit: 'contain',
+      cropX: 0,
+      cropY: 0,
+      cropScale: 1,
       borderRadius: 0,
       borderWidth: 0,
       borderColor: '#000000',
@@ -14406,8 +14498,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 </div>
               </div>
 
-              <div v-else-if="el.type === 'image'" class="el-image-container" :style="{ borderRadius: (el.borderRadius || 0) + 'px', border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'), filter: 'grayscale('+(el.grayscale||0)+'%) blur('+(el.blur||0)+'px) sepia('+(el.sepia||0)+'%)', overflow: 'hidden', width: '100%', height: '100%' }">
-                <img v-if="el.src && el.src.trim() !== ''" :src="el.src" class="el-content-fitted" :style="{ objectFit: el.fit }" />
+              <div v-else-if="el.type === 'image'" class="el-image-container" :style="getImageFrameStyle(el)">
+                <img v-if="el.src && el.src.trim() !== ''" :src="el.src" class="el-content-fitted" :style="getImageContentStyle(el)" />
               </div>
 
               <div v-else-if="el.type === 'qrcode'" style="width: 100%; height: 100%; padding: 10px; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.05);" :style="{ backgroundColor: el.bgColor, borderRadius: (el.borderRadius || 0) + 'px' }">
@@ -15100,8 +15192,8 @@ watch(isMobile, (newVal) => {
     gap: 0.6rem;
   }
   .upgrade-modal__btn-primary {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
+    background: linear-gradient(135deg, #ffffff, #f3f4f6);
+    color: #111827;
     border: none;
     border-radius: 8px;
     padding: 0.7rem 1.25rem;
@@ -15386,6 +15478,10 @@ watch(isMobile, (newVal) => {
     z-index: 100;
     box-sizing: border-box;
   }
+  .figma-bounding-box.is-crop-mode {
+    border: 2px dashed #22c55e;
+    background: rgba(34, 197, 94, 0.08);
+  }
 
   /* CUADRADOS DE REDIMENSIÓN */
   .figma-bounding-box .resize-handle {
@@ -15397,6 +15493,23 @@ watch(isMobile, (newVal) => {
     pointer-events: auto;
     box-sizing: border-box;
     z-index: 102;
+  }
+  .figma-bounding-box .resize-handle.crop-mode {
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.8);
+  }
+  .figma-bounding-box.is-crop-mode .rotate-handle {
+    display: none !important;
+  }
+  .figma-bounding-box.is-crop-mode .resize-handle {
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.8);
   }
   .resize-handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
   .resize-handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
@@ -16692,6 +16805,10 @@ watch(isMobile, (newVal) => {
   .el-shape { width: 100%; height: 100%; }
   .el-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
   .el-image-container, .el-video-container, .el-iframe-container { width: 100%; height: 100%; position: relative; }
+  .el-image-container.is-inline-cropping {
+    outline: 2px dashed var(--selection-blue);
+    outline-offset: -2px;
+  }
   .el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
   .placeholder-box {
     width: 100%; height: 100%; background: var(--surface-elevated); border: 1px dashed var(--border-subtle);
