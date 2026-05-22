@@ -155,7 +155,7 @@
         >
           <i class="ph ph-trash"></i>
         </button>
-      </button>
+      </div>
     </div>
 
                   <div
@@ -4143,7 +4143,7 @@
       >
         <i class="ph ph-frame-corners"></i>
         {{ showCropperModal && cropperTargetElementId === selectedElement.id ? 'Desactivar recorte' : 'Recortar en diapositiva' }}
-      </div>
+      </button>
 
       <button
         type="button"
