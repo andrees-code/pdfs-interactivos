@@ -44,11 +44,11 @@ const createConfigs = ref({
 })
 const detectedOriginalResolution = ref<{ width: number; height: number } | null>(null)
 
-let pdfjsLibInstance: Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist')>>> | null = null
+let pdfjsLibInstance: Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs')>>> | null = null
 const getPdfjsLib = async () => {
   if (pdfjsLibInstance) return pdfjsLibInstance
-  const pdfLib = await import('pdfjs-dist')
-  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.mjs?worker')
+  const pdfLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const { default: PdfWorker } = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker')
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker()
   pdfjsLibInstance = pdfLib
   return pdfLib

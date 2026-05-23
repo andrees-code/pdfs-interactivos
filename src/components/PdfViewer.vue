@@ -6,9 +6,9 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, markRaw } from 'vue';
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 // @ts-ignore
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
+import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker';
 
 pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
 

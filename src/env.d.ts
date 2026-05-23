@@ -18,6 +18,13 @@ declare module 'pdfjs-dist/build/pdf.worker.min.mjs?worker' {
   export default WorkerFactory
 }
 
+declare module 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker' {
+  const WorkerFactory: {
+    new (...args: any[]): Worker
+  }
+  export default WorkerFactory
+}
+
 declare module '@/stores/auth' {
   export const useAuthStore: any
 }
