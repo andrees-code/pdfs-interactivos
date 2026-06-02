@@ -5123,14 +5123,14 @@
 // --- REFAC: Lazy load de PdfViewer y pdfjs-dist ---
 const PdfViewer = defineAsyncComponent(() => import('@/components/PdfViewer.vue'));
 
-type PdfjsLib = Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs')>>>
+type PdfjsLib = Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist')>>>
 let pdfjsLibInstance: PdfjsLib | null = null;
 const getPdfjsLib = async (): Promise<PdfjsLib> => {
   if (pdfjsLibInstance) return pdfjsLibInstance;
-  const pdfLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfLib = await import('pdfjs-dist');
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore -- pdfjs worker bundled as Vite ?worker import has no TS declaration
-  const { default: PdfWorker } = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker');
+  const { default: PdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.js?worker');
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker();
   pdfjsLibInstance = pdfLib;
   return pdfLib;
@@ -11386,17 +11386,7 @@ const normalizePdfFontName = (fontName: string): string => {
 };
 
 const extractTextToNativeElements = async (page: any, pageIndex: number, viewport: any) => {
-  let textContent: any;
-  try {
-    textContent = await page.getTextContent();
-  } catch (error) {
-    console.warn(`[PDF] No se pudo extraer texto en la pagina ${pageIndex}:`, error);
-    return 0;
-  }
-
-  if (!textContent?.items || !Array.isArray(textContent.items)) {
-    return 0;
-  }
+  const textContent = await page.getTextContent();
   const rawItems: any[] = [];
   const pdfjsLib = await getPdfjsLib();
 
@@ -11548,7 +11538,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
   if (!documentState.value[pageIndex]) documentState.value[pageIndex] = [];
   documentState.value[pageIndex].push(...newElements);
-  return newElements.length;
 };
 
   const processPdfFile = async (
@@ -11604,71 +11593,16 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     throw lastError || new Error('Error desconocido al subir el archivo');
   };
 
-  const blobToDataUrl = (blob: Blob) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(reader.error || new Error('No se pudo leer el PDF local'));
-      reader.readAsDataURL(blob);
-    });
-
-  const blobToUint8Array = (blob: Blob) =>
-    new Promise<Uint8Array>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        if (!result || !(result instanceof ArrayBuffer)) {
-          reject(new Error('No se pudo convertir el PDF a bytes'));
-          return;
-        }
-        resolve(new Uint8Array(result));
-      };
-      reader.onerror = () => reject(reader.error || new Error('No se pudo convertir el PDF a bytes'));
-      reader.readAsArrayBuffer(blob);
-    });
-
-  const isLocalDev =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
   try {
+    // 1. Subimos PDF directo a storage y obtenemos URL pública
+    const safeUrl = await uploadWithRetries();
+
+    _PDF_BASE64_STORE = safeUrl;
+
     const pdfjsLib = await getPdfjsLib();
-    // 1) En local evitamos Cloudinary para no romper flujo por 401/CORS/políticas
-    if (isLocalDev) {
-      const localDataUrl = await blobToDataUrl(file);
-      _PDF_BASE64_STORE = localDataUrl;
-      const localBytes = await blobToUint8Array(file);
-      const localTask = pdfjsLib.getDocument({ data: localBytes });
-      _RAW_PDF_DOC = markRaw(await localTask.promise);
-    } else {
-      // 2) Producción: subimos a Cloudinary y usamos URL pública
-      const safeUrl = await uploadWithRetries();
-      _PDF_BASE64_STORE = safeUrl;
-
-      try {
-        const loadingTask = pdfjsLib.getDocument(safeUrl);
-        _RAW_PDF_DOC = markRaw(await loadingTask.promise);
-      } catch (urlLoadError) {
-        const status = (urlLoadError as any)?.status;
-        const msg = String((urlLoadError as any)?.message || '').toLowerCase();
-        const isUnauthorized = status === 401 || msg.includes('401');
-
-        if (!isUnauthorized) throw urlLoadError;
-
-        console.warn('[PDF] Cloudinary devolvió 401, usando fallback local en memoria');
-        const localDataUrl = await blobToDataUrl(file);
-        _PDF_BASE64_STORE = localDataUrl;
-
-        const bytes = await blobToUint8Array(file);
-        const fallbackTask = pdfjsLib.getDocument({ data: bytes });
-        _RAW_PDF_DOC = markRaw(await fallbackTask.promise);
-
-        showToast(
-          'El PDF en Cloudinary no es publico (401). Se cargo una copia local para continuar.',
-          'warning',
-        );
-      }
-    }
+    // 2. Cargamos el PDF
+    const loadingTask = pdfjsLib.getDocument(safeUrl);
+    _RAW_PDF_DOC = markRaw(await loadingTask.promise);
 
     // ✨ MAGIA: Ajuste Dinámico de Resolución
     // Leemos la página 1 para configurar las dimensiones globales del lienzo al formato 1:1 del PDF
@@ -11693,16 +11627,11 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
     // 3. Extraer textos cuando aplique
     if (shouldExtractText) {
-      let extractedTextCount = 0;
       for (let i = 1; i <= _RAW_PDF_DOC.numPages; i++) {
         await waitForNextFrame()
         const page = await _RAW_PDF_DOC.getPage(i);
         const viewport = page.getViewport({ scale: 1.0 });
-        extractedTextCount += await extractTextToNativeElements(page, i, viewport);
-      }
-
-      if (extractedTextCount === 0) {
-        showToast('El PDF se importo, pero no se pudo extraer texto editable en este archivo.', 'warning');
+        await extractTextToNativeElements(page, i, viewport);
       }
     }
 
@@ -11950,16 +11879,11 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
       // Fallback: si el conversor remoto falla, importamos estructura nativa del PPTX
       // para no bloquear completamente el flujo del usuario.
-      const normalizedError = errorMsg.toLowerCase();
       const shouldFallbackToStructured =
         errorMsg.includes('HTTP 5') ||
         errorMsg.includes('InvalidPDFException') ||
         errorMsg.includes('Invalid PDF') ||
-        errorMsg.includes('no devolvió un PDF válido') ||
-        normalizedError.includes('load failed') ||
-        normalizedError.includes('failed to fetch') ||
-        normalizedError.includes('networkerror') ||
-        normalizedError.includes('network error');
+        errorMsg.includes('no devolvió un PDF válido');
 
       if (shouldFallbackToStructured) {
         try {

@@ -27,7 +27,6 @@ interface CloudinarySignaturePayload {
   cloudName: string
   folder: string
   resourceType: CloudinaryResourceType
-  deliveryType?: 'upload'
 }
 
 interface SignatureCacheEntry {
@@ -129,9 +128,6 @@ export const cloudinaryService = {
     formData.append('timestamp', String(signaturePayload.timestamp))
     formData.append('signature', signaturePayload.signature)
     formData.append('folder', signaturePayload.folder)
-    if (signaturePayload.deliveryType) {
-      formData.append('type', signaturePayload.deliveryType)
-    }
 
     if (options.tags?.length) {
       formData.append('tags', options.tags.join(','))
