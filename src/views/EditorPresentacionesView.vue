@@ -2144,7 +2144,7 @@
                         >
                           {{ el.modalTitle }}
                         </h4>
-                        <p v-html="el.contentHtml"></p>
+                        <p v-html="sanitizeInteractiveHtml(el.contentHtml)"></p>
                       </div>
                     </div>
 
@@ -5110,6 +5110,8 @@
   /* eslint-disable @typescript-eslint/no-explicit-any */
   import IconPickerModal from '@/components/IconPickerModal.vue'
   import Chatbot from '@/components/AIChatBot.vue'
+  import DOMPurify from 'dompurify'
+  import '@google/model-viewer'
   const showIconPicker = ref(false)
   import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
   import type Cropper from 'cropperjs'
@@ -9599,12 +9601,6 @@ watch(activeTransition, (newVal, oldVal) => {
   // --- LIFECYCLE E INTERACCIÓN ---
 
   onMounted(() => {
-    if (!customElements.get('model-viewer')) {
-      const script = document.createElement('script')
-      script.type = 'module'
-      script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js'
-      document.head.appendChild(script)
-    }
     document.addEventListener('keydown', handleGlobalKeydown)
     document.addEventListener('keyup', handleGlobalKeyup)
     document.addEventListener('pointerdown', handleGlobalPointerDown, true)
@@ -9647,6 +9643,18 @@ watch(activeTransition, (newVal, oldVal) => {
       clearTimeout(draftPersistTimeout)
       draftPersistTimeout = null
       if (hasUnsavedChanges.value) writeDraftState()
+    }
+    if (thumbnailTimeout) {
+      clearTimeout(thumbnailTimeout)
+      thumbnailTimeout = null
+    }
+    if (historyTimeout) {
+      clearTimeout(historyTimeout)
+      historyTimeout = null
+    }
+    if (autosaveTimeout) {
+      clearTimeout(autosaveTimeout)
+      autosaveTimeout = null
     }
 
     // 🚀 Limpieza del motor PDF en RAM para prevenir Memory Leaks
@@ -14077,10 +14085,31 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   const formatIframeUrl = (url: string) => {
     if (!url) return url;
     const trimmed = url.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-    if (trimmed.startsWith('//')) return `https:${trimmed}`;
-    return `https://${trimmed}`;
+    try {
+      const parsed = new URL(
+        trimmed.startsWith('//') ? `https:${trimmed}` : trimmed,
+        window.location.origin,
+      );
+      if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+      return parsed.toString();
+    } catch (_error) {
+      try {
+        const fallback = new URL(`https://${trimmed}`);
+        return fallback.toString();
+      } catch (_fallbackError) {
+        return '';
+      }
+    }
   };
+
+  const sanitizeInteractiveHtml = (html: unknown) => {
+    const raw = typeof html === 'string' ? html : ''
+    return DOMPurify.sanitize(raw, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a', 'span'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
+      ALLOW_DATA_ATTR: false,
+    })
+  }
 
   const getMapStaticImageUrl = (el: any, scaleFactor = 1) => {
     if (!el) return '';
@@ -14142,7 +14171,11 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     }
   };
 
-  const openUrl = (url: string) => { window.open(url, '_blank') }
+  const openUrl = (url: string) => {
+    const safeUrl = formatIframeUrl(url)
+    if (!safeUrl) return
+    window.open(safeUrl, '_blank', 'noopener,noreferrer')
+  }
 
   const absolutizeUrl = (url: string) => {
     if (!url) return url;
@@ -14766,7 +14799,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                   <div v-if="isIframeBlocked(el.src)" class="placeholder-box" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:16px;">
                     <i class="ph ph-shield-warning" style="font-size: 2rem"></i>
                     <div>Esta web no permite ser incrustada por seguridad</div>
-                    <button type="button" class="btn-primary" @click.stop="window.open(formatIframeUrl(el.src), '_blank')">
+                    <button type="button" class="btn-primary" @click.stop="openUrl(el.src)">
                       Abrir enlace original
                     </button>
                   </div>
@@ -14863,7 +14896,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
                 <div class="hotspot-pulse" :style="{ backgroundColor: el.color, boxShadow: '0 0 15px ' + el.color }"></div>
                 <div v-if="el.isOpen" class="interactive-modal" :style="{ backgroundColor: el.modalBgColor || '#ffffff', color: el.modalTextColor || '#333333' }" @click.stop>
                   <h4 class="modal-title" :style="{ borderBottomColor: el.modalTextColor || '#333333' }">{{ el.modalTitle }}</h4>
-                  <p v-html="el.contentHtml"></p>
+                  <p v-html="sanitizeInteractiveHtml(el.contentHtml)"></p>
                 </div>
               </div>
 

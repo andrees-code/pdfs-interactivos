@@ -12,10 +12,13 @@ const loadPhosphorIcons = () => {
   void import('@phosphor-icons/web/regular')
 }
 
-if ('requestIdleCallback' in window) {
-  window.requestIdleCallback(loadPhosphorIcons)
+const win = typeof window !== 'undefined' ? window : null
+if (win && 'requestIdleCallback' in win) {
+  ;(win as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(
+    loadPhosphorIcons,
+  )
 } else {
-  window.setTimeout(loadPhosphorIcons, 1)
+  globalThis.setTimeout(loadPhosphorIcons, 1)
 }
 
 const app = createApp(App)

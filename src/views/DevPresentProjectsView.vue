@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EditorHeader from '@/components/EditorHeader.vue'
 import { useAuthStore } from '@/stores/auth'
-import type JSZip from 'jszip'
+import JSZip from 'jszip'
 // @ts-expect-error JS service module in mixed TS workspace
 import { presentationService } from '@/services/presentacion.service.js'
 import { setPendingProjectImport } from '@/services/pending-project-import'
@@ -23,13 +23,11 @@ const presentations = ref<ProjectItem[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
 const showCreateModal = ref(false)
-const showFreeProjectLimitModal = ref(false)
 const createSource = ref<'blank' | 'upload'>('blank')
 const pendingUploadFile = ref<File | null>(null)
 const isDropZoneActive = ref(false)
 const isUploadModalDragActive = ref(false)
 const isDeletingProject = ref(false)
-const brokenCoverIds = ref<Set<string>>(new Set())
 const deleteModal = ref({
   open: false,
   id: '',
@@ -45,7 +43,6 @@ const createConfigs = ref({
 const detectedOriginalResolution = ref<{ width: number; height: number } | null>(null)
 
 let pdfjsLibInstance: Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist')>>> | null = null
-let jsZipCtorPromise: Promise<typeof import('jszip')['default']> | null = null
 const getPdfjsLib = async () => {
   if (pdfjsLibInstance) return pdfjsLibInstance
   const pdfLib = await import('pdfjs-dist')
@@ -53,13 +50,6 @@ const getPdfjsLib = async () => {
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker()
   pdfjsLibInstance = pdfLib
   return pdfLib
-}
-
-const getJsZipCtor = async (): Promise<typeof import('jszip')['default']> => {
-  if (!jsZipCtorPromise) {
-    jsZipCtorPromise = import('jszip').then((module) => module.default)
-  }
-  return jsZipCtorPromise
 }
 
 const getFileExtension = (name: string) => name.split('.').pop()?.toLowerCase() || ''
@@ -84,8 +74,7 @@ const detectResolutionFromPdf = async (file: File) => {
 }
 
 const detectResolutionFromPptx = async (file: File) => {
-  const JSZipCtor = await getJsZipCtor()
-  const zip: JSZip = await JSZipCtor.loadAsync(await file.arrayBuffer())
+  const zip = await JSZip.loadAsync(await file.arrayBuffer())
   const presentationXml = await zip.file('ppt/presentation.xml')?.async('text')
   if (!presentationXml) return null
 
@@ -152,15 +141,6 @@ const setCreateSource = (source: 'blank' | 'upload') => {
 
 const userId = computed(() => authStore.user?._id || authStore.user?.id || null)
 
-const isValidMediaUrl = (value?: string) => {
-  if (!value || typeof value !== 'string') return false
-  const normalized = value.trim()
-  if (!normalized) return false
-  if (/^(https?:|data:|blob:)/i.test(normalized)) return true
-  if (normalized.startsWith('/')) return true
-  return false
-}
-
 const loadPresentations = async () => {
   if (!userId.value) return
 
@@ -168,13 +148,9 @@ const loadPresentations = async () => {
   errorMessage.value = ''
 
   try {
-    const allData = await presentationService.getUserPresentations()
+    const allData = await presentationService.getUserPresentations(userId.value)
     const list = Array.isArray(allData) ? allData : []
-    presentations.value = list
-      .map((project: ProjectItem) => ({
-        ...project,
-        coverImage: isValidMediaUrl(project.coverImage) ? project.coverImage : undefined,
-      }))
+    presentations.value = list.filter((project: ProjectItem) => String(project.userId) === String(userId.value))
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'No se pudieron cargar los proyectos.'
   } finally {
@@ -182,13 +158,7 @@ const loadPresentations = async () => {
   }
 }
 
-const FREE_PROJECT_LIMIT = 2
-
 const createNewProject = () => {
-  if (!authStore.isPro && presentations.value.length >= FREE_PROJECT_LIMIT) {
-    showFreeProjectLimitModal.value = true
-    return
-  }
   setCreateSource('blank')
   pendingUploadFile.value = null
   detectedOriginalResolution.value = null
@@ -342,7 +312,7 @@ const formatDate = (dateString?: string) => {
 }
 
 const getCardBackground = (project: ProjectItem) => {
-  if (project.coverImage && !brokenCoverIds.value.has(project._id)) {
+  if (project.coverImage) {
     return {
       backgroundImage: `url(${project.coverImage})`,
       backgroundSize: 'cover',
@@ -359,13 +329,6 @@ const getCardBackground = (project: ProjectItem) => {
   return {
     backgroundImage: 'radial-gradient(circle at 75% 18%, rgba(120, 170, 255, 0.38), transparent 35%), linear-gradient(130deg, #0a1a2e, #1b355a)',
   }
-}
-
-const markCoverAsBroken = (projectId: string) => {
-  if (brokenCoverIds.value.has(projectId)) return
-  const next = new Set(brokenCoverIds.value)
-  next.add(projectId)
-  brokenCoverIds.value = next
 }
 
 onMounted(async () => {
@@ -451,14 +414,7 @@ onMounted(async () => {
         <div v-else class="grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3">
           <article v-for="project in presentations" :key="project._id" class="group relative flex flex-col overflow-hidden rounded-xl border border-outline bg-surface-container shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:border-primary-700/70 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]">
             <div class="relative aspect-video overflow-hidden bg-surface-container-highest" :style="getCardBackground(project)">
-              <img
-                v-if="project.coverImage && !brokenCoverIds.has(project._id)"
-                :src="project.coverImage"
-                alt=""
-                class="hidden"
-                @error="markCoverAsBroken(project._id)"
-              />
-              <div v-if="!project.coverImage || brokenCoverIds.has(project._id)" class="absolute inset-0 flex items-center justify-center">
+              <div class="absolute inset-0 flex items-center justify-center" v-if="!project.coverImage">
                 <span class="material-symbols-outlined text-[64px] text-surface-variant">{{ project.docType === 'pdf' ? 'picture_as_pdf' : 'slideshow' }}</span>
               </div>
               <div class="absolute inset-0 z-10 flex items-center justify-center bg-background/80 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
@@ -552,20 +508,16 @@ onMounted(async () => {
           <div v-if="createSource === 'blank'">
             <label class="mb-1 block text-label-caps text-on-surface-variant">Plantilla base</label>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <button
-type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'blank' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'blank'">En blanco</button>
-              <button
-type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'modern' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'modern'">Moderna</button>
-              <button
-type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'dark' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'dark'">Oscura</button>
-              <button
-type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
+              <button type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
                 :class="createConfigs.template === 'custom' ? 'border-primary-700 bg-primary-100 text-primary-900' : 'border-outline text-on-surface hover:bg-primary-50 hover:text-primary-900'"
                 @click="createConfigs.template = 'custom'">Mi plantilla</button>
             </div>
@@ -617,29 +569,6 @@ type="button" class="rounded-md border px-3 py-2 text-sm transition-colors"
           <button type="button" class="rounded-md bg-gradient-to-r from-red-500 to-red-700 px-5 py-2.5 text-label-caps text-white shadow-[0_10px_24px_rgba(185,28,28,0.3)] disabled:opacity-60" :disabled="isDeletingProject" @click="confirmDeleteProject">
             {{ isDeletingProject ? 'Eliminando...' : 'Eliminar' }}
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal límite plan gratuito -->
-    <div v-if="showFreeProjectLimitModal" class="fixed inset-0 z-[1500] flex items-center justify-center bg-black/70 px-4" @click.self="showFreeProjectLimitModal = false">
-      <div class="w-full max-w-md rounded-xl border border-outline bg-surface-container p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-        <div class="mb-4 flex items-start gap-3">
-          <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-amber-300 bg-amber-100 text-amber-700">
-            <span class="material-symbols-outlined">workspace_premium</span>
-          </div>
-          <div>
-            <h3 class="text-headline-md text-on-surface">Límite de proyectos alcanzado</h3>
-            <p class="mt-1 text-body-md text-on-surface-variant">
-              El plan gratuito permite un máximo de {{ FREE_PROJECT_LIMIT }} proyectos.<br>
-              Actualiza tu suscripción para crear proyectos ilimitados.
-            </p>
-          </div>
-        </div>
-        <div class="mt-6 flex justify-end">
-          <a href="/devpresent/perfil" class="rounded-md bg-gradient-to-r from-primary-500 to-primary-700 px-5 py-2.5 text-label-caps text-white shadow-[0_10px_24px_rgba(194,65,12,0.3)] transition-all hover:opacity-90">
-            Ver planes
-          </a>
         </div>
       </div>
     </div>

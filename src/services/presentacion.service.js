@@ -1,9 +1,10 @@
 import { PRESENTATIONS_API } from '@/config/api.js'
+import { getStoredAuthToken } from '@/utils/auth-storage'
 
 const API_URL = PRESENTATIONS_API
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('userToken')
+  const token = getStoredAuthToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 

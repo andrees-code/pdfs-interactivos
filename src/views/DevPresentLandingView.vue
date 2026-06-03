@@ -125,7 +125,7 @@ onUnmounted(() => {
     </header>
 
     <main class="main-shell">
-      <section id="producto" class="hero reveal">
+      <section class="hero reveal" id="producto">
         <div class="hero-copy">
           <p class="section-label">DocFlow Studio</p>
           <h1>Editor de presentaciones WEB (html).</h1>
@@ -167,7 +167,7 @@ onUnmounted(() => {
               />
             </Transition>
             <Transition name="hero-content" mode="out-in">
-              <div :key="activeSlide.title" class="carousel-overlay">
+              <div class="carousel-overlay" :key="activeSlide.title">
                 <h2>{{ activeSlide.title }}</h2>
                 <p>{{ activeSlide.description }}</p>
               </div>
@@ -175,7 +175,7 @@ onUnmounted(() => {
           </div>
 
           <div class="carousel-controls">
-            <button type="button" class="carousel-arrow" aria-label="Slide anterior" @click="prevSlide">&#8592;</button>
+            <button type="button" class="carousel-arrow" @click="prevSlide" aria-label="Slide anterior">&#8592;</button>
             <div class="carousel-dots">
               <button
                 v-for="(slide, index) in slides"
@@ -183,16 +183,16 @@ onUnmounted(() => {
                 type="button"
                 class="dot"
                 :class="{ active: index === currentSlide }"
-                :aria-label="`Ir a slide ${index + 1}`"
                 @click="goToSlide(index)"
+                :aria-label="`Ir a slide ${index + 1}`"
               ></button>
             </div>
-            <button type="button" class="carousel-arrow" aria-label="Slide siguiente" @click="nextSlide">&#8594;</button>
+            <button type="button" class="carousel-arrow" @click="nextSlide" aria-label="Slide siguiente">&#8594;</button>
           </div>
         </div>
       </section>
 
-      <section id="secciones" class="capabilities reveal">
+      <section class="capabilities reveal" id="secciones">
         <header class="section-header">
           <p class="section-label">Capacidades</p>
           <h2>Arquitectura pensada para operación real</h2>
@@ -222,7 +222,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section id="casos" class="use-cases reveal">
+      <section class="use-cases reveal" id="casos">
         <header class="section-header">
           <p class="section-label">Casos de uso</p>
           <h2>Una plataforma para diferentes equipos</h2>
@@ -244,7 +244,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section id="proceso" class="process reveal">
+      <section class="process reveal" id="proceso">
         <header class="section-header">
           <p class="section-label">Proceso</p>
           <h2>Tres pasos para pasar de archivo a experiencia web</h2>
@@ -275,7 +275,7 @@ onUnmounted(() => {
         </ol>
       </section>
 
-      <section id="plantillas" class="templates reveal">
+      <section class="templates reveal" id="plantillas">
         <header class="section-header">
           <p class="section-label">Plantillas</p>
           <h2>Base visual lista para acelerar entregas</h2>
@@ -312,16 +312,6 @@ onUnmounted(() => {
           <RouterLink to="/devpresent/templates" class="btn btn-light">Ver plantillas</RouterLink>
         </div>
       </section>
-
-      <footer class="site-footer">
-        <span>© 2026 Andrés Blasco Aleixos · DevPresent</span>
-        <nav class="footer-legal">
-          <RouterLink to="/legal/privacidad">Privacidad</RouterLink>
-          <RouterLink to="/legal/terminos">Términos</RouterLink>
-          <RouterLink to="/legal/aviso">Aviso legal</RouterLink>
-          <RouterLink to="/legal/cookies">Cookies</RouterLink>
-        </nav>
-      </footer>
     </main>
   </div>
 </template>
@@ -933,41 +923,6 @@ onUnmounted(() => {
 .final-cta .cta-copy {
   color: #b09080;
   font-size: 0.96rem;
-}
-
-/* ── Footer legal ────────────────────────── */
-.site-footer {
-  max-width: 1400px;
-  margin: 32px auto 0;
-  padding: 20px 0 4px;
-  border-top: 1px solid rgba(234, 88, 12, 0.14);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.site-footer > span {
-  font-size: 0.8rem;
-  color: #7a5030;
-}
-
-.footer-legal {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.footer-legal a {
-  font-size: 0.8rem;
-  color: #7a5030;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.footer-legal a:hover {
-  color: #ea580c;
 }
 
 .final-cta .btn-dark {

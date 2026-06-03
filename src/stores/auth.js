@@ -2,6 +2,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { USERS_API } from '@/config/api.js'
+import {
+  getStoredAuthToken,
+  setStoredAuthToken,
+  clearStoredAuthToken,
+} from '@/utils/auth-storage'
 
 const REQUEST_TIMEOUT_MS = 12000
 
@@ -20,7 +25,7 @@ const buildUserUrlCandidates = () => [`${USERS_API}/me`]
 
 export const useAuthStore = defineStore('auth', () => {
   // 1. Recuperamos datos iniciales de forma segura
-  const token = ref(localStorage.getItem('userToken') || null)
+  const token = ref(getStoredAuthToken())
   const user = ref(null)
 
   try {
@@ -66,9 +71,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   watch(token, (newToken) => {
     if (newToken) {
-      localStorage.setItem('userToken', newToken)
+      setStoredAuthToken(newToken)
     } else {
-      localStorage.removeItem('userToken')
+      clearStoredAuthToken()
     }
   })
 

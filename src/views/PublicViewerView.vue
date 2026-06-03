@@ -123,6 +123,25 @@ const currentSlideConfig = computed(() => slideConfigs.value[currentPage.value] 
 
 const loadedImageUrls = new Set<string>()
 const pendingImageLoads = new Map<string, Promise<void>>()
+const previousDocumentTitle = typeof document !== 'undefined' ? document.title : ''
+
+const ensureMetaDescriptionTag = () => {
+  let tag = document.querySelector('meta[name="description"]') as HTMLMetaElement | null
+  if (!tag) {
+    tag = document.createElement('meta')
+    tag.name = 'description'
+    document.head.appendChild(tag)
+  }
+  return tag
+}
+
+const updateSeo = (nextTitle: string) => {
+  if (typeof document === 'undefined') return
+  const safeTitle = nextTitle?.trim() || 'Presentacion publica'
+  document.title = `${safeTitle} | DocFlow`
+  const description = ensureMetaDescriptionTag()
+  description.content = `Visualizando la presentacion publica ${safeTitle} en DocFlow.`
+}
 
 const normalizeUrl = (url?: string | null) => {
   if (!url || typeof url !== 'string') return ''
@@ -246,8 +265,14 @@ const handleLinkElement = (el: any) => {
     return
   }
   if (el.url && typeof el.url === 'string') {
-    const absolute = el.url.startsWith('http') ? el.url : `https://${el.url}`
-    window.open(absolute, '_blank', 'noopener,noreferrer')
+    try {
+      const candidate = el.url.trim()
+      const parsed = new URL(candidate.startsWith('http') ? candidate : `https://${candidate}`)
+      if (!['http:', 'https:'].includes(parsed.protocol)) return
+      window.open(parsed.toString(), '_blank', 'noopener,noreferrer')
+    } catch (_error) {
+      // URL invalida: no abrir nada
+    }
   }
 }
 
@@ -292,6 +317,7 @@ onMounted(async () => {
 
     const data = await presentationService.getPublicPresentationBySlug(slug)
     title.value = data.title || 'Presentación pública'
+    updateSeo(title.value)
     baseWidth.value = Number(data.baseWidth) || 1280
     baseHeight.value = Number(data.baseHeight) || 720
 
@@ -323,6 +349,9 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', recalcScale)
   window.removeEventListener('keydown', handleKeydown)
+  if (typeof document !== 'undefined') {
+    document.title = previousDocumentTitle
+  }
 })
 </script>
 

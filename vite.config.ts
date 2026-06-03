@@ -8,8 +8,8 @@ const hostEnv = process.env.VITE_HOST || process.env.HOST
 
 export default defineConfig({
   server: {
-    // por defecto usar 0.0.0.0 para que funcione en localhost y en IP de red
-    host: hostEnv || '0.0.0.0',
+    // por defecto limitar a localhost; usar VITE_HOST o --host para exponer en LAN
+    host: hostEnv || 'localhost',
     // si se pasa --host desde npm run dev -- --host, Vite lo respetará
     strictPort: false,
   },
@@ -30,17 +30,25 @@ export default defineConfig({
     },
   },
   build: {
+    // pdf.worker.min.js supera 1MB y se sirve como asset del worker de PDF.js.
+    // Subimos el umbral para no ocultar warnings utiles de los chunks de app.
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
 
           if (id.includes('pdfjs-dist')) return 'vendor-pdfjs'
+          if (id.includes('pdf-lib')) return 'vendor-pdf-lib'
+          if (id.includes('jspdf')) return 'vendor-jspdf'
           if (id.includes('jszip')) return 'vendor-jszip'
           if (id.includes('pako')) return 'vendor-pako'
+          if (id.includes('html2canvas') || id.includes('html-to-image')) return 'vendor-capture'
           if (id.includes('cropperjs')) return 'vendor-cropper'
           if (id.includes('leaflet')) return 'vendor-leaflet'
           if (id.includes('@phosphor-icons')) return 'vendor-icons'
+          if (id.includes('canvas-confetti')) return 'vendor-fx'
+          if (id.includes('dompurify')) return 'vendor-sanitize'
 
           if (
             id.includes('vue-router') ||

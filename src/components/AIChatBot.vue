@@ -1,13 +1,13 @@
 <template>
   <div class="ai-chatbot-container">
     <transition name="fade-slide">
-      <div v-if="isOpen" class="ai-chat-panel">
+      <div v-if="isOpen" id="ai-chat-panel" class="ai-chat-panel">
         <div class="chat-header">
           <div class="header-info">
             <div class="ai-avatar">AI</div>
             <h3>Asistente IA</h3>
           </div>
-          <button class="close-btn" @click="toggleChat">
+          <button class="close-btn" aria-label="Cerrar chat" @click="toggleChat">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
@@ -17,11 +17,11 @@
             <p>¡Hola! Puedo ayudarte a crear, modificar o buscar presentaciones y responder tus dudas.</p>
           </div>
           <div
-            v-for="(msg, index) in clientMessages"
-            :key="index"
-            :class="['message-wrapper', msg.role === 'user' ? 'user' : 'assistant']"
+            v-for="msg in clientMessages"
+            :key="msg.id"
+            :class="['message-wrapper', msg.role, { 'system-error': msg.isSystemError }]"
           >
-            <div class="message-bubble">{{ msg.content }}</div>
+            <div class="message-bubble" v-html="msg.html"></div>
           </div>
           <div v-if="isLoading" class="message-wrapper assistant">
             <div class="message-bubble loading">
@@ -32,19 +32,33 @@
 
         <form class="chat-input-area" @submit.prevent="sendMessage">
           <input
+            ref="chatInput"
             v-model="inputText"
             type="text"
+            aria-label="Mensaje para el asistente IA"
             placeholder="Pregúntame o pídeme algo..."
             :disabled="isLoading"
           />
-          <button type="submit" :disabled="isLoading || !inputText.trim()" class="send-btn">
+          <button
+            type="submit"
+            :disabled="isLoading || !inputText.trim()"
+            class="send-btn"
+            aria-label="Enviar mensaje"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
           </button>
         </form>
       </div>
     </transition>
 
-    <button class="chat-trigger-btn" :class="{ 'is-open': isOpen }" @click="toggleChat">
+    <button
+      class="chat-trigger-btn"
+      :class="{ 'is-open': isOpen }"
+      :aria-expanded="isOpen"
+      aria-controls="ai-chat-panel"
+      :aria-label="isOpen ? 'Cerrar chat IA' : 'Abrir chat IA'"
+      @click="toggleChat"
+    >
       <svg v-if="!isOpen" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
       <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
     </button>
@@ -52,35 +66,63 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, withDefaults, defineProps, onUnmounted } from 'vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/auth'
 import { CHAT_API } from '@/config/api.js'
 
-const props = defineProps({
-  currentPage: {
-    type: Number,
-    default: 1
-  },
-  documentState: {
-    type: Object,
-    default: () => ({})
-  },
-  slideConfigs: {
-    type: Object,
-    default: () => ({})
-  },
-  numPages: {
-    type: Number,
-    default: 1
-  },
-  baseWidth: {
-    type: Number,
-    default: 1280
-  },
-  baseHeight: {
-    type: Number,
-    default: 720
-  }
+type MessageRole = 'user' | 'assistant' | 'system'
+
+interface SlideElement {
+  id?: string
+  type?: string
+  content?: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+}
+
+interface SlideConfig {
+  [key: string]: unknown
+}
+
+interface IncomingMessage {
+  role?: string
+  content?: string
+}
+
+interface ChatMessage {
+  id: string
+  role: MessageRole
+  content: string
+  html: string
+  isSystemError?: boolean
+}
+
+interface ChatActionResponse {
+  actions?: unknown[]
+  action?: unknown
+  message?: IncomingMessage
+}
+
+interface Props {
+  currentPage?: number
+  documentState?: Record<string, SlideElement[]>
+  slideConfigs?: Record<string, SlideConfig>
+  numPages?: number
+  baseWidth?: number
+  baseHeight?: number
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  currentPage: 1,
+  documentState: () => ({}),
+  slideConfigs: () => ({}),
+  numPages: 1,
+  baseWidth: 1280,
+  baseHeight: 720,
 })
 
 // 2. Definimos el emisor de eventos
@@ -91,13 +133,64 @@ const authStore = useAuthStore()
 const isOpen = ref(false)
 const isLoading = ref(false)
 const inputText = ref('')
-const messages = ref<{role: string, content: string}[]>([])
+const messages = ref<ChatMessage[]>([])
 const messagesContainer = ref<HTMLElement | null>(null)
+const chatInput = ref<HTMLInputElement | null>(null)
+let abortController: AbortController | null = null
+let messageCounter = 0
+let isUnmounted = false
+
+const MAX_CHAT_HISTORY = 12
+const MAX_CONTEXT_ELEMENTS = 30
+const MAX_LOCAL_MESSAGES = 50
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+})
+
+const toSafeHtml = (content: string) => {
+  const parsed = marked.parse(content || '')
+  const html = typeof parsed === 'string' ? parsed : ''
+  return DOMPurify.sanitize(html)
+}
+
+const createMessage = (role: MessageRole, content: string, isSystemError = false): ChatMessage => ({
+  id: `msg-${Date.now()}-${messageCounter++}`,
+  role,
+  content,
+  html: toSafeHtml(content),
+  isSystemError,
+})
+
+const trimMessages = () => {
+  if (messages.value.length <= MAX_LOCAL_MESSAGES) return
+  messages.value = messages.value.slice(-MAX_LOCAL_MESSAGES)
+}
+
+const pushMessage = (role: MessageRole, content: string, isSystemError = false) => {
+  messages.value.push(createMessage(role, content, isSystemError))
+  trimMessages()
+}
+
+const getPayloadMessages = () =>
+  messages.value
+    .filter((msg) => !msg.isSystemError && (msg.role === 'user' || msg.role === 'assistant'))
+    .slice(-MAX_CHAT_HISTORY)
+    .map(({ role, content }) => ({ role, content }))
 
 const toggleChat = () => {
   isOpen.value = !isOpen.value
+  if (!isOpen.value && isLoading.value && abortController) {
+    abortController.abort()
+    isLoading.value = false
+  }
+
   if (isOpen.value) {
-    scrollToBottom()
+    void scrollToBottom()
+    void nextTick(() => {
+      chatInput.value?.focus()
+    })
   }
 }
 
@@ -112,18 +205,49 @@ const scrollToBottom = async () => {
   }
 }
 
+const getCurrentSlideElements = () => {
+  const pageKey = String(props.currentPage)
+  const slideElements = props.documentState?.[pageKey]
+
+  if (!Array.isArray(slideElements)) return []
+
+  return slideElements.slice(0, MAX_CONTEXT_ELEMENTS).map((el) => ({
+    id: el?.id,
+    type: el?.type,
+    content: typeof el?.content === 'string' ? el.content.slice(0, 180) : undefined,
+    x: Number(el?.x) || 0,
+    y: Number(el?.y) || 0,
+    width: Number(el?.width) || 0,
+    height: Number(el?.height) || 0,
+  }))
+}
+
+const buildAiContext = () => {
+  const currentSlideConfig = props.slideConfigs?.[String(props.currentPage)] || null
+
+  return {
+    currentPage: props.currentPage,
+    numPages: props.numPages,
+    baseWidth: props.baseWidth,
+    baseHeight: props.baseHeight,
+    currentSlideConfig,
+    currentSlideElements: getCurrentSlideElements(),
+  }
+}
+
 const sendMessage = async () => {
 
   if (!inputText.value.trim() || isLoading.value) return
 
   const userMsg = inputText.value.trim()
-  messages.value.push({ role: 'user', content: userMsg })
+  pushMessage('user', userMsg)
   inputText.value = ''
   isLoading.value = true
 
   await scrollToBottom()
 
   try {
+    abortController = new AbortController()
     const userId = authStore.user?._id || ''
 
     const response = await fetch(`${CHAT_API}`, {
@@ -131,15 +255,11 @@ const sendMessage = async () => {
       headers: {
         'Content-Type': 'application/json'
       },
+      signal: abortController.signal,
       body: JSON.stringify({
-        messages: messages.value,
+        messages: getPayloadMessages(),
         userId: userId,
-        currentPage: props.currentPage,
-        documentState: props.documentState,
-        slideConfigs: props.slideConfigs,
-        numPages: props.numPages,
-        baseWidth: props.baseWidth,
-        baseHeight: props.baseHeight
+        context: buildAiContext(),
       })
     })
 
@@ -147,42 +267,40 @@ const sendMessage = async () => {
       throw new Error('Error al conectar con la IA')
     }
 
-    const data = await response.json()
+    const data: ChatActionResponse = await response.json()
 
-    console.log("📥 [AIChatBot] Respuesta del servidor:", {
-      hasActions: !!data.actions,
-      actionsCount: data.actions?.length || 0,
-      actions: data.actions,
-      hasMessage: !!data.message
-    });
-
-    // 3. ¡AQUÍ EMITIMOS LAS ÓRDENES AL EDITOR!
     if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
-      console.log("🤖 Chatbot enviando ordenes al Editor:", data.actions);
-      console.log("📤 Emitiendo evento 'ai-action' con", data.actions.length, "acciones");
-      emit('ai-action', data.actions);
+      if (!isUnmounted) emit('ai-action', data.actions)
     }
-    // Compatibilidad con acciones antiguas con un solo action
     else if (data.action) {
-      console.log("🤖 Chatbot enviando orden al Editor (legacy):", data.action);
-      emit('ai-action', [data.action]);
-    } else {
-      console.warn("⚠️ No hay acciones en la respuesta del servidor");
+      if (!isUnmounted) emit('ai-action', [data.action])
     }
 
     if (data.message && data.message.content) {
-      messages.value.push(data.message)
+      pushMessage(
+        data.message.role === 'user' || data.message.role === 'assistant' ? data.message.role : 'assistant',
+        data.message.content,
+      )
     }
   } catch (error) {
-    messages.value.push({
-      role: 'assistant',
-      content: 'Hubo un error al comunicarme con el servidor. Inténtalo de nuevo.'
-    })
+    const networkError = error as { name?: string }
+    if (networkError.name === 'AbortError') return
+
+    pushMessage('system', 'Hubo un error al comunicarme con el servidor. Intentalo de nuevo.', true)
   } finally {
+    abortController = null
     isLoading.value = false
     await scrollToBottom()
   }
 }
+
+onUnmounted(() => {
+  isUnmounted = true
+  if (abortController) {
+    abortController.abort()
+    abortController = null
+  }
+})
 </script>
 
 <style scoped>
@@ -329,6 +447,16 @@ const sendMessage = async () => {
   justify-content: flex-start;
 }
 
+.message-wrapper.system {
+  justify-content: center;
+}
+
+.message-wrapper.system-error .message-bubble {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+
 .message-bubble {
   max-width: 85%;
   padding: 12px 16px;
@@ -349,6 +477,22 @@ const sendMessage = async () => {
   color: #e5e7eb;
   border-bottom-left-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message-bubble :deep(p) {
+  margin: 0;
+}
+
+.message-bubble :deep(pre) {
+  overflow-x: auto;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.7);
+}
+
+.message-bubble :deep(code) {
+  font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
 }
 
 .chat-input-area {

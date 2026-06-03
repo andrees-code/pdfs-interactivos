@@ -1,7 +1,8 @@
 import { API_BASE } from '@/config/api.js'
+import { getStoredAuthToken } from '@/utils/auth-storage'
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('userToken')
+  const token = getStoredAuthToken()
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

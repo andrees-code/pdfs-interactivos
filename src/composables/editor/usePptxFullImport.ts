@@ -12,14 +12,11 @@
  *   - slideCx / slideCy: dimensiones originales del PPTX en EMU
  */
 
-const HF_BASE_URL =
-  (import.meta.env.VITE_GOTENBERG_URL as string | undefined)?.replace(
-    /\/forms\/libreoffice\/convert$/,
-    '',
-  ) ?? 'https://andrees04-mi-conversor-pptx.hf.space'
+const configuredBaseUrl = (import.meta.env.VITE_GOTENBERG_URL as string | undefined)?.replace(
+  /\/forms\/libreoffice\/convert$/,
+  '',
+)
 
-const FULL_EXTRACT_URL = `${HF_BASE_URL}/forms/pptx/full-extract`
-const CONVERT_BG_URL = `${HF_BASE_URL}/forms/pptx/convert-bg-only`
 const TIMEOUT_EXTRACT = 120_000
 const TIMEOUT_CONVERT = 120_000
 
@@ -40,6 +37,13 @@ export interface FullImportResult {
  * Lanza Error si full-extract falla. Si convert-bg-only falla, hasBgPdf=false (no bloqueante).
  */
 export async function importPptxFull(file: File): Promise<FullImportResult> {
+  if (!configuredBaseUrl) {
+    throw new Error('VITE_GOTENBERG_URL is required for PPTX import')
+  }
+
+  const fullExtractUrl = `${configuredBaseUrl}/forms/pptx/full-extract`
+  const convertBgUrl = `${configuredBaseUrl}/forms/pptx/convert-bg-only`
+
   const buildForm = () => {
     const fd = new FormData()
     fd.append('files', file, file.name || 'presentacion.pptx')
@@ -55,8 +59,8 @@ export async function importPptxFull(file: File): Promise<FullImportResult> {
   }
 
   const [extractRes, bgRes] = await Promise.all([
-    fetchWithTimeout(FULL_EXTRACT_URL, TIMEOUT_EXTRACT),
-    fetchWithTimeout(CONVERT_BG_URL, TIMEOUT_CONVERT),
+    fetchWithTimeout(fullExtractUrl, TIMEOUT_EXTRACT),
+    fetchWithTimeout(convertBgUrl, TIMEOUT_CONVERT),
   ])
 
   if (!extractRes.ok) {

@@ -1,5 +1,6 @@
 // src/services/auth.service.js
 import { USERS_API } from '@/config/api.js'
+import { setStoredAuthToken, clearStoredAuthToken } from '@/utils/auth-storage'
 
 const API_URL = USERS_API
 
@@ -41,7 +42,7 @@ export const authService = {
     const data = await response.json()
 
     if (data.token) {
-      localStorage.setItem('userToken', data.token)
+      setStoredAuthToken(data.token)
     }
 
     return data
@@ -85,7 +86,7 @@ export const authService = {
   },
 
   logout() {
-    localStorage.removeItem('userToken')
+    clearStoredAuthToken()
     localStorage.removeItem('userData')
   },
 }

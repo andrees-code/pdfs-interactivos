@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import EditorHeader from '@/components/EditorHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { SUBSCRIPTIONS_API } from '@/config/api.js'
+import { getStoredAuthToken } from '@/utils/auth-storage'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -41,7 +42,7 @@ const redirectToCheckout = async (plan: 'monthly' | 'yearly') => {
   checkoutError.value = ''
   isLoadingCheckout.value = plan
 
-  const authToken = authStore.token || localStorage.getItem('userToken')
+  const authToken = authStore.token || getStoredAuthToken()
   if (!authToken) {
     router.push('/devpresent/auth')
     return
