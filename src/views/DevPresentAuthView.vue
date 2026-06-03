@@ -305,9 +305,9 @@ presentation.render();</pre>
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: #ea580c;
-  background: rgba(234, 88, 12, 0.08);
-  border: 1px solid rgba(234, 88, 12, 0.2);
+  color: #9a3412;
+  background: rgba(154, 52, 18, 0.1);
+  border: 1px solid rgba(154, 52, 18, 0.28);
   padding: 5px 11px;
   border-radius: 99px;
   margin: 0;
@@ -484,7 +484,7 @@ presentation.render();</pre>
   flex: 1;
   border: none;
   background: transparent;
-  color: #a07848;
+  color: #7c5625;
   font-family: 'Space Grotesk', sans-serif;
   font-size: 0.78rem;
   font-weight: 700;
@@ -500,7 +500,7 @@ presentation.render();</pre>
 
 .auth-tab--active {
   background: #ffffff;
-  color: #ea580c;
+  color: #9a3412;
   box-shadow: 0 1px 5px rgba(60, 30, 10, 0.1);
   border: 1px solid #e0c8a8;
 }
@@ -551,7 +551,7 @@ presentation.render();</pre>
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #b89070;
+  color: #8c603a;
   white-space: nowrap;
 }
 
@@ -574,13 +574,13 @@ presentation.render();</pre>
   background: none;
   border: none;
   font-size: 0.82rem;
-  color: #ea580c;
+  color: #9a3412;
   cursor: pointer;
   padding: 0;
   transition: color 0.18s ease;
 }
 
-.form-forgot:hover { color: #c2410c; }
+.form-forgot:hover { color: #7c2d12; }
 
 .form-input-wrap { position: relative; }
 

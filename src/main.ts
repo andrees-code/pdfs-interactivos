@@ -7,9 +7,16 @@ import './assets/fonts.css'
 import './assets/tailwind.css'
 import './assets/variables.css'
 import './assets/global.css'
-import 'leaflet/dist/leaflet.css'
-import 'cropperjs/dist/cropper.css'
-import '@phosphor-icons/web/regular'
+
+const loadPhosphorIcons = () => {
+  void import('@phosphor-icons/web/regular')
+}
+
+if ('requestIdleCallback' in window) {
+  window.requestIdleCallback(loadPhosphorIcons)
+} else {
+  window.setTimeout(loadPhosphorIcons, 1)
+}
 
 const app = createApp(App)
 

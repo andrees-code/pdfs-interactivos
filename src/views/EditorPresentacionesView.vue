@@ -5116,7 +5116,7 @@
   import type JSZip from 'jszip'
   import { useRoute, useRouter } from 'vue-router'
   import EditorHeader from '@/components/EditorHeader.vue'
-  import LeafletMapElement from '@/components/LeafletMapElement.vue'
+  const LeafletMapElement = defineAsyncComponent(() => import('@/components/LeafletMapElement.vue'))
   import { useAuthStore } from '@/stores/auth';
   import { presentationService } from '@/services/presentacion.service'; // 👈 AÑADE ESTA LÍNEA
   import { templateService } from '@/services/template.service';
@@ -5145,7 +5145,10 @@ const getPdfjsLib = async (): Promise<PdfjsLib> => {
 let cropperCtorPromise: Promise<typeof import('cropperjs')['default']> | null = null;
 const getCropperCtor = async () => {
   if (!cropperCtorPromise) {
-    cropperCtorPromise = import('cropperjs').then((module) => module.default);
+    cropperCtorPromise = Promise.all([
+      import('cropperjs').then((module) => module.default),
+      import('cropperjs/dist/cropper.css'),
+    ]).then(([cropperCtor]) => cropperCtor);
   }
   return cropperCtorPromise;
 };
