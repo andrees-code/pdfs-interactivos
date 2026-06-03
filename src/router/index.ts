@@ -1,13 +1,14 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import EditorPresentaciones from '@/views/EditorPresentacionesView.vue'
-import DevPresentLandingView from '@/views/DevPresentLandingView.vue'
-import DevPresentAuthView from '@/views/DevPresentAuthView.vue'
-import ResetPasswordView from '@/views/ResetPasswordView.vue'
-import DevPresentProjectsView from '@/views/DevPresentProjectsView.vue'
-import DevPresentTemplatesView from '@/views/DevPresentTemplatesView.vue'
-import DevPresentPlanesView from '@/views/DevPresentPlanesView.vue'
 import { useAuthStore } from '@/stores/auth' // Importamos el store
+
+const EditorPresentaciones = () => import('@/views/EditorPresentacionesView.vue')
+const DevPresentLandingView = () => import('@/views/DevPresentLandingView.vue')
+const DevPresentAuthView = () => import('@/views/DevPresentAuthView.vue')
+const ResetPasswordView = () => import('@/views/ResetPasswordView.vue')
+const DevPresentProjectsView = () => import('@/views/DevPresentProjectsView.vue')
+const DevPresentTemplatesView = () => import('@/views/DevPresentTemplatesView.vue')
+const DevPresentPlanesView = () => import('@/views/DevPresentPlanesView.vue')
 
 // Legal pages (lazy-loaded)
 const LegalPrivacidadView = () => import('@/views/LegalPrivacidadView.vue')

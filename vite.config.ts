@@ -29,4 +29,31 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+
+          if (id.includes('pdfjs-dist')) return 'vendor-pdfjs'
+          if (id.includes('jszip')) return 'vendor-jszip'
+          if (id.includes('pako')) return 'vendor-pako'
+          if (id.includes('cropperjs')) return 'vendor-cropper'
+          if (id.includes('leaflet')) return 'vendor-leaflet'
+          if (id.includes('@phosphor-icons')) return 'vendor-icons'
+
+          if (
+            id.includes('vue-router') ||
+            id.includes('pinia') ||
+            id.includes('/vue/') ||
+            id.includes('@vue/')
+          ) {
+            return 'vendor-vue'
+          }
+
+          return 'vendor-misc'
+        },
+      },
+    },
+  },
 })
