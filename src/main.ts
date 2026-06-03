@@ -8,6 +8,7 @@ import './assets/tailwind.css'
 import './assets/variables.css'
 import './assets/global.css'
 import 'leaflet/dist/leaflet.css'
+import 'cropperjs/dist/cropper.css'
 import '@phosphor-icons/web/regular'
 
 const app = createApp(App)

@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EditorHeader from '@/components/EditorHeader.vue'
 import { useAuthStore } from '@/stores/auth'
-import JSZip from 'jszip'
+import type JSZip from 'jszip'
 // @ts-expect-error JS service module in mixed TS workspace
 import { presentationService } from '@/services/presentacion.service.js'
 import { setPendingProjectImport } from '@/services/pending-project-import'
@@ -45,6 +45,7 @@ const createConfigs = ref({
 const detectedOriginalResolution = ref<{ width: number; height: number } | null>(null)
 
 let pdfjsLibInstance: Awaited<ReturnType<() => Promise<typeof import('pdfjs-dist')>>> | null = null
+let jsZipCtorPromise: Promise<typeof import('jszip')['default']> | null = null
 const getPdfjsLib = async () => {
   if (pdfjsLibInstance) return pdfjsLibInstance
   const pdfLib = await import('pdfjs-dist')
@@ -52,6 +53,13 @@ const getPdfjsLib = async () => {
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker()
   pdfjsLibInstance = pdfLib
   return pdfLib
+}
+
+const getJsZipCtor = async (): Promise<typeof import('jszip')['default']> => {
+  if (!jsZipCtorPromise) {
+    jsZipCtorPromise = import('jszip').then((module) => module.default)
+  }
+  return jsZipCtorPromise
 }
 
 const getFileExtension = (name: string) => name.split('.').pop()?.toLowerCase() || ''
@@ -76,7 +84,8 @@ const detectResolutionFromPdf = async (file: File) => {
 }
 
 const detectResolutionFromPptx = async (file: File) => {
-  const zip = await JSZip.loadAsync(await file.arrayBuffer())
+  const JSZipCtor = await getJsZipCtor()
+  const zip: JSZip = await JSZipCtor.loadAsync(await file.arrayBuffer())
   const presentationXml = await zip.file('ppt/presentation.xml')?.async('text')
   if (!presentationXml) return null
 

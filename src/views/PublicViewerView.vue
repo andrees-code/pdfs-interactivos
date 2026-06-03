@@ -121,6 +121,100 @@ const slideConfigs = ref<Record<number, any>>({ 1: { bgColor: '#ffffff', bgImage
 const currentElements = computed(() => documentState.value[currentPage.value] || [])
 const currentSlideConfig = computed(() => slideConfigs.value[currentPage.value] || { bgColor: '#ffffff', bgImage: null })
 
+const loadedImageUrls = new Set<string>()
+const pendingImageLoads = new Map<string, Promise<void>>()
+
+const normalizeUrl = (url?: string | null) => {
+  if (!url || typeof url !== 'string') return ''
+  return url.trim()
+}
+
+const preloadImage = (url?: string | null): Promise<void> => {
+  const cleanUrl = normalizeUrl(url)
+  if (!cleanUrl || cleanUrl === 'none') return Promise.resolve()
+  if (loadedImageUrls.has(cleanUrl)) return Promise.resolve()
+
+  const existing = pendingImageLoads.get(cleanUrl)
+  if (existing) return existing
+
+  const task = new Promise<void>((resolve) => {
+    const img = new Image()
+    img.loading = 'eager'
+    img.decoding = 'async'
+    let done = false
+
+    const complete = () => {
+      if (done) return
+      done = true
+      loadedImageUrls.add(cleanUrl)
+      pendingImageLoads.delete(cleanUrl)
+      resolve()
+    }
+
+    img.onload = () => {
+      if (typeof img.decode === 'function') {
+        img.decode().catch(() => null).finally(complete)
+        return
+      }
+      complete()
+    }
+    img.onerror = () => {
+      pendingImageLoads.delete(cleanUrl)
+      resolve()
+    }
+
+    img.src = cleanUrl
+    if (img.complete && img.naturalWidth > 0) {
+      if (typeof img.decode === 'function') {
+        img.decode().catch(() => null).finally(complete)
+      } else {
+        complete()
+      }
+    }
+  })
+
+  pendingImageLoads.set(cleanUrl, task)
+  return task
+}
+
+const getSlideAssetUrls = (page: number): string[] => {
+  const urls = new Set<string>()
+  const cfg = slideConfigs.value[page]
+  const bg = normalizeUrl(cfg?.bgImage)
+  if (bg && bg !== 'none') urls.add(bg)
+
+  const elements = documentState.value[page] || []
+  elements.forEach((el: any) => {
+    if ((el?.type === 'image' || el?.type === 'magnifier') && el?.src) {
+      const src = normalizeUrl(el.src)
+      if (src) urls.add(src)
+    }
+
+    if (el?.type === 'imagecomparator') {
+      const before = normalizeUrl(el.imageBefore)
+      const after = normalizeUrl(el.imageAfter)
+      if (before) urls.add(before)
+      if (after) urls.add(after)
+    }
+  })
+
+  return [...urls]
+}
+
+const preloadSlideAssets = async (page: number) => {
+  const urls = getSlideAssetUrls(page)
+  if (!urls.length) return
+  await Promise.all(urls.map((url) => preloadImage(url)))
+}
+
+const preloadAdjacentSlides = (page: number) => {
+  const candidates = [page - 1, page + 1]
+  candidates.forEach((candidate) => {
+    if (candidate < 1 || candidate > numPages.value) return
+    void preloadSlideAssets(candidate)
+  })
+}
+
 const decodeCompressedState = (compressedState: string) => {
   const binary = atob(compressedState)
   const bytes = new Uint8Array(binary.length)
@@ -138,9 +232,11 @@ const recalcScale = () => {
   stageScale.value = Math.max(0.2, Math.min(1.2, ratio || 1))
 }
 
-const goToPage = (page: number) => {
+const goToPage = async (page: number) => {
   if (page < 1 || page > numPages.value) return
+  await preloadSlideAssets(page)
   currentPage.value = page
+  preloadAdjacentSlides(page)
 }
 
 const handleLinkElement = (el: any) => {
@@ -182,8 +278,8 @@ const getTextStyle = (el: any) => ({
 })
 
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'ArrowRight' || event.key === 'PageDown') goToPage(currentPage.value + 1)
-  if (event.key === 'ArrowLeft' || event.key === 'PageUp') goToPage(currentPage.value - 1)
+  if (event.key === 'ArrowRight' || event.key === 'PageDown') void goToPage(currentPage.value + 1)
+  if (event.key === 'ArrowLeft' || event.key === 'PageUp') void goToPage(currentPage.value - 1)
 }
 
 onMounted(async () => {
@@ -211,6 +307,9 @@ onMounted(async () => {
     numPages.value = pageKeys.length ? Math.max(...pageKeys) : 1
     currentPage.value = 1
 
+    await preloadSlideAssets(1)
+    preloadAdjacentSlides(1)
+
     recalcScale()
   } catch (error: any) {
     console.error('Error cargando presentación pública:', error)
@@ -228,8 +327,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-@import url('https://unpkg.com/@phosphor-icons/web/src/regular/style.css');
-
 .public-viewer-root {
   min-height: 100vh;
   background: radial-gradient(circle at top, #0f172a 0%, #020617 55%, #000 100%);

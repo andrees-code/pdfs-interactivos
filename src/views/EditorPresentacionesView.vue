@@ -76,15 +76,17 @@
               <span>Diapositivas</span>
               <span class="badge">{{ numPages }}</span>
             </div>
-            <div class="slides-preview-list">
+            <div class="slides-preview-list" @scroll.passive="handleThumbListScroll">
               <div
                  v-for="page in numPages"
   :key="page"
   class="thumb-item"
+  :data-page="page"
   v-memo="[
     pageNum === page,
     thumbDragSource === page,
     thumbDragTarget === page,
+    visibleThumbPages.has(page),
     generatedThumbnails[page],
     pdfPageMap[page] ?? 0,
     pdfThumbnails[pdfPageMap[page] ?? 0],
@@ -132,15 +134,7 @@
       class="thumb-card"
       :style="{
         backgroundColor: slideConfigs[page]?.bgColor || '#ffffff',
-        backgroundImage: generatedThumbnails[page]
-          ? `url(${generatedThumbnails[page]})`
-          : slideConfigs[page]?.bgImage
-            ? `url(${slideConfigs[page].bgImage})`
-            : pdfThumbnails[page]
-              ? `url(${pdfThumbnails[page]})`
-              : pdfPageMap[page] && pdfThumbnails[pdfPageMap[page]]
-                ? `url(${pdfThumbnails[pdfPageMap[page]]})`
-              : 'none',
+        backgroundImage: getThumbBackgroundImage(page),
       }"
     >
       <div class="thumb-actions" v-if="!isTemplateCreatorMode">
@@ -730,7 +724,10 @@
                 :class="{ 'play-mode-active': playMode }"
                 :style="{ transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }"
               >
-                <Transition :name="playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" mode="out-in">
+                <Transition
+                  :name="playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''"
+                  :mode="playMode && activeTransition !== 'none' ? 'out-in' : undefined"
+                >
                   <div
                   class="canvas-shadow-box layer-engine"
                   :key="pageNum"
@@ -765,6 +762,14 @@
                     }"
                   ></div>
 
+                  <img
+                    v-if="shouldShowPdfFallback"
+                    :src="pdfThumbnails[getMappedPdfPage(pageNum)]"
+                    class="layer-pdf pdf-bg-fallback"
+                    :style="{ width: `${baseWidth}px`, height: `${baseHeight}px`, objectFit: 'fill' }"
+                    alt="Fondo PDF"
+                  />
+
                   <Suspense v-if="docType === 'pdf' && currentBgImage === 'none'">
                     <template #default>
                       <PdfViewer
@@ -772,6 +777,7 @@
                         :pdfBase64="_PDF_BASE64_STORE"
                         :pageNum="getMappedPdfPage(pageNum)"
                         @document-loaded="(doc) => { _RAW_PDF_DOC = doc; numPages = doc.numPages; }"
+                        @page-rendered="handlePdfPageRendered"
                       />
                     </template>
                     <template #fallback>
@@ -805,7 +811,7 @@
                   <template v-if="documentState[pageNum]">
                     <div
                       v-for="(el, index) in currentPageElements"
-                      :key="el.id + (playMode ? renderTrigger : '')"
+                      :key="`${pageNum}-${el.id}`"
                       v-memo="getElementMemo(el, index)"
                       v-show="shouldShowElementOnCanvas(el)"
                       class="interactive-element"
@@ -5106,6 +5112,8 @@
   import Chatbot from '@/components/AIChatBot.vue'
   const showIconPicker = ref(false)
   import { ref, computed, watch ,markRaw, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
+  import type Cropper from 'cropperjs'
+  import type JSZip from 'jszip'
   import { useRoute, useRouter } from 'vue-router'
   import EditorHeader from '@/components/EditorHeader.vue'
   import LeafletMapElement from '@/components/LeafletMapElement.vue'
@@ -5116,8 +5124,6 @@
   import { consumePendingProjectImport } from '@/services/pending-project-import';
   import { PRESENTATIONS_API, API_BASE as API_BASE_CONFIG } from '@/config/api.js'
   import pako from 'pako';
-  import Cropper from 'cropperjs';
-  import JSZip from 'jszip';
   import { importPptxFull } from '@/composables/editor/usePptxFullImport'
 
 // --- REFAC: Lazy load de PdfViewer y pdfjs-dist ---
@@ -5134,6 +5140,22 @@ const getPdfjsLib = async (): Promise<PdfjsLib> => {
   pdfLib.GlobalWorkerOptions.workerPort = new PdfWorker();
   pdfjsLibInstance = pdfLib;
   return pdfLib;
+};
+
+let cropperCtorPromise: Promise<typeof import('cropperjs')['default']> | null = null;
+const getCropperCtor = async () => {
+  if (!cropperCtorPromise) {
+    cropperCtorPromise = import('cropperjs').then((module) => module.default);
+  }
+  return cropperCtorPromise;
+};
+
+let jsZipCtorPromise: Promise<typeof import('jszip')['default']> | null = null;
+const getJsZipCtor = async () => {
+  if (!jsZipCtorPromise) {
+    jsZipCtorPromise = import('jszip').then((module) => module.default);
+  }
+  return jsZipCtorPromise;
 };
 
 // --- NUEVO: TIMELINE ANIMATOR PARA EL PLAYMODE ---
@@ -5631,11 +5653,86 @@ const thumbDragSource = ref<number | null>(null)
 const thumbDragTarget = ref<number | null>(null)
 const thumbEditingPage = ref<number | null>(null)
 const thumbPosInputRef = ref<HTMLInputElement | null>(null)
+const visibleThumbPages = ref<Set<number>>(new Set([1]))
 const TYPEWRITER_SPEED_PRESETS = [1, 5, 10, 20, 35, 50, 80, 120]
 const thumbnailCaptureVersion = ref<Record<number, number>>({})
 const thumbnailLastSignature = ref<Record<number, string>>({})
 const isComparatorDragging = ref(false)
 const isPlayModeTransitioning = ref(false)
+
+const optimizeCloudinaryImageUrl = (
+  url: string,
+  options: { width?: number; quality?: string } = {},
+): string => {
+  if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url
+  if (url.includes('/upload/c_') || url.includes('/upload/w_') || url.includes('/upload/f_') || url.includes('/upload/q_')) return url
+
+  const width = Math.max(64, Math.round(options.width || 320))
+  const quality = options.quality || 'auto'
+  const transform = `c_fill,w_${width},h_${Math.round(width * 0.56)},q_${quality},f_auto,dpr_auto`
+  return url.replace('/upload/', `/upload/${transform}/`)
+}
+
+const getThumbAssetUrl = (page: number): string | null => {
+  const generated = generatedThumbnails.value[page]
+  if (generated) return generated
+
+  const configuredBg = slideConfigs.value[page]?.bgImage
+  if (configuredBg) return optimizeCloudinaryImageUrl(configuredBg, { width: 320 })
+
+  const directPdfThumb = pdfThumbnails.value[page]
+  if (directPdfThumb) return optimizeCloudinaryImageUrl(directPdfThumb, { width: 320 })
+
+  const mappedPage = pdfPageMap.value[page]
+  if (mappedPage && pdfThumbnails.value[mappedPage]) {
+    return optimizeCloudinaryImageUrl(pdfThumbnails.value[mappedPage], { width: 320 })
+  }
+
+  return null
+}
+
+const getThumbBackgroundImage = (page: number): string => {
+  if (!visibleThumbPages.value.has(page)) return 'none'
+  const assetUrl = getThumbAssetUrl(page)
+  return assetUrl ? `url(${assetUrl})` : 'none'
+}
+
+const refreshVisibleThumbPages = () => {
+  const container = leftSidebarEl.value?.querySelector('.slides-preview-list') as HTMLElement | null
+  if (!container) return
+
+  const listRect = container.getBoundingClientRect()
+  const nextVisible = new Set<number>()
+
+  const thumbCards = container.querySelectorAll('.thumb-item')
+  thumbCards.forEach((node) => {
+    const element = node as HTMLElement
+    const page = Number(element.dataset.page || 0)
+    if (!page) return
+
+    const rect = element.getBoundingClientRect()
+    const intersects = rect.bottom >= listRect.top - 200 && rect.top <= listRect.bottom + 200
+    if (intersects || page === pageNum.value) {
+      nextVisible.add(page)
+    }
+  })
+
+  if (!nextVisible.size) nextVisible.add(pageNum.value || 1)
+  visibleThumbPages.value = nextVisible
+}
+
+let visibleThumbRefreshRaf: number | null = null
+const scheduleVisibleThumbRefresh = () => {
+  if (visibleThumbRefreshRaf !== null) return
+  visibleThumbRefreshRaf = window.requestAnimationFrame(() => {
+    visibleThumbRefreshRaf = null
+    refreshVisibleThumbPages()
+  })
+}
+
+const handleThumbListScroll = () => {
+  scheduleVisibleThumbRefresh()
+}
 
 const getThumbnailSignature = (page: number) => {
   const elements = documentState.value[page] || []
@@ -5692,7 +5789,7 @@ const captureThumbnail = async (
     const exactScale = THUMBNAIL_WIDTH / baseWidth.value;
     const { toJpeg } = await import('html-to-image');
     const dataUrl = await toJpeg(slideNode, {
-      cacheBust: true,
+      cacheBust: false,
       skipFonts: true,
       quality: 0.8,
       pixelRatio: 1,
@@ -6770,6 +6867,7 @@ const wakeUpPlayNav = () => {
   const importMode = ref<'unknown' | 'full-clean' | 'legacy'>('unknown')
 
   const renderTrigger = ref(0)
+  const isPdfPageRendered = ref(true)
   const activeTransition = ref('none')
 
   type ToolType =
@@ -8358,6 +8456,8 @@ const openCropperById = async (elementId?: string) => {
     return;
   }
 
+  const CropperCtor = await getCropperCtor();
+
   const mountCropper = () => {
     const cropperImg = cropperImgRef.value;
     if (!cropperImg) return;
@@ -8368,7 +8468,7 @@ const openCropperById = async (elementId?: string) => {
     }
 
     try {
-      myCropper = new Cropper(cropperImg, {
+      myCropper = new CropperCtor(cropperImg, {
         viewMode: 1,
         dragMode: 'crop',
         movable: false,
@@ -8660,6 +8760,33 @@ const currentBgImage = computed(() => {
   const bgImage = slideConfigs.value[pageNum.value]?.bgImage;
   return bgImage && bgImage !== 'none' ? `url(${bgImage})` : 'none';
 });
+
+const shouldShowPdfFallback = computed(() => {
+  if (docType.value !== 'pdf') return false
+  if (currentBgImage.value !== 'none') return false
+  const mappedPage = getMappedPdfPage(pageNum.value)
+  if (mappedPage <= 0) return false
+  return !!pdfThumbnails.value[mappedPage] && !isPdfPageRendered.value
+})
+
+const markPdfPageAsPending = (page: number) => {
+  if (docType.value !== 'pdf') {
+    isPdfPageRendered.value = true
+    return
+  }
+
+  const bg = slideConfigs.value[page]?.bgImage
+  const hasCustomBg = typeof bg === 'string' && bg.trim() !== '' && bg !== 'none'
+  isPdfPageRendered.value = hasCustomBg
+}
+
+const handlePdfPageRendered = () => {
+  isPdfPageRendered.value = true
+}
+
+watch([docType, pageNum], () => {
+  markPdfPageAsPending(pageNum.value)
+}, { immediate: true })
 
 watch(activeTransition, (newVal, oldVal) => {
   if (newVal === 'none' && oldVal !== 'none' && playMode.value) {
@@ -9468,7 +9595,7 @@ watch(activeTransition, (newVal, oldVal) => {
 
   // --- LIFECYCLE E INTERACCIÓN ---
 
-      onMounted(() => {
+  onMounted(() => {
     if (!customElements.get('model-viewer')) {
       const script = document.createElement('script')
       script.type = 'module'
@@ -9489,6 +9616,9 @@ watch(activeTransition, (newVal, oldVal) => {
     loadGalleryTemplates()
 
     initEditorFromRoute(true)
+    nextTick(() => {
+      scheduleVisibleThumbRefresh()
+    })
     nextTick(scheduleFormAccessibilitySync)
   })
 
@@ -9503,6 +9633,10 @@ watch(activeTransition, (newVal, oldVal) => {
     document.removeEventListener('mousemove', wakeUpPlayNav);
     document.removeEventListener('keydown', wakeUpPlayNav);
     if (playNavTimeout) clearTimeout(playNavTimeout);
+    if (visibleThumbRefreshRaf !== null) {
+      cancelAnimationFrame(visibleThumbRefreshRaf)
+      visibleThumbRefreshRaf = null
+    }
 
     if (timerInterval) clearInterval(timerInterval)
     if (accessibilitySyncRaf !== null) cancelAnimationFrame(accessibilitySyncRaf)
@@ -9961,6 +10095,13 @@ watch(
     () => {
       nextTick(scheduleFormAccessibilitySync)
     }
+  )
+
+  watch(
+    [() => numPages.value, () => pageNum.value, () => isLeftSidebarOpen.value],
+    () => {
+      nextTick(() => scheduleVisibleThumbRefresh())
+    },
   )
 
   const handleGlobalKeydown = (e: KeyboardEvent) => {
@@ -10459,7 +10600,8 @@ watch(
   }
 
   const parsePptxStructure = async (file: File) => {
-    const zip = await JSZip.loadAsync(await file.arrayBuffer())
+    const JSZipCtor = await getJsZipCtor()
+    const zip = await JSZipCtor.loadAsync(await file.arrayBuffer())
     const presentationXml = await zip.file('ppt/presentation.xml')?.async('text')
 
     let slideCx = 12192000
@@ -10794,7 +10936,21 @@ watch(
           ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0)
           ctx.fillStyle = '#ffffff'
           ctx.fillRect(0, 0, viewport.width, viewport.height)
-          await page.render({ canvasContext: ctx, viewport }).promise
+
+          // Evita duplicar texto: miniaturas/fallback solo con grafica de fondo,
+          // el texto final lo dibujan los elementos nativos extraidos.
+          const originalFillText = ctx.fillText
+          const originalStrokeText = ctx.strokeText
+          ctx.fillText = function () {}
+          ctx.strokeText = function () {}
+
+          try {
+            await page.render({ canvasContext: ctx, viewport }).promise
+          } finally {
+            ctx.fillText = originalFillText
+            ctx.strokeText = originalStrokeText
+          }
+
           pdfThumbnails.value[i] = canvas.toDataURL('image/jpeg', 0.9)
         }
       } catch (e) {
@@ -10979,10 +11135,13 @@ watch(
     return bytes
   }
 
-  const tryDecompressProjectState = (data: any) => {
+  const tryDecompressProjectState = async (data: any) => {
     if (!data || !data.compressedState) return
 
     try {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve())
+      })
       const compressedBytes = fromBase64(data.compressedState)
       const decompressed = pako.ungzip(compressedBytes, { to: 'string' })
       const parsed = JSON.parse(decompressed)
@@ -11190,7 +11349,7 @@ watch(
     try {
       const data = await presentationService.getPresentation(id);
 
-      tryDecompressProjectState(data);
+      await tryDecompressProjectState(data);
 
       // 1. Asignamos los datos básicos
       presentationId.value = data._id;
@@ -12188,8 +12347,8 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }
   }
 
-  const applyExternalTemplate = (tpl: any) => {
-    tryDecompressProjectState(tpl)
+  const applyExternalTemplate = async (tpl: any) => {
+    await tryDecompressProjectState(tpl)
 
     if (tpl.documentState) {
       documentState.value = JSON.parse(JSON.stringify(tpl.documentState))
@@ -12217,7 +12376,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   const loadTemplateFromQuery = async (templateId: string, preserveTemplateId = false) => {
     try {
       const template = await templateService.getTemplateById(templateId)
-      applyExternalTemplate(template)
+      await applyExternalTemplate(template)
       if (preserveTemplateId) {
         presentationId.value = template?._id || null
         docType.value = 'template'
@@ -12634,43 +12793,111 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         captureThumbnail(pageNum.value).catch((e: any) => console.warn(e));
       }
 
+      await preloadSlideAssets(num)
+      markPdfPageAsPending(num)
+
       pageNum.value = num;
       currentAnimationStep.value = 0;
       selectedElementIds.value = [];
       closeAllInteractives();
-      renderTrigger.value++;
       activeTransition.value = 'none';
 
       await nextTick();
       if (workspaceRef.value) void workspaceRef.value.offsetWidth;
       activeTransition.value = ensureSlideConfig(num).transition || 'none';
       renderPage(num);
-      preloadNextSlideAssets(num);
+      preloadNearbySlideAssets(num);
     }
   }
 
-  const preloadImage = (url?: string | null) => {
-    if (!url || typeof url !== 'string') return
-    const clean = url.trim()
-    if (!clean) return
-    const img = new Image()
-    img.decoding = 'async'
-    img.src = clean
+  const loadedAssetUrls = new Set<string>()
+  const pendingAssetLoads = new Map<string, Promise<void>>()
+
+  const normalizeAssetUrl = (url?: string | null) => {
+    if (!url || typeof url !== 'string') return ''
+    return url.trim()
   }
 
-  const preloadNextSlideAssets = (currentPage: number) => {
-    const nextPage = currentPage + 1
-    const nextElements = documentState.value[nextPage]
-    if (!nextElements) return
+  const preloadImage = (url?: string | null): Promise<void> => {
+    const clean = normalizeAssetUrl(url)
+    if (!clean || clean === 'none') return Promise.resolve()
+    if (loadedAssetUrls.has(clean)) return Promise.resolve()
 
-    preloadImage(slideConfigs.value[nextPage]?.bgImage)
+    const existing = pendingAssetLoads.get(clean)
+    if (existing) return existing
 
-    nextElements.forEach((el: any) => {
-      if (el?.type === 'image' && el?.src) preloadImage(el.src)
-      if (el?.type === 'imagecomparator') {
-        preloadImage(el?.imageBefore)
-        preloadImage(el?.imageAfter)
+    const task = new Promise<void>((resolve) => {
+      const img = new Image()
+      img.decoding = 'async'
+      let done = false
+
+      const complete = () => {
+        if (done) return
+        done = true
+        loadedAssetUrls.add(clean)
+        pendingAssetLoads.delete(clean)
+        resolve()
       }
+
+      img.onload = () => {
+        if (typeof img.decode === 'function') {
+          img.decode().catch(() => null).finally(complete)
+          return
+        }
+        complete()
+      }
+      img.onerror = () => {
+        pendingAssetLoads.delete(clean)
+        resolve()
+      }
+
+      img.src = clean
+      if (img.complete && img.naturalWidth > 0) {
+        if (typeof img.decode === 'function') {
+          img.decode().catch(() => null).finally(complete)
+        } else {
+          complete()
+        }
+      }
+    })
+
+    pendingAssetLoads.set(clean, task)
+    return task
+  }
+
+  const getSlideAssetUrls = (page: number): string[] => {
+    const urls = new Set<string>()
+    const bgImage = normalizeAssetUrl(slideConfigs.value[page]?.bgImage)
+    if (bgImage && bgImage !== 'none') urls.add(bgImage)
+
+    const elements = documentState.value[page] || []
+    elements.forEach((el: any) => {
+      if ((el?.type === 'image' || el?.type === 'magnifier') && el?.src) {
+        const src = normalizeAssetUrl(el.src)
+        if (src) urls.add(src)
+      }
+      if (el?.type === 'imagecomparator') {
+        const before = normalizeAssetUrl(el?.imageBefore)
+        const after = normalizeAssetUrl(el?.imageAfter)
+        if (before) urls.add(before)
+        if (after) urls.add(after)
+      }
+    })
+
+    return [...urls]
+  }
+
+  const preloadSlideAssets = async (page: number) => {
+    const urls = getSlideAssetUrls(page)
+    if (!urls.length) return
+    await Promise.all(urls.map((url) => preloadImage(url)))
+  }
+
+  const preloadNearbySlideAssets = (currentPage: number) => {
+    const candidates = [currentPage - 1, currentPage + 1, currentPage + 2]
+    candidates.forEach((page) => {
+      if (page < 1 || page > numPages.value) return
+      void preloadSlideAssets(page)
     })
   }
 
@@ -14274,13 +14501,13 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
     <script type="text/x-template" id="app-template">
       <div class="canvas-wrapper play-mode-active" :style="{ transform: 'scale(' + zoom + ')' }">
-        <Transition :name="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" mode="out-in">
+        <Transition :name="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :mode="activeTransition !== 'none' ? 'out-in' : undefined">
         <div class="canvas-shadow-box layer-engine" :key="pageNum" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor }">
 
             <!-- Renderizamos el fondo exacto del PDF usando tu clase de alta calidad -->
             <img v-if="currentBgImage !== 'none'" :src="currentBgImage" class="layer-pdf" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', objectFit: 'fill' }" />
 
-            <div v-for="(el, index) in currentPageElements" :key="el.id + renderTrigger" class="interactive-element is-clickable"
+            <div v-for="(el, index) in currentPageElements" :key="'p' + pageNum + '-' + el.id" class="interactive-element is-clickable"
               v-show="!el.isHidden && !isWaitingAnimation(el)"
                 @click.stop="executeEvents(el, 'click')"
                 @mouseenter="executeEvents(el, 'hover')"
@@ -14942,7 +15169,155 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             return { backgroundColor: node.bgColor, color: node.color, borderRadius: node.shape === 'round' ? '20px' : (node.shape === 'circle' ? '50%' : '6px'), border: isActive ? '2px solid #58a6ff' : '2px solid transparent', minWidth: node.shape === 'circle' ? '80px' : 'auto', aspectRatio: node.shape === 'circle' ? '1/1' : 'auto', justifyContent: 'center' };
           }
 
+          const normalizeImageCropState = (el) => {
+            if (typeof el?.cropX !== 'number') el.cropX = 0;
+            if (typeof el?.cropY !== 'number') el.cropY = 0;
+            if (typeof el?.cropScale !== 'number' || Number.isNaN(el.cropScale)) el.cropScale = 1;
+            el.cropScale = Math.max(1, Math.min(3, el.cropScale));
+          };
+
+          const clampImageCropOffset = (el) => {
+            const width = Math.max(1, Number(el?.width) || 1);
+            const height = Math.max(1, Number(el?.height) || 1);
+            const scale = Math.max(1, Number(el?.cropScale) || 1);
+
+            const maxOffsetX = ((scale - 1) * width) / 2;
+            const maxOffsetY = ((scale - 1) * height) / 2;
+            const currentOffsetX = ((Number(el?.cropX) || 0) / 100) * width;
+            const currentOffsetY = ((Number(el?.cropY) || 0) / 100) * height;
+
+            const nextOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, currentOffsetX));
+            const nextOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, currentOffsetY));
+
+            el.cropX = (nextOffsetX / width) * 100;
+            el.cropY = (nextOffsetY / height) * 100;
+          };
+
+          const getImageFrameStyle = (el) => ({
+            borderRadius: (el.borderRadius || 0) + 'px',
+            border: (el.borderWidth || 0) + 'px solid ' + (el.borderColor || '#000'),
+            filter:
+              'grayscale(' +
+              (el.grayscale || 0) +
+              '%) blur(' +
+              (el.blur || 0) +
+              'px) sepia(' +
+              (el.sepia || 0) +
+              '%)',
+            overflow: 'hidden',
+            width: '100%',
+            height: '100%',
+            boxShadow: el.boxShadow || 'none',
+            cursor: 'default',
+          });
+
+          const getImageContentStyle = (el) => {
+            normalizeImageCropState(el);
+            clampImageCropOffset(el);
+            const tx = ((el.cropX || 0) / 100) * (el.width || 0);
+            const ty = ((el.cropY || 0) / 100) * (el.height || 0);
+
+            return {
+              objectFit: el.fit || 'cover',
+              transform: 'translate(' + tx + 'px, ' + ty + 'px) scale(' + (el.cropScale || 1) + ')',
+              transformOrigin: 'center center',
+              transition: 'none',
+              pointerEvents: 'none',
+              userSelect: 'none',
+            };
+          };
+
           const fitToScreen = () => { zoom.value = Math.min(Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95, 1.0); };
+
+          const loadedAssetUrls = new Set();
+          const pendingAssetLoads = new Map();
+
+          const normalizeAssetUrl = (url) => {
+            if (!url || typeof url !== 'string') return '';
+            return url.trim();
+          };
+
+          const preloadImage = (url) => {
+            const clean = normalizeAssetUrl(url);
+            if (!clean || clean === 'none') return Promise.resolve();
+            if (loadedAssetUrls.has(clean)) return Promise.resolve();
+
+            const existing = pendingAssetLoads.get(clean);
+            if (existing) return existing;
+
+            const task = new Promise((resolve) => {
+              const img = new Image();
+              img.decoding = 'async';
+              let done = false;
+
+              const complete = () => {
+                if (done) return;
+                done = true;
+                loadedAssetUrls.add(clean);
+                pendingAssetLoads.delete(clean);
+                resolve();
+              };
+
+              img.onload = () => {
+                if (typeof img.decode === 'function') {
+                  img.decode().catch(() => null).finally(complete);
+                  return;
+                }
+                complete();
+              };
+              img.onerror = () => {
+                pendingAssetLoads.delete(clean);
+                resolve();
+              };
+
+              img.src = clean;
+              if (img.complete && img.naturalWidth > 0) {
+                if (typeof img.decode === 'function') {
+                  img.decode().catch(() => null).finally(complete);
+                } else {
+                  complete();
+                }
+              }
+            });
+
+            pendingAssetLoads.set(clean, task);
+            return task;
+          };
+
+          const getSlideAssetUrls = (page) => {
+            const urls = new Set();
+            const bg = normalizeAssetUrl(slideConfigs.value[page]?.bgImage);
+            if (bg && bg !== 'none') urls.add(bg);
+
+            const pageElements = documentState.value[page] || [];
+            pageElements.forEach((el) => {
+              if ((el?.type === 'image' || el?.type === 'magnifier') && el?.src) {
+                const src = normalizeAssetUrl(el.src);
+                if (src) urls.add(src);
+              }
+              if (el?.type === 'imagecomparator') {
+                const before = normalizeAssetUrl(el.imageBefore);
+                const after = normalizeAssetUrl(el.imageAfter);
+                if (before) urls.add(before);
+                if (after) urls.add(after);
+              }
+            });
+
+            return Array.from(urls);
+          };
+
+          const preloadSlideAssets = async (page) => {
+            const urls = getSlideAssetUrls(page);
+            if (!urls.length) return;
+            await Promise.all(urls.map((url) => preloadImage(url)));
+          };
+
+          const preloadNearbySlideAssets = (page) => {
+            [page - 1, page + 1, page + 2].forEach((candidate) => {
+              if (candidate < 1 || candidate > numPages.value) return;
+              void preloadSlideAssets(candidate);
+            });
+          };
 
           const closeAllInteractives = () => {
             Object.values(documentState.value).forEach(pageItems => {
@@ -14957,14 +15332,15 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
           const changePageTo = async (num) => {
             if (num >= 1 && num <= numPages.value) {
+              await preloadSlideAssets(num);
               pageNum.value = num;
               currentAnimationStep.value = 0;
               closeAllInteractives();
-              renderTrigger.value++;
               activeTransition.value = 'none';
               await nextTick();
               void document.body.offsetWidth;
 activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
+              preloadNearbySlideAssets(num);
 
               Object.values(documentState.value).forEach(pageItems => {
                 pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
@@ -15029,6 +15405,7 @@ activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
 
           onMounted(() => {
             activeTransition.value = slideConfigs.value[1]?.transition || 'none';
+            void preloadSlideAssets(1).then(() => preloadNearbySlideAssets(1));
 
             Object.values(documentState.value).forEach(pageItems => {
               pageItems.forEach(el => { if (el.type === 'timer') { el.timeLeft = el.duration * 60; el.isRunning = true; } });
@@ -15067,7 +15444,7 @@ activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
 
           // 👉 3. AQUÍ ESTABA EL PROBLEMA: Ahora sí retornamos showPlayNav y wakeUpPlayNav
           return {
-            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getCalendarDays, getDayEvents, getNodesByParent, getNodeStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation, isWaitingAnimation, getAnimationClass
+            baseWidth, baseHeight, docType, zoom, pageNum, numPages, currentPageElements, currentBgColor, currentBgImage, changePageTo, executeEvents, triggerInteraction, isYouTube, getYouTubeEmbedUrl, formatIframeUrl, isIframeBlocked, getChartValues, getChartMax, getPieGradient, playAudio, renderTrigger, activeTransition, formatTime, getCalendarDays, getDayEvents, getNodesByParent, getNodeStyle, getImageFrameStyle, getImageContentStyle, isFullscreen, toggleFullscreen, showPlayNav, wakeUpPlayNav, currentAnimationStep, maxAnimationStep, advancePresentation, isWaitingAnimation, getAnimationClass
           };
         }
       }).mount('#app');
@@ -15108,9 +15485,6 @@ watch(isMobile, (newVal) => {
 </script>
 
   <style scoped>
-  @import url('https://unpkg.com/cropperjs@1.6.2/dist/cropper.css');
-  /* O mejor aún, usa el local: @import 'cropperjs/dist/cropper.css'; */
-
   /* ---- UPGRADE MODAL ---- */
   .upgrade-modal-overlay {
     position: fixed;
@@ -17480,9 +17854,18 @@ watch(isMobile, (newVal) => {
   .slide-trans-fade { animation: transFade 0.6s ease-out forwards; }
   .slide-trans-slide { animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
   .slide-trans-zoom { animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-  @keyframes transFade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes transSlide { from { translate: 100px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
-  @keyframes transZoom { from { scale: 0.95; opacity: 0; } to { scale: 1; opacity: 1; } }
+  @keyframes transFade {
+    from { opacity: 0; transform: translateX(1px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes transSlide {
+    from { transform: translateX(101px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes transZoom {
+    from { transform: translateX(1px) scale(0.95); opacity: 0; }
+    to { transform: translateX(0) scale(1); opacity: 1; }
+  }
 
   .anim-appear { animation: animAppear var(--anim-duration, 0.05s) linear both; }
   .anim-fade-in { animation: animFadeIn var(--anim-duration, 0.8s) var(--anim-easing, ease-out) both; }
