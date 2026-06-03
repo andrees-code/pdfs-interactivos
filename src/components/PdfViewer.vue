@@ -146,6 +146,9 @@ const renderPage = async (num: number) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  // Evita mostrar la pagina anterior mientras se renderiza la nueva.
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   if (num > 0 && num <= rawDoc.numPages) {
     const page = await rawDoc.getPage(num);
     if (token !== renderToken || unmounted || !pdfCanvas.value) return;
@@ -227,10 +230,18 @@ onUnmounted(() => {
 
 <style scoped>
 .pdf-viewer-container {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
 }
 .layer-pdf {
+  position: absolute;
+  top: 0;
+  left: 0;
   pointer-events: none;
   display: block;
 }

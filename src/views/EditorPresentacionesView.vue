@@ -12797,14 +12797,20 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     })
   }
 
+  let changePageRequestToken = 0
+
   const changePageTo = async (num: number) => {
     if (num >= 1 && num <= numPages.value) {
+      const requestToken = ++changePageRequestToken
+
       // 🛡️ CORRECCIÓN CRÍTICA: Sin await — la cámara trabaja en segundo plano
       if (!playMode.value && hasDoc.value) {
         captureThumbnail(pageNum.value).catch((e: any) => console.warn(e));
       }
 
       await preloadSlideAssets(num)
+      if (requestToken !== changePageRequestToken) return
+
       markPdfPageAsPending(num)
 
       pageNum.value = num;
@@ -12814,8 +12820,16 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       activeTransition.value = 'none';
 
       await nextTick();
-      if (workspaceRef.value) void workspaceRef.value.offsetWidth;
-      activeTransition.value = ensureSlideConfig(num).transition || 'none';
+      if (requestToken !== changePageRequestToken) return
+
+      requestAnimationFrame(() => {
+        if (requestToken !== changePageRequestToken) return
+        requestAnimationFrame(() => {
+          if (requestToken !== changePageRequestToken) return
+          activeTransition.value = ensureSlideConfig(num).transition || 'none';
+        })
+      })
+
       renderPage(num);
       preloadNearbySlideAssets(num);
     }
@@ -15366,16 +15380,30 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             });
           };
 
+          let changePageRequestToken = 0;
+
           const changePageTo = async (num) => {
             if (num >= 1 && num <= numPages.value) {
+              const requestToken = ++changePageRequestToken;
+
               await preloadSlideAssets(num);
+              if (requestToken !== changePageRequestToken) return;
+
               pageNum.value = num;
               currentAnimationStep.value = 0;
               closeAllInteractives();
               activeTransition.value = 'none';
               await nextTick();
-              void document.body.offsetWidth;
-activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
+              if (requestToken !== changePageRequestToken) return;
+
+              requestAnimationFrame(() => {
+                if (requestToken !== changePageRequestToken) return;
+                requestAnimationFrame(() => {
+                  if (requestToken !== changePageRequestToken) return;
+                  activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
+                });
+              });
+
               preloadNearbySlideAssets(num);
 
               Object.values(documentState.value).forEach(pageItems => {
