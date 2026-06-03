@@ -36,6 +36,12 @@
           <p>Por favor, espera mientras optimizamos los gráficos.</p>
         </div>
 
+        <div v-if="isPlayModeLoading" class="loading-overlay modal-overlay">
+          <div class="spinner"></div>
+          <h2>Preparando presentacion...</h2>
+          <p>Precargando recursos para una navegacion fluida.</p>
+        </div>
+
         <div v-if="playMode" class="play-nav-overlay" :class="{ 'is-idle': !showPlayNav }" @mouseenter="wakeUpPlayNav">
           <button
             @click="changePageTo(pageNum - 1)"
@@ -6535,6 +6541,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const isAutosaving = ref(false);
   const route = useRoute()
   const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
+  const isPlayModeLoading = ref(false)
   const editingElementId = ref<string | null>(null)
   const router = useRouter() // 👈 Inicializamos el router
   const isTemplateCreatorMode = computed(() => route.query.mode === 'template')
@@ -8791,7 +8798,8 @@ const handlePdfPageRendered = () => {
 
 watch([docType, pageNum], () => {
   markPdfPageAsPending(pageNum.value)
-}, { immediate: true })
+  scheduleIdlePreloadAllSlides(pageNum.value)
+}, { immediate: false })
 
 watch(activeTransition, (newVal, oldVal) => {
   if (newVal === 'none' && oldVal !== 'none' && playMode.value) {
@@ -9610,6 +9618,10 @@ watch(activeTransition, (newVal, oldVal) => {
     // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
     document.addEventListener('mousemove', wakeUpPlayNav);
     document.addEventListener('keydown', wakeUpPlayNav);
+    document.addEventListener('pointerdown', markIdlePreloadUserActivity, true)
+    document.addEventListener('wheel', markIdlePreloadUserActivity, { passive: true })
+    document.addEventListener('touchstart', markIdlePreloadUserActivity, { passive: true })
+    document.addEventListener('keydown', markIdlePreloadUserActivity)
 
     // Cargar plantillas del usuario
     loadGalleryTemplates()
@@ -9619,6 +9631,9 @@ watch(activeTransition, (newVal, oldVal) => {
       scheduleVisibleThumbRefresh()
     })
     nextTick(scheduleFormAccessibilitySync)
+    nextTick(() => {
+      scheduleIdlePreloadAllSlides(pageNum.value)
+    })
   })
 
   onUnmounted(() => {
@@ -9631,6 +9646,10 @@ watch(activeTransition, (newVal, oldVal) => {
     // 👉 NUEVO: Limpiar los eventos de movimiento al salir
     document.removeEventListener('mousemove', wakeUpPlayNav);
     document.removeEventListener('keydown', wakeUpPlayNav);
+    document.removeEventListener('pointerdown', markIdlePreloadUserActivity, true)
+    document.removeEventListener('wheel', markIdlePreloadUserActivity)
+    document.removeEventListener('touchstart', markIdlePreloadUserActivity)
+    document.removeEventListener('keydown', markIdlePreloadUserActivity)
     if (playNavTimeout) clearTimeout(playNavTimeout);
     if (visibleThumbRefreshRaf !== null) {
       cancelAnimationFrame(visibleThumbRefreshRaf)
@@ -9652,6 +9671,28 @@ watch(activeTransition, (newVal, oldVal) => {
       clearTimeout(historyTimeout)
       historyTimeout = null
     }
+
+    if (idlePreloadTaskId !== null) {
+      cancelIdleTask(idlePreloadTaskId)
+      idlePreloadTaskId = null
+    }
+
+    if (idlePreloadResumeTimer) {
+      clearTimeout(idlePreloadResumeTimer)
+      idlePreloadResumeTimer = null
+    }
+
+    if (playModeLoadingTimeout) {
+      clearTimeout(playModeLoadingTimeout)
+      playModeLoadingTimeout = null
+    }
+
+    playModeEntryPreloadToken += 1
+    isPlayModeLoading.value = false
+
+    idlePreloadToken += 1
+    idlePreloadQueue = []
+    idlePreloadInFlight = 0
     if (autosaveTimeout) {
       clearTimeout(autosaveTimeout)
       autosaveTimeout = null
@@ -12801,6 +12842,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
   const changePageTo = async (num: number) => {
     if (num >= 1 && num <= numPages.value) {
+      markIdlePreloadUserActivity()
       const requestToken = ++changePageRequestToken
 
       // 🛡️ CORRECCIÓN CRÍTICA: Sin await — la cámara trabaja en segundo plano
@@ -12832,11 +12874,63 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
       renderPage(num);
       preloadNearbySlideAssets(num);
+      scheduleIdlePreloadAllSlides(num)
     }
   }
 
   const loadedAssetUrls = new Set<string>()
   const pendingAssetLoads = new Map<string, Promise<void>>()
+  const preloadedPdfWorkerPages = new Set<number>()
+
+  const IDLE_PRELOAD_RESUME_MS = 1200
+  const IDLE_PRELOAD_CONCURRENCY = 3
+  const IDLE_PRELOAD_MAX_PDF_PAGES = 100
+  const PLAY_MODE_PRELOAD_OVERLAY_MS = 3500
+  const PLAY_MODE_PRELOAD_CONCURRENCY = 6
+
+  let idlePreloadQueue: number[] = []
+  let idlePreloadInFlight = 0
+  let idlePreloadTaskId: number | null = null
+  let idlePreloadResumeTimer: ReturnType<typeof setTimeout> | null = null
+  let idlePreloadToken = 0
+  let idlePreloadPauseUntil = 0
+  let playModeLoadingTimeout: ReturnType<typeof setTimeout> | null = null
+  let playModeEntryPreloadToken = 0
+
+  type IdleDeadlineLike = {
+    didTimeout: boolean
+    timeRemaining: () => number
+  }
+
+  const requestIdleTask = (cb: (deadline: IdleDeadlineLike) => void): number => {
+    const idleApi = window as Window & {
+      requestIdleCallback?: (callback: (deadline: IdleDeadlineLike) => void, opts?: { timeout: number }) => number
+    }
+
+    if (typeof idleApi.requestIdleCallback === 'function') {
+      return idleApi.requestIdleCallback(cb, { timeout: 400 })
+    }
+
+    return window.setTimeout(() => {
+      cb({
+        didTimeout: false,
+        timeRemaining: () => 16,
+      })
+    }, 60)
+  }
+
+  const cancelIdleTask = (id: number) => {
+    const idleApi = window as Window & {
+      cancelIdleCallback?: (handle: number) => void
+    }
+
+    if (typeof idleApi.cancelIdleCallback === 'function') {
+      idleApi.cancelIdleCallback(id)
+      return
+    }
+
+    clearTimeout(id)
+  }
 
   const normalizeAssetUrl = (url?: string | null) => {
     if (!url || typeof url !== 'string') return ''
@@ -12918,12 +13012,137 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     await Promise.all(urls.map((url) => preloadImage(url)))
   }
 
+  const preloadPdfWorkerPage = async (page: number) => {
+    if (docType.value !== 'pdf' || !_RAW_PDF_DOC) return
+    if (preloadedPdfWorkerPages.size >= IDLE_PRELOAD_MAX_PDF_PAGES) return
+
+    const mappedPage = getMappedPdfPage(page)
+    if (mappedPage <= 0 || preloadedPdfWorkerPages.has(mappedPage)) return
+
+    preloadedPdfWorkerPages.add(mappedPage)
+    try {
+      await _RAW_PDF_DOC.getPage(mappedPage)
+    } catch (_error) {
+      preloadedPdfWorkerPages.delete(mappedPage)
+    }
+  }
+
+  const preloadAllSlidesForPlayMode = async (token: number) => {
+    if (numPages.value <= 0) return
+
+    const pages: number[] = []
+    for (let page = 1; page <= numPages.value; page += 1) {
+      pages.push(page)
+    }
+
+    let cursor = 0
+    const workers = Array.from({ length: Math.min(PLAY_MODE_PRELOAD_CONCURRENCY, pages.length) }, async () => {
+      while (cursor < pages.length) {
+        if (token !== playModeEntryPreloadToken) return
+        const page = pages[cursor]
+        cursor += 1
+
+        await preloadSlideAssets(page)
+        await preloadPdfWorkerPage(page)
+      }
+    })
+
+    await Promise.all(workers)
+  }
+
   const preloadNearbySlideAssets = (currentPage: number) => {
     const candidates = [currentPage - 1, currentPage + 1, currentPage + 2]
     candidates.forEach((page) => {
       if (page < 1 || page > numPages.value) return
       void preloadSlideAssets(page)
     })
+  }
+
+  const markIdlePreloadUserActivity = () => {
+    idlePreloadPauseUntil = Date.now() + IDLE_PRELOAD_RESUME_MS
+
+    if (idlePreloadResumeTimer) {
+      clearTimeout(idlePreloadResumeTimer)
+      idlePreloadResumeTimer = null
+    }
+
+    if (!idlePreloadQueue.length && idlePreloadInFlight === 0) return
+
+    const token = idlePreloadToken
+    idlePreloadResumeTimer = setTimeout(() => {
+      idlePreloadResumeTimer = null
+      if (token !== idlePreloadToken) return
+      scheduleIdlePreloadTick(token)
+    }, IDLE_PRELOAD_RESUME_MS)
+  }
+
+  const buildIdlePreloadOrder = (anchorPage: number) => {
+    const pages: number[] = []
+    for (let offset = 1; offset <= numPages.value; offset += 1) {
+      const right = anchorPage + offset
+      const left = anchorPage - offset
+      if (right >= 1 && right <= numPages.value) pages.push(right)
+      if (left >= 1 && left <= numPages.value) pages.push(left)
+    }
+    return pages
+  }
+
+  const scheduleIdlePreloadTick = (token: number) => {
+    if (token !== idlePreloadToken) return
+    if (idlePreloadTaskId !== null) {
+      cancelIdleTask(idlePreloadTaskId)
+      idlePreloadTaskId = null
+    }
+
+    idlePreloadTaskId = requestIdleTask((deadline) => {
+      idlePreloadTaskId = null
+      if (token !== idlePreloadToken) return
+
+      if (Date.now() < idlePreloadPauseUntil && !deadline.didTimeout) {
+        scheduleIdlePreloadTick(token)
+        return
+      }
+
+      const budget = Math.max(1, Math.floor(deadline.timeRemaining() / 6))
+      let launched = 0
+
+      while (
+        launched < budget &&
+        idlePreloadInFlight < IDLE_PRELOAD_CONCURRENCY &&
+        idlePreloadQueue.length
+      ) {
+        const page = idlePreloadQueue.shift()
+        if (!page) continue
+
+        launched += 1
+        idlePreloadInFlight += 1
+
+        void preloadSlideAssets(page)
+          .then(() => preloadPdfWorkerPage(page))
+          .finally(() => {
+            idlePreloadInFlight = Math.max(0, idlePreloadInFlight - 1)
+            if (token !== idlePreloadToken) return
+            if (idlePreloadQueue.length || idlePreloadInFlight > 0) {
+              scheduleIdlePreloadTick(token)
+            }
+          })
+      }
+
+      if (idlePreloadQueue.length || idlePreloadInFlight > 0) {
+        scheduleIdlePreloadTick(token)
+      }
+    })
+  }
+
+  const scheduleIdlePreloadAllSlides = (anchorPage: number) => {
+    if (numPages.value <= 1) return
+
+    idlePreloadToken += 1
+    const token = idlePreloadToken
+    idlePreloadQueue = buildIdlePreloadOrder(anchorPage)
+
+    if (!idlePreloadQueue.length) return
+    scheduleIdlePreloadTick(token)
   }
 
   const executeEvents = (element: any, triggerType: 'click' | 'hover', subIndex: number | null = null) => {
@@ -14019,6 +14238,28 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       })
 
       if (isActive) {
+        playModeEntryPreloadToken += 1
+        const preloadToken = playModeEntryPreloadToken
+        isPlayModeLoading.value = true
+        scheduleIdlePreloadAllSlides(pageNum.value)
+        void preloadAllSlidesForPlayMode(preloadToken).catch(() => {})
+
+        if (playModeLoadingTimeout) {
+          clearTimeout(playModeLoadingTimeout)
+          playModeLoadingTimeout = null
+        }
+
+        await new Promise<void>((resolve) => {
+          playModeLoadingTimeout = setTimeout(() => {
+            playModeLoadingTimeout = null
+            resolve()
+          }, PLAY_MODE_PRELOAD_OVERLAY_MS)
+        })
+
+        if (preloadToken === playModeEntryPreloadToken && playMode.value) {
+          isPlayModeLoading.value = false
+        }
+
         activeTransition.value = slideConfigs.value[pageNum.value]?.transition ?? 'none';
         timerInterval = setInterval(() => {
           Object.values(documentState.value).forEach((pageItems) => {
@@ -14045,6 +14286,12 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
           })
         }, 50)
       } else {
+        playModeEntryPreloadToken += 1
+        if (playModeLoadingTimeout) {
+          clearTimeout(playModeLoadingTimeout)
+          playModeLoadingTimeout = null
+        }
+        isPlayModeLoading.value = false
         activeTransition.value = 'none'
       }
 

@@ -146,47 +146,59 @@ const renderPage = async (num: number) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  // Evita mostrar la pagina anterior mientras se renderiza la nueva.
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!(num > 0 && num <= rawDoc.numPages)) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
 
-  if (num > 0 && num <= rawDoc.numPages) {
-    const page = await rawDoc.getPage(num);
+  const page = await rawDoc.getPage(num);
+  if (token !== renderToken || unmounted || !pdfCanvas.value) return;
+
+  const viewport = page.getViewport({ scale: 1.0 });
+  const qualityMultiplier = window.devicePixelRatio || 1;
+
+  const offscreenCanvas = document.createElement('canvas');
+  offscreenCanvas.width = Math.max(1, Math.floor(viewport.width * qualityMultiplier));
+  offscreenCanvas.height = Math.max(1, Math.floor(viewport.height * qualityMultiplier));
+
+  const offscreenCtx = offscreenCanvas.getContext('2d');
+  if (!offscreenCtx) return;
+
+  offscreenCtx.setTransform(qualityMultiplier, 0, 0, qualityMultiplier, 0, 0);
+  offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+  const originalFillText = offscreenCtx.fillText;
+  const originalStrokeText = offscreenCtx.strokeText;
+  offscreenCtx.fillText = function () {};
+  offscreenCtx.strokeText = function () {};
+
+  try {
+    currentRenderTask = page.render({ canvasContext: offscreenCtx, viewport });
+    await currentRenderTask.promise;
     if (token !== renderToken || unmounted || !pdfCanvas.value) return;
 
-    const viewport = page.getViewport({ scale: 1.0 });
+    const liveCanvas = pdfCanvas.value;
+    const liveCtx = liveCanvas.getContext('2d');
+    if (!liveCtx) return;
 
-    const qualityMultiplier = window.devicePixelRatio || 1;
+    liveCanvas.width = offscreenCanvas.width;
+    liveCanvas.height = offscreenCanvas.height;
+    liveCanvas.style.width = `${viewport.width}px`;
+    liveCanvas.style.height = `${viewport.height}px`;
 
-    canvas.width = viewport.width * qualityMultiplier;
-    canvas.height = viewport.height * qualityMultiplier;
-    canvas.style.width = `${viewport.width}px`;
-    canvas.style.height = `${viewport.height}px`;
+    liveCtx.setTransform(1, 0, 0, 1, 0, 0);
+    liveCtx.drawImage(offscreenCanvas, 0, 0);
 
-    ctx.setTransform(qualityMultiplier, 0, 0, qualityMultiplier, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const originalFillText = ctx.fillText;
-    const originalStrokeText = ctx.strokeText;
-    ctx.fillText = function () {};
-    ctx.strokeText = function () {};
-
-    try {
-      currentRenderTask = page.render({ canvasContext: ctx, viewport });
-      await currentRenderTask.promise;
-      if (token !== renderToken || unmounted) return;
-      emit('page-rendered', { width: viewport.width, height: viewport.height, page });
-    } catch (error) {
-      const renderError = error as { name?: string };
-      if (renderError?.name !== 'RenderingCancelledException') {
-        throw error;
-      }
-    } finally {
-      ctx.fillText = originalFillText;
-      ctx.strokeText = originalStrokeText;
-      currentRenderTask = null;
+    emit('page-rendered', { width: viewport.width, height: viewport.height, page });
+  } catch (error) {
+    const renderError = error as { name?: string };
+    if (renderError?.name !== 'RenderingCancelledException') {
+      throw error;
     }
-  } else {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  } finally {
+    offscreenCtx.fillText = originalFillText;
+    offscreenCtx.strokeText = originalStrokeText;
+    currentRenderTask = null;
   }
 };
 
