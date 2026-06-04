@@ -112,6 +112,19 @@ export const presentationService = {
     return await response.json()
   },
 
+  async renamePresentation(id, newTitle) {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ title: newTitle }),
+    })
+    if (!response.ok) throw new Error(`Error al renombrar: ${response.statusText}`)
+    return await response.json()
+  },
+
   async getPublicPresentationBySlug(slug) {
     const response = await fetch(`${API_URL}/public/${slug}`)
 

@@ -728,11 +728,10 @@
               <div
                 class="canvas-wrapper"
                 :class="{ 'play-mode-active': playMode }"
-                :style="{ transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }"
+                :style="{ width: `${baseWidth}px`, height: `${baseHeight}px`, overflow: 'hidden', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }"
               >
                 <Transition
                   :name="playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''"
-                  :mode="playMode && activeTransition !== 'none' ? 'out-in' : undefined"
                 >
                   <div
                   class="canvas-shadow-box layer-engine"
@@ -12855,22 +12854,11 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
       markPdfPageAsPending(num)
 
+      activeTransition.value = ensureSlideConfig(num).transition || 'none';
       pageNum.value = num;
       currentAnimationStep.value = 0;
       selectedElementIds.value = [];
       closeAllInteractives();
-      activeTransition.value = 'none';
-
-      await nextTick();
-      if (requestToken !== changePageRequestToken) return
-
-      requestAnimationFrame(() => {
-        if (requestToken !== changePageRequestToken) return
-        requestAnimationFrame(() => {
-          if (requestToken !== changePageRequestToken) return
-          activeTransition.value = ensureSlideConfig(num).transition || 'none';
-        })
-      })
 
       renderPage(num);
       preloadNearbySlideAssets(num);
@@ -14695,98 +14683,231 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 <div v-if="isMobile && (isLeftSidebarOpen || isRightSidebarOpen)" class="mobile-overlay" @click="isLeftSidebarOpen = false; isRightSidebarOpen = false"></div>
 
 <style>
-.pro-editor-app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  position: relative;
-}
-.mobile-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1400;
-}
-.pro-top-toolbar {
-  overflow: visible;
-}
-@media (max-width: 992px) {
-  .pro-sidebar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    z-index: 1500;
-    box-shadow: var(--shadow-lg);
-    transition: transform 0.3s ease;
-  }
+/* === VIEWPORT / RESET === */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0f1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+#app { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
 
-  .left-sidebar {
-    left: 0;
-    transform: translateX(-100%);
-  }
+/* === CANVAS === */
+.canvas-wrapper { position: relative; transform-origin: center center; will-change: transform; transition: none; }
+.canvas-wrapper.play-mode-active { transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.canvas-shadow-box { box-shadow: 0 4px 24px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.08); }
+.layer-engine { position: relative; overflow: hidden; }
+.layer-pdf { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; object-fit: fill; }
 
-  .left-sidebar.is-open {
-    transform: translateX(0);
-  }
+/* === INTERACTIVE ELEMENTS === */
+.interactive-element { position: absolute; box-sizing: border-box; display: flex; transition: opacity 0.2s; will-change: transform, opacity; cursor: default; }
+.interactive-element.is-clickable { cursor: pointer; }
+.interactive-element.is-hidden-editor { opacity: 0.3; border: 1px dashed rgba(194,65,12,0.6); }
 
-  .right-sidebar {
-    right: 0;
-    transform: translateX(100%);
-  }
+/* === TEXT / STICKY === */
+.el-text { width: 100%; height: 100%; white-space: pre-wrap; line-height: 1.3; word-break: break-word; }
+.el-list { width: 100%; height: 100%; overflow: hidden; word-break: break-word; }
+.el-checkbox-list { width: 100%; height: 100%; overflow: hidden; word-break: break-word; }
 
-  .right-sidebar.is-open {
-    transform: translateX(0);
-  }
+/* === SHAPE / ARROW / ICON === */
+.el-shape { width: 100%; height: 100%; }
+.el-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 
-  .sidebar-resizer {
-    display: none;
-  }
+/* === IMAGE / VIDEO / IFRAME === */
+.el-image-container, .el-video-container, .el-iframe-container { width: 100%; height: 100%; position: relative; overflow: hidden; }
+.el-content-fitted { width: 100%; height: 100%; display: block; border: none; }
+.placeholder-box { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; background: #1e293b; border: 1px dashed rgba(255,255,255,0.08); font-size: 0.8rem; color: #94a3b8; text-align: center; padding: 10px; }
+.drag-protector { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; cursor: move; }
+.el-3d { width: 100%; height: 100%; position: relative; }
+.el-draw-board { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; }
+.el-draw-board svg { width: 100%; height: 100%; display: block; overflow: visible; }
 
-  .sidebar-toggle-btn {
-    top: 15px;
-    z-index: 1600;
-  }
-  
-  .pro-top-toolbar {
-    top: 4px;
-  }
+/* === CODEBLOCK === */
+.el-codeblock { overflow: auto; }
 
-  .toolbar-window {
-    width: calc(100% - 12px);
-    padding-left: 50px;
-    padding-right: 50px;
-  }
-}
+/* === CHARTS === */
+.el-chart-wrapper, .el-chart { display: flex; flex-direction: column; box-sizing: border-box; width: 100%; height: 100%; }
+.chart-inner-area { flex: 1; position: relative; width: 100%; height: calc(100% - 25px); }
+.chart-bar-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: 100%; gap: 6px; }
+.bar-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; height: 100%; }
+.bar-fill { width: 100%; border-radius: 2px 2px 0 0; }
+.chart-hbar-container { display: flex; flex-direction: column; justify-content: space-around; width: 100%; height: 100%; gap: 4px; }
+.hbar-row { display: flex; align-items: center; width: 100%; height: 100%; gap: 8px; }
+.hbar-track { flex: 1; height: 100%; min-height: 8px; background: rgba(100,116,139,0.18); border-radius: 2px; display: flex; align-items: center; }
+.hbar-fill { height: 100%; border-radius: 2px; }
+.chart-pie-container { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: relative; }
+.pie-circle { border-radius: 50%; width: 100%; height: 100%; max-width: 250px; max-height: 250px; display: flex; align-items: center; justify-content: center; }
+.donut-hole { width: 55%; height: 55%; border-radius: 50%; border: 1px solid rgba(148,163,184,0.2); }
+.chart-label { font-size: 10px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-weight: 500; }
+.chart-value { font-size: 10px; margin-bottom: 2px; font-weight: 800; }
+.pie-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
+.pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 500; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chart-line-container, .chart-scatter-container, .chart-radar-container { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px; }
+.chart-svg { width: 100%; height: 100%; display: block; }
+.line-legend { display: flex; justify-content: center; gap: 10px; font-size: 10px; font-weight: 600; flex-wrap: wrap; }
+.chart-combo-container { position: relative; width: 100%; height: 100%; }
+.combo-bars { opacity: 0.8; }
+.combo-line { position: absolute; inset: 0; pointer-events: none; }
+.chart-funnel-container { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.funnel-stage { min-height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; color: #fff; font-size: 10px; font-weight: 700; }
+.funnel-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; }
+.funnel-value { font-variant-numeric: tabular-nums; }
+.chart-treemap-container { width: 100%; height: 100%; display: flex; gap: 4px; }
+.treemap-node { min-width: 0; border-radius: 6px; padding: 8px 6px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; font-size: 10px; font-weight: 600; }
+.chart-stat-container { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px; }
+.stat-row { display: flex; align-items: center; gap: 8px; }
+.stat-track { position: relative; flex: 1; height: 14px; border-radius: 999px; background: rgba(148,163,184,0.18); }
+.stat-whisker { position: absolute; top: 50%; height: 2px; transform: translateY(-50%); background: #475569; }
+.stat-box { position: absolute; top: 2px; height: 10px; border-radius: 3px; opacity: 0.85; }
+.stat-median { position: absolute; top: 1px; width: 2px; height: 12px; background: #0f172a; }
 
-@media (max-width: 768px) {
-  .toolbar-window {
-    padding: 8px;
-    gap: 8px;
-  }
-  .toolbar-tabs {
-    gap: 4px;
-    padding-bottom: 6px;
-  }
-  .toolbar-tab-btn {
-    padding: 6px 10px;
-    font-size: 0.76rem;
-  }
-  .toolbar-category {
-    gap: 4px;
-    padding: 8px;
-  }
-  .category-tools {
-    gap: 4px;
-  }
-  .tool-btn, .shape-dropdown-btn, .arrow-dropdown-btn, .icon-dropdown-btn, .mindmap-dropdown-btn, .table-dropdown-btn, .chart-dropdown-btn, .qr-dropdown-btn {
-    width: 38px;
-    height: 38px;
-  }
-}
+/* === MINDMAP === */
+.el-mindmap-container { width: 100%; height: 100%; position: relative; overflow: visible; display: flex; align-items: center; justify-content: flex-start; }
+.mm-wrapper { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 100%; padding: 10px; box-sizing: border-box; }
+.mm-level-0 { display: flex; align-items: center; position: relative; }
+.mm-node-block { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; cursor: pointer; transition: 0.2s; position: relative; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.mm-node-block:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+.mm-node-img { width: 30px; height: 30px; object-fit: cover; border-radius: 4px; margin-bottom: 4px; }
+.mm-node-text { font-weight: bold; font-size: 0.9rem; text-align: center; }
+.mm-node-note { font-size: 0.65rem; opacity: 0.8; margin-top: 2px; text-align: center; max-width: 120px; line-height: 1.2; }
+.mm-children { display: flex; flex-direction: column; justify-content: center; position: relative; padding-left: 30px; gap: 10px; }
+.mm-child-wrapper { display: flex; align-items: center; position: relative; }
+.mm-child-wrapper::before { content: ''; position: absolute; left: -15px; top: 50%; width: 15px; height: 1px; border-top: var(--mm-line-width, 2px) solid var(--mm-line-color, #64748b); }
+.mm-child-wrapper::after { content: ''; position: absolute; left: -15px; border-left: var(--mm-line-width, 2px) solid var(--mm-line-color, #64748b); }
+.mm-child-wrapper:first-child::after { top: 50%; bottom: 0; }
+.mm-child-wrapper:last-child::after { top: 0; bottom: 50%; }
+.mm-child-wrapper:not(:first-child):not(:last-child)::after { top: 0; bottom: 0; }
+.mm-child-wrapper:first-child:last-child::after { display: none; }
+.mm-connector-right { position: absolute; right: -15px; top: 50%; width: 15px; border-top: var(--mm-line-width, 2px) solid var(--mm-line-color, #64748b); }
+
+/* === INTERACTIVE MODAL === */
+.el-interactive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.hotspot-pulse { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; animation: pulse 2s infinite; }
+@keyframes pulse { 0% { transform: scale(0.9); opacity: 0.9; } 70% { transform: scale(1.3); opacity: 0; } 100% { transform: scale(0.9); opacity: 0; } }
+.interactive-modal { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 15px; background: #1e293b; color: #f1f5f9; padding: 20px; border-radius: 12px; width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 9999; cursor: default; user-select: text; border: 1px solid rgba(255,255,255,0.1); }
+.modal-title { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-weight: 800; }
+
+/* === LINK === */
+.el-link { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 15px; box-sizing: border-box; transition: 0.2s; }
+.el-link:hover { filter: brightness(1.1); }
+.el-link:active { transform: scale(0.97); }
+
+/* === ACCORDION === */
+.el-accordion { width: 100%; height: 100%; overflow-y: auto; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.accordion-item { border-bottom: 1px solid rgba(255,255,255,0.1); }
+.accordion-item:last-child { border-bottom: none; }
+.accordion-header { padding: 10px 14px; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; background: rgba(255,255,255,0.04); transition: 0.2s; cursor: pointer; }
+.accordion-header:hover { background: rgba(255,255,255,0.08); }
+.accordion-content { padding: 12px 14px; font-size: 0.85rem; line-height: 1.5; background: rgba(255,255,255,0.02); user-select: text; }
+
+/* === AUDIO === */
+.el-audio-wrapper { cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.audio-pill { display: flex; align-items: center; gap: 8px; width: 100%; height: 100%; padding: 0 15px; box-sizing: border-box; font-size: 0.85rem; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.audio-pill i { font-size: 1.3rem; }
+.audio-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-waves { display: flex; gap: 3px; height: 12px; align-items: center; }
+.audio-waves span { width: 3px; background: currentColor; height: 100%; border-radius: 2px; animation: wave 1s infinite ease-in-out; }
+.audio-waves span:nth-child(2) { animation-delay: 0.2s; }
+.audio-waves span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wave { 0%, 100% { height: 20%; } 50% { height: 100%; } }
+.audio-minimal { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
+.audio-floating { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; transition: transform 0.2s, box-shadow 0.2s; }
+.audio-floating:hover { transform: translateY(-4px); }
+.audio-floating:active { transform: translateY(0); }
+.audio-minimal.is-playing, .audio-floating.is-playing { animation: pulse-audio 1.5s infinite alternate; }
+@keyframes pulse-audio { from { box-shadow: 0 0 0 0px rgba(194,65,12,0.35); } to { box-shadow: 0 0 0 15px rgba(194,65,12,0); } }
+
+/* === IMAGE COMPARATOR === */
+.pro-image-comparator { --slider-pos: 50%; width: 100%; height: 100%; position: relative; overflow: hidden; }
+.compare-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 50%; pointer-events: none; }
+.compare-img-foreground { clip-path: polygon(0 0, var(--slider-pos) 0, var(--slider-pos) 100%, 0 100%); }
+.compare-slider { background: transparent; appearance: none; -webkit-appearance: none; margin: 0; padding: 0; border: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; cursor: ew-resize; opacity: 0; }
+.compare-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 40px; height: 100vh; background: transparent; cursor: ew-resize; }
+.compare-slider::-moz-range-thumb { width: 40px; height: 100vh; background: transparent; cursor: ew-resize; border: none; }
+.compare-divider { position: absolute; top: 0; bottom: 0; left: var(--slider-pos); width: 2px; background-color: white; transform: translateX(-50%); pointer-events: none; z-index: 5; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+.compare-handle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 36px; height: 36px; background-color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-size: 14px; gap: 2px; }
+
+/* === MARQUEE === */
+.marquee-track { display: flex; white-space: nowrap; position: absolute; animation-name: scroll-marquee; animation-timing-function: linear; animation-iteration-count: infinite; }
+.marquee-content { padding: 0 50px; display: inline-block; }
+@keyframes scroll-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+/* === TYPEWRITER === */
+.is-waiting-animation { opacity: 0; pointer-events: none; }
+
+/* === SLIDE TRANSITIONS === */
+.slide-trans-fade-enter-active { transition: opacity 0.5s ease; }
+.slide-trans-fade-leave-active { transition: opacity 0.35s ease; position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+.slide-trans-fade-enter-from, .slide-trans-fade-leave-to { opacity: 0; }
+.slide-trans-slide-enter-active { transition: all 0.5s cubic-bezier(0.25,1,0.5,1); }
+.slide-trans-slide-leave-active { transition: all 0.35s cubic-bezier(0.55,0,1,0.45); position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+.slide-trans-slide-enter-from { transform: translateX(80px); opacity: 0; }
+.slide-trans-slide-leave-to { transform: translateX(-80px); opacity: 0; }
+.slide-trans-zoom-enter-active { transition: all 0.5s cubic-bezier(0.25,1,0.5,1); }
+.slide-trans-zoom-leave-active { transition: all 0.35s ease; position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+.slide-trans-zoom-enter-from { transform: scale(0.92); opacity: 0; }
+.slide-trans-zoom-leave-to { opacity: 0; }
+
+/* === ELEMENT ANIMATIONS === */
+.anim-appear { animation: animAppear 0.05s linear both; }
+.anim-fade-in { animation: animFadeIn 0.8s ease-out both; }
+.anim-slide-in, .anim-slide-up, .anim-rise-up { animation: animSlideUp 0.8s cubic-bezier(0.25,1,0.5,1) both; }
+.anim-fly-in-left { animation: animFlyInLeft 0.85s ease-out both; }
+.anim-fly-in-right { animation: animFlyInRight 0.85s ease-out both; }
+.anim-fly-in-top { animation: animFlyInTop 0.85s ease-out both; }
+.anim-fly-in-bottom { animation: animFlyInBottom 0.85s ease-out both; }
+.anim-zoom-in { animation: animZoomIn 0.8s cubic-bezier(0.25,1,0.5,1) both; }
+.anim-bounce { animation: animBounce 0.8s cubic-bezier(0.175,0.885,0.32,1.275) both; }
+.anim-flip-in-x { animation: animFlipInX 0.9s ease-out both; backface-visibility: hidden; transform-style: preserve-3d; }
+.anim-flip-in-y { animation: animFlipInY 0.9s ease-out both; backface-visibility: hidden; transform-style: preserve-3d; }
+.anim-rotate-in { animation: animRotateIn 0.8s ease-out both; transform-origin: center center; }
+.anim-wipe-left { animation: animWipeLeft 0.85s ease-out both; overflow: hidden; }
+.anim-wipe-right { animation: animWipeRight 0.85s ease-out both; overflow: hidden; }
+.anim-pulse { animation: animPulse 1.1s ease-in-out 2 both; }
+.anim-spin { animation: animSpin 0.9s linear 1 both; }
+.anim-wobble { animation: animWobble 0.9s ease-in-out both; }
+.anim-shake { animation: animShake 0.6s ease-in-out both; }
+.anim-flash { animation: animFlash 0.75s ease-in-out both; }
+.anim-tada { animation: animTada 0.9s ease-in-out both; }
+.anim-grow { animation: animGrow 0.6s ease-out both; }
+.anim-shrink { animation: animShrink 0.6s ease-out both; }
+.anim-glow { animation: animGlow 1.2s ease-in-out 2 both; }
+.anim-fade-out { animation: animFadeOut 0.7s ease-in both; }
+.anim-fly-out-left { animation: animFlyOutLeft 0.75s ease-in both; }
+.anim-zoom-out { animation: animZoomOut 0.7s ease-in both; }
+.anim-sink-down { animation: animSinkDown 0.75s ease-in both; }
+
+@keyframes animAppear { from { opacity: 0.01; } to { opacity: 1; } }
+@keyframes animFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes animSlideUp { from { translate: 0 56px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes animFlyInLeft { from { translate: -56px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes animFlyInRight { from { translate: 56px 0; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes animFlyInTop { from { translate: 0 -56px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes animFlyInBottom { from { translate: 0 56px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+@keyframes animZoomIn { from { scale: 0.82; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes animBounce { 0% { scale: 0.5; opacity: 0; } 55% { scale: 1.06; opacity: 1; } 75% { scale: 0.97; } 100% { scale: 1; opacity: 1; } }
+@keyframes animFlipInX { from { transform: perspective(900px) rotateX(-90deg); opacity: 0; } to { transform: perspective(900px) rotateX(0deg); opacity: 1; } }
+@keyframes animFlipInY { from { transform: perspective(900px) rotateY(-90deg); opacity: 0; } to { transform: perspective(900px) rotateY(0deg); opacity: 1; } }
+@keyframes animRotateIn { from { transform: rotate(-18deg) scale(0.92); opacity: 0; } to { transform: rotate(0deg) scale(1); opacity: 1; } }
+@keyframes animWipeLeft { from { clip-path: inset(0 100% 0 0); opacity: 0.2; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes animWipeRight { from { clip-path: inset(0 0 0 100%); opacity: 0.2; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes animPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes animSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes animWobble { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px) rotate(-2deg); } 40% { transform: translateX(7px) rotate(2deg); } 60% { transform: translateX(-4px) rotate(-1deg); } 80% { transform: translateX(3px) rotate(1deg); } }
+@keyframes animShake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+@keyframes animFlash { 0%,100% { opacity: 1; } 25%,75% { opacity: 0.2; } 50% { opacity: 1; } }
+@keyframes animTada { 0% { transform: scale3d(1,1,1); } 10%,20% { transform: scale3d(0.95,0.95,0.95) rotate(-3deg); } 30%,50%,70%,90% { transform: scale3d(1.04,1.04,1.04) rotate(3deg); } 40%,60%,80% { transform: scale3d(1.04,1.04,1.04) rotate(-3deg); } 100% { transform: scale3d(1,1,1); } }
+@keyframes animGrow { from { transform: scale(1); } to { transform: scale(1.14); } }
+@keyframes animShrink { from { transform: scale(1); } to { transform: scale(0.88); } }
+@keyframes animGlow { 0%,100% { box-shadow: 0 0 0 rgba(255,255,255,0); filter: brightness(1); } 50% { box-shadow: 0 0 28px rgba(255,255,255,0.45); filter: brightness(1.12); } }
+@keyframes animFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes animFlyOutLeft { from { translate: 0 0; opacity: 1; } to { translate: -56px 0; opacity: 0; } }
+@keyframes animZoomOut { from { scale: 1; opacity: 1; } to { scale: 0.85; opacity: 0; } }
+@keyframes animSinkDown { from { translate: 0 0; opacity: 1; } to { translate: 0 40px; opacity: 0; } }
+
+/* === PLAY NAV OVERLAY === */
+.play-nav-overlay { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: rgba(15,23,42,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 8px 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); display: flex; gap: 15px; z-index: 10000; color: #f1f5f9; align-items: center; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: opacity 0.4s ease, transform 0.4s ease; }
+.play-nav-overlay button { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: rgba(255,255,255,0.06); color: #f1f5f9; border: none; border-radius: 50%; cursor: pointer; font-weight: bold; transition: 0.2s; }
+.play-nav-overlay button:hover:not(:disabled) { background: #c2410c; transform: scale(1.1); }
+.play-nav-overlay button:disabled { opacity: 0.3; cursor: not-allowed; }
+.play-nav-overlay.is-idle { opacity: 0; pointer-events: none; transform: translate(-50%, 15px); }
 </style>
   </head>
   <body>
@@ -14797,8 +14918,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     <div id="app"></div>
 
     <script type="text/x-template" id="app-template">
-      <div class="canvas-wrapper play-mode-active" :style="{ transform: 'scale(' + zoom + ')' }">
-        <Transition :name="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''" :mode="activeTransition !== 'none' ? 'out-in' : undefined">
+      <div class="canvas-wrapper play-mode-active" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', overflow: 'hidden', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', transform: 'scale(' + zoom + ')' }">
+        <Transition :name="activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''">
         <div class="canvas-shadow-box layer-engine" :key="pageNum" :style="{ width: baseWidth + 'px', height: baseHeight + 'px', backgroundColor: currentBgColor }">
 
             <!-- Renderizamos el fondo exacto del PDF usando tu clase de alta calidad -->
@@ -15524,7 +15645,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
             };
           };
 
-          const fitToScreen = () => { zoom.value = Math.min(Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.95, 1.0); };
+          const fitToScreen = () => { zoom.value = Math.min(Math.min(window.innerWidth / baseWidth.value, window.innerHeight / baseHeight.value) * 0.92, 1.0); };
 
           const loadedAssetUrls = new Set();
           const pendingAssetLoads = new Map();
@@ -15636,20 +15757,10 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
               await preloadSlideAssets(num);
               if (requestToken !== changePageRequestToken) return;
 
+              activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
               pageNum.value = num;
               currentAnimationStep.value = 0;
               closeAllInteractives();
-              activeTransition.value = 'none';
-              await nextTick();
-              if (requestToken !== changePageRequestToken) return;
-
-              requestAnimationFrame(() => {
-                if (requestToken !== changePageRequestToken) return;
-                requestAnimationFrame(() => {
-                  if (requestToken !== changePageRequestToken) return;
-                  activeTransition.value = slideConfigs.value[num]?.transition ?? 'none';
-                });
-              });
 
               preloadNearbySlideAssets(num);
 
@@ -15743,8 +15854,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
 
             // 👉 2. Pasar de diapositiva al hacer clic en cualquier lugar (estilo PowerPoint real)
             document.addEventListener('click', (e) => {
-              // Comprobamos que no se esté haciendo clic en un botón o en un elemento interactivo
-              if (!e.target.closest('button') && !e.target.closest('.is-clickable')) {
+              if (!e.target.closest('button') && !e.target.closest('.is-clickable') && !e.target.closest('input') && !e.target.closest('.compare-slider') && !e.target.closest('.pro-image-comparator') && !e.target.closest('.accordion-header') && !e.target.closest('select') && !e.target.closest('textarea')) {
                 advancePresentation();
               }
             });
@@ -17408,7 +17518,7 @@ watch(isMobile, (newVal) => {
     transition: none !important;
   }
   .canvas-wrapper.play-mode-active {
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: var(--shadow-lg);
   }
   .layer-engine {
@@ -18161,22 +18271,18 @@ watch(isMobile, (newVal) => {
 .thumb-pos-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
 }
-  /* TRANSICIONES Y ANIMACIONES */
-  .slide-trans-fade { animation: transFade 0.6s ease-out forwards; }
-  .slide-trans-slide { animation: transSlide 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-  .slide-trans-zoom { animation: transZoom 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-  @keyframes transFade {
-    from { opacity: 0; transform: translateX(1px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes transSlide {
-    from { transform: translateX(101px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  @keyframes transZoom {
-    from { transform: translateX(1px) scale(0.95); opacity: 0; }
-    to { transform: translateX(0) scale(1); opacity: 1; }
-  }
+  /* SLIDE TRANSITIONS (Vue) */
+  .slide-trans-fade-enter-active { transition: opacity 0.5s ease; }
+  .slide-trans-fade-leave-active { transition: opacity 0.35s ease; position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+  .slide-trans-fade-enter-from, .slide-trans-fade-leave-to { opacity: 0; }
+  .slide-trans-slide-enter-active { transition: all 0.5s cubic-bezier(0.25,1,0.5,1); }
+  .slide-trans-slide-leave-active { transition: all 0.35s cubic-bezier(0.55,0,1,0.45); position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+  .slide-trans-slide-enter-from { transform: translateX(80px); opacity: 0; }
+  .slide-trans-slide-leave-to { transform: translateX(-80px); opacity: 0; }
+  .slide-trans-zoom-enter-active { transition: all 0.5s cubic-bezier(0.25,1,0.5,1); }
+  .slide-trans-zoom-leave-active { transition: all 0.35s ease; position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+  .slide-trans-zoom-enter-from { transform: scale(0.92); opacity: 0; }
+  .slide-trans-zoom-leave-to { opacity: 0; }
 
   .anim-appear { animation: animAppear var(--anim-duration, 0.05s) linear both; }
   .anim-fade-in { animation: animFadeIn var(--anim-duration, 0.8s) var(--anim-easing, ease-out) both; }

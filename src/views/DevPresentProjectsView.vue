@@ -28,6 +28,8 @@ const pendingUploadFile = ref<File | null>(null)
 const isDropZoneActive = ref(false)
 const isUploadModalDragActive = ref(false)
 const isDeletingProject = ref(false)
+const editingTitleId = ref<string | null>(null)
+const editingTitleValue = ref('')
 const deleteModal = ref({
   open: false,
   id: '',
@@ -264,6 +266,37 @@ const editProject = (id: string) => {
   router.push(`/editorpresentaciones/${id}`)
 }
 
+const startRename = (project: ProjectItem) => {
+  editingTitleId.value = project._id
+  editingTitleValue.value = project.title || ''
+}
+
+const commitRename = async (project: ProjectItem) => {
+  if (editingTitleId.value !== project._id) return
+  const newTitle = editingTitleValue.value.trim()
+  const oldTitle = project.title || ''
+  if (!newTitle || newTitle === oldTitle) {
+    cancelRename()
+    return
+  }
+  try {
+    await presentationService.renamePresentation(project._id, newTitle)
+    project.title = newTitle
+    editingTitleId.value = null
+    editingTitleValue.value = ''
+  } catch {
+    errorMessage.value = 'No se pudo renombrar el proyecto.'
+  } finally {
+    editingTitleId.value = null
+    editingTitleValue.value = ''
+  }
+}
+
+const cancelRename = () => {
+  editingTitleId.value = null
+  editingTitleValue.value = ''
+}
+
 const deleteProject = async (id: string, title?: string) => {
   deleteErrorMessage.value = ''
   deleteModal.value = {
@@ -426,7 +459,26 @@ onMounted(async () => {
             </div>
             <div class="flex flex-1 flex-col justify-between p-stack-md">
               <div>
-                <h3 class="truncate text-[18px] text-on-surface">{{ project.title || 'Presentacion sin titulo' }}</h3>
+                <div class="flex items-center gap-1">
+                  <input
+                    v-if="editingTitleId === project._id"
+                    v-model="editingTitleValue"
+                    class="w-full rounded-md border border-outline bg-surface px-2 py-1 text-[16px] text-on-surface outline-none focus:border-primary-700"
+                    @keydown.enter="commitRename(project)"
+                    @keydown.escape="cancelRename"
+                    @blur="commitRename(project)"
+                  />
+                  <h3 v-else class="truncate text-[18px] text-on-surface">{{ project.title || 'Presentacion sin titulo' }}</h3>
+                  <button
+                    v-if="editingTitleId !== project._id"
+                    type="button"
+                    aria-label="Renombrar proyecto"
+                    class="rounded-full p-1 flex-shrink-0 transition-colors hover:bg-primary-100 hover:text-primary-700"
+                    @click.stop="startRename(project)"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">edit</span>
+                  </button>
+                </div>
                 <p class="mt-1 line-clamp-2 text-[14px] text-on-surface-variant">Tipo: {{ project.docType || 'blank' }}</p>
               </div>
               <div class="mt-stack-md flex items-center justify-between border-t border-outline pt-stack-sm text-[13px] text-on-surface">
