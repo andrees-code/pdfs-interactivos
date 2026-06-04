@@ -36,12 +36,6 @@
           <p>Por favor, espera mientras optimizamos los gráficos.</p>
         </div>
 
-        <div v-if="isPlayModeLoading" class="loading-overlay modal-overlay">
-          <div class="spinner"></div>
-          <h2>Preparando presentacion...</h2>
-          <p>Precargando recursos para una navegacion fluida.</p>
-        </div>
-
         <div v-if="playMode" class="play-nav-overlay" :class="{ 'is-idle': !showPlayNav }" @mouseenter="wakeUpPlayNav">
           <button
             @click="changePageTo(pageNum - 1)"
@@ -6517,7 +6511,9 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   // --- ESTADO GENERAL ---
   const _pdfCanvas = ref<HTMLCanvasElement | null>(null)
   const workspaceRef = ref<HTMLElement | null>(null)
-  const appContainerRef = ref<HTMLElement | null>(null) // NUEVO REF
+  const appContainerRef = ref<HTMLElement | null>(null)
+  let workspaceResizeObserver: ResizeObserver | null = null
+  let fitToScreenTimer: ReturnType<typeof setTimeout> | null = null
   // --- ESTADO DE NAVEGACIÓN (PAN Y ZOOM) ---
   const panX = ref(0)
   const panY = ref(0)
@@ -9614,6 +9610,9 @@ watch(activeTransition, (newVal, oldVal) => {
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
     window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('resize', fitToScreen)
+    // El ResizeObserver del workspace se configura reactivamente via watch (ver abajo)
+    setupWorkspaceObserver()
     // 👉 NUEVO: Escuchar movimiento de ratón y teclas para despertar el menú
     document.addEventListener('mousemove', wakeUpPlayNav);
     document.addEventListener('keydown', wakeUpPlayNav);
@@ -9642,6 +9641,15 @@ watch(activeTransition, (newVal, oldVal) => {
     document.removeEventListener('fullscreenchange', onFullscreenChange)
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
     window.removeEventListener('beforeunload', handleBeforeUnload)
+    window.removeEventListener('resize', fitToScreen)
+    if (workspaceResizeObserver) {
+      workspaceResizeObserver.disconnect()
+      workspaceResizeObserver = null
+    }
+    if (fitToScreenTimer) {
+      clearTimeout(fitToScreenTimer)
+      fitToScreenTimer = null
+    }
     // 👉 NUEVO: Limpiar los eventos de movimiento al salir
     document.removeEventListener('mousemove', wakeUpPlayNav);
     document.removeEventListener('keydown', wakeUpPlayNav);
@@ -9650,6 +9658,7 @@ watch(activeTransition, (newVal, oldVal) => {
     document.removeEventListener('touchstart', markIdlePreloadUserActivity)
     document.removeEventListener('keydown', markIdlePreloadUserActivity)
     if (playNavTimeout) clearTimeout(playNavTimeout);
+    if (sidebarFitTimer) clearTimeout(sidebarFitTimer);
     if (visibleThumbRefreshRaf !== null) {
       cancelAnimationFrame(visibleThumbRefreshRaf)
       visibleThumbRefreshRaf = null
@@ -10090,6 +10099,31 @@ watch(
   },
   { deep: true }
 );
+
+  const setupWorkspaceObserver = () => {
+    if (workspaceResizeObserver) {
+      workspaceResizeObserver.disconnect()
+      workspaceResizeObserver = null
+    }
+    if (!workspaceRef.value) return
+    workspaceResizeObserver = new ResizeObserver(() => {
+      if (fitToScreenTimer) clearTimeout(fitToScreenTimer)
+      fitToScreenTimer = setTimeout(fitToScreen, 50)
+    })
+    workspaceResizeObserver.observe(workspaceRef.value)
+    fitToScreen()
+  }
+
+  watch(workspaceRef, () => setupWorkspaceObserver())
+
+  let sidebarFitTimer: ReturnType<typeof setTimeout> | null = null
+  watch([isLeftSidebarOpen, isRightSidebarOpen], () => {
+    if (sidebarFitTimer) clearTimeout(sidebarFitTimer)
+    sidebarFitTimer = setTimeout(() => {
+      fitToScreen()
+      sidebarFitTimer = null
+    }, 300)
+  })
 
   // Ojo vigía mágico de Vue 👁️
   watch(
@@ -13162,10 +13196,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       if (playMode.value) {
         zoom.value = Math.max(0.1, Math.min(scaleX, scaleY, 1.0))
       } else {
-        zoom.value = Math.max(0.1, Math.min(scaleX, scaleY))
+        zoom.value = 1
       }
 
-      // NUEVO: Centrar el lienzo nuevamente
       panX.value = 0;
       panY.value = 0;
     }
@@ -14228,25 +14261,8 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       if (isActive) {
         playModeEntryPreloadToken += 1
         const preloadToken = playModeEntryPreloadToken
-        isPlayModeLoading.value = true
         scheduleIdlePreloadAllSlides(pageNum.value)
         void preloadAllSlidesForPlayMode(preloadToken).catch(() => {})
-
-        if (playModeLoadingTimeout) {
-          clearTimeout(playModeLoadingTimeout)
-          playModeLoadingTimeout = null
-        }
-
-        await new Promise<void>((resolve) => {
-          playModeLoadingTimeout = setTimeout(() => {
-            playModeLoadingTimeout = null
-            resolve()
-          }, PLAY_MODE_PRELOAD_OVERLAY_MS)
-        })
-
-        if (preloadToken === playModeEntryPreloadToken && playMode.value) {
-          isPlayModeLoading.value = false
-        }
 
         activeTransition.value = slideConfigs.value[pageNum.value]?.transition ?? 'none';
         timerInterval = setInterval(() => {
@@ -14275,11 +14291,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
         }, 50)
       } else {
         playModeEntryPreloadToken += 1
-        if (playModeLoadingTimeout) {
-          clearTimeout(playModeLoadingTimeout)
-          playModeLoadingTimeout = null
-        }
-        isPlayModeLoading.value = false
         activeTransition.value = 'none'
       }
 
@@ -16847,8 +16858,9 @@ watch(isMobile, (newVal) => {
     background-color: var(--surface-canvas);
     background-image: radial-gradient(circle, var(--canvas-dot) 0.95px, transparent 1px);
     flex: 1;
+    min-width: 0;
+    width: 100%;
     position: relative;
-    overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
