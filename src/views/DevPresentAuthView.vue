@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 // @ts-expect-error JS service module in mixed TS workspace
 import { authService } from '@/services/auth.service.js'
@@ -136,40 +136,171 @@ onMounted(() => {
     authStore.login(token, parsedUser)
     router.replace('/devpresent/projects')
   }
+
+  setupDecoObserver()
 })
+
+onUnmounted(() => {
+  decoObserver?.disconnect()
+})
+
+// --- Demo scroll-driven del auth-deco ---
+// El panel es su propio contenedor de scroll (scroll-snap). El observer solo
+// marca que escena esta activa para el fade-up y los puntos de progreso: si no
+// llega a montarse (ej. panel oculto <1024px), las escenas quedan legibles
+// igualmente, solo sin el resaltado de la activa.
+const decoScrollRef = ref<HTMLElement | null>(null)
+const scene1Ref = ref<HTMLElement | null>(null)
+const scene2Ref = ref<HTMLElement | null>(null)
+const scene3Ref = ref<HTMLElement | null>(null)
+const activeScene = ref(0)
+let decoObserver: IntersectionObserver | null = null
+
+const setupDecoObserver = () => {
+  const root = decoScrollRef.value
+  const scenes = [scene1Ref.value, scene2Ref.value, scene3Ref.value].filter(
+    (el): el is HTMLElement => el !== null,
+  )
+  if (!root || scenes.length !== 3) return
+
+  decoObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting || entry.intersectionRatio <= 0.5) return
+        const index = scenes.indexOf(entry.target as HTMLElement)
+        if (index !== -1) activeScene.value = index
+      })
+    },
+    { root, threshold: [0.5] },
+  )
+  scenes.forEach((scene) => decoObserver?.observe(scene))
+}
 </script>
 
 <template>
   <main class="auth-page">
-    <!-- Panel decorativo izquierdo -->
+    <!-- Panel decorativo izquierdo: demo scroll-driven de la app (estilo Apple) -->
     <section class="auth-deco">
-      <div class="deco-inner">
-        <div class="deco-brand">
-          <span class="material-symbols-outlined deco-icon" style="font-variation-settings: 'FILL' 1;">view_in_ar</span>
-          <p class="section-label">DevPresent</p>
-        </div>
-        <h1 class="deco-title">The presentation layer for the modern developer-creator.</h1>
-        <p class="deco-desc">
-          Precision of code. Impact of visionary design. Build interactive presentations that ship to the web.
-        </p>
-        <pre class="deco-code">import { Scene, Camera } from '@devpresent/core';
-
-const presentation = new Scene({
-  theme: 'kinetic-dark',
-  highFidelity: true
-});
-
-presentation.render();</pre>
-        <div class="deco-facts">
-          <div class="deco-fact">
-            <strong>PDF + PPTX</strong>
-            <span>Importación editable</span>
+      <div class="deco-scroll" ref="decoScrollRef">
+        <!-- Escena 1: Proyectos -->
+        <article class="deco-scene" ref="scene1Ref" :class="{ 'is-active': activeScene === 0 }">
+          <div class="deco-scene-inner">
+            <div class="deco-mockup mock-projects">
+              <div class="mock-projects-head">
+                <div>
+                  <span class="mock-h1">Proyectos</span>
+                  <span class="mock-sub">Gestiona tus presentaciones</span>
+                </div>
+                <span class="mock-btn-primary">+ Crear nueva</span>
+              </div>
+              <div class="mock-dropzone">
+                <span class="material-symbols-outlined">upload_file</span>
+                <span>Nuevo proyecto</span>
+              </div>
+              <div class="mock-recent-label">Trabajo reciente</div>
+              <div class="mock-cards-row">
+                <div class="mock-card">
+                  <div class="mock-card-thumb mock-thumb-doc"></div>
+                  <span class="mock-card-title">Mi Nueva Presentación</span>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-thumb mock-thumb-dark">
+                    <span class="material-symbols-outlined">play_arrow</span>
+                  </div>
+                  <span class="mock-card-title">Mi Nueva Presentación</span>
+                </div>
+              </div>
+            </div>
+            <div class="deco-scene-caption">
+              <p class="section-label">01 · Tus proyectos</p>
+              <h3 class="deco-scene-title">Todo tu trabajo, siempre a mano</h3>
+              <p class="deco-scene-desc">Gestiona tus presentaciones y vuelve al editor con un clic. Importa PDF, PPTX o empieza en blanco.</p>
+            </div>
           </div>
-          <div class="deco-fact">
-            <strong>Canvas interactivo</strong>
-            <span>Hotspots, audio, 3D</span>
+          <div class="deco-scroll-hint">
+            <span>Desliza para ver más</span>
+            <span class="material-symbols-outlined">expand_more</span>
           </div>
-        </div>
+        </article>
+
+        <!-- Escena 2: Nuevo proyecto -->
+        <article class="deco-scene" ref="scene2Ref" :class="{ 'is-active': activeScene === 1 }">
+          <div class="deco-scene-inner">
+            <div class="deco-mockup mock-modal">
+              <div class="mock-modal-head">
+                <span class="mock-modal-title">Crear nuevo proyecto</span>
+                <span class="material-symbols-outlined mock-modal-close">close</span>
+              </div>
+              <div class="mock-modal-tabs">
+                <span class="mock-modal-tab mock-modal-tab--active">Proyecto base</span>
+                <span class="mock-modal-tab">Subir archivo</span>
+              </div>
+              <div class="mock-field-label">Tamaño del lienzo</div>
+              <div class="mock-select">16:9 HD (1280x720)</div>
+              <div class="mock-field-label">Plantilla base</div>
+              <div class="mock-template-row">
+                <span class="mock-template mock-template--active">En blanco</span>
+                <span class="mock-template">Moderna</span>
+                <span class="mock-template">Oscura</span>
+                <span class="mock-template">Mi plantilla</span>
+              </div>
+              <div class="mock-modal-actions">
+                <span class="mock-btn-ghost">Cancelar</span>
+                <span class="mock-btn-primary">Continuar al editor</span>
+              </div>
+            </div>
+            <div class="deco-scene-caption">
+              <p class="section-label">02 · Arranque rápido</p>
+              <h3 class="deco-scene-title">Elige lienzo y estilo en segundos</h3>
+              <p class="deco-scene-desc">Define el tamaño y parte de una base — en blanco, moderna u oscura — antes de entrar al editor.</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Escena 3: Editor -->
+        <article class="deco-scene" ref="scene3Ref" :class="{ 'is-active': activeScene === 2 }">
+          <div class="deco-scene-inner">
+            <div class="deco-mockup mock-editor">
+              <div class="mock-editor-topbar">
+                <span class="mock-editor-logo">Doc<b>Flow</b></span>
+                <span class="mock-editor-toolbtn">Importar</span>
+                <span class="mock-editor-toolbtn">Guardar</span>
+                <span class="mock-editor-toolbtn">Exportar Web</span>
+                <span class="mock-editor-play">Iniciar Presentación</span>
+              </div>
+              <div class="mock-editor-body">
+                <div class="mock-editor-sidebar">
+                  <span class="mock-editor-sidebar-label">Diapositivas</span>
+                  <div class="mock-editor-slide">
+                    <span class="mock-editor-slide-text">BIENVENIDO/A</span>
+                  </div>
+                  <div class="mock-editor-layer">Flecha: Línea</div>
+                  <div class="mock-editor-layer">Texto</div>
+                </div>
+                <div class="mock-editor-canvas">
+                  <span>BIENVENIDO/A</span>
+                </div>
+                <div class="mock-editor-props">
+                  <span class="mock-editor-props-label">Propiedades</span>
+                  <div class="mock-editor-props-row"></div>
+                  <div class="mock-editor-props-row"></div>
+                  <div class="mock-editor-props-row short"></div>
+                </div>
+              </div>
+            </div>
+            <div class="deco-scene-caption">
+              <p class="section-label">03 · Editor en vivo</p>
+              <h3 class="deco-scene-title">Precisión de diseño, en el navegador</h3>
+              <p class="deco-scene-desc">Capas, propiedades y lienzo interactivo en tiempo real. Sin instalar nada.</p>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="deco-progress">
+        <span class="deco-progress-dot" :class="{ 'is-active': activeScene === 0 }"></span>
+        <span class="deco-progress-dot" :class="{ 'is-active': activeScene === 1 }"></span>
+        <span class="deco-progress-dot" :class="{ 'is-active': activeScene === 2 }"></span>
       </div>
     </section>
 
@@ -313,94 +444,221 @@ presentation.render();</pre>
   margin: 0;
 }
 
-/* ── Panel decorativo ─────────────────────────────────── */
+/* ── Panel decorativo: demo scroll-driven ─────────────── */
 .auth-deco {
   display: none;
-  flex-direction: column;
-  justify-content: center;
   width: 50%;
+  height: calc(100vh - 44px);
   border: 1px solid #e0c8a8;
-  background: #ffffff;
   border-radius: 8px;
-  padding: 48px;
   box-shadow: 0 4px 24px rgba(60, 30, 10, 0.08);
   position: relative;
-  overflow: hidden;
-}
-
-.auth-deco::before {
-  content: '';
-  position: absolute;
-  inset: 0;
+  overflow: hidden; /* recorta al border-radius; el scroll real vive en .deco-scroll */
   background:
     radial-gradient(ellipse at 20% 10%, rgba(234, 88, 12, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 85%, rgba(154, 52, 18, 0.03) 0%, transparent 45%);
-  pointer-events: none;
+    radial-gradient(ellipse at 80% 85%, rgba(154, 52, 18, 0.03) 0%, transparent 45%),
+    #ffffff;
 }
 
 @media (min-width: 1024px) {
-  .auth-deco { display: flex; }
+  .auth-deco { display: block; }
 }
 
-.deco-inner { position: relative; z-index: 1; max-width: 480px; }
+/* Contenedor de scroll real: separado del marco (.auth-deco) para que
+   .deco-progress, un hermano suyo, quede fijo y no se desplace con el scroll. */
+.deco-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+.deco-scroll::-webkit-scrollbar { width: 0; height: 0; }
 
-.deco-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; }
+.deco-scene {
+  position: relative;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 48px 60px 48px 44px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
 
-.deco-icon { font-size: 3rem; color: #ea580c; }
+.deco-scene-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  margin: 0 auto;
+  opacity: 0.55;
+  transform: translateY(10px) scale(0.985);
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
 
-.deco-title {
+.deco-scene.is-active .deco-scene-inner {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.deco-scene-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: clamp(1.8rem, 2.8vw, 2.6rem);
-  line-height: 1.1;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.3rem, 2vw, 1.7rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
   color: #0a0604;
-  margin: 0 0 18px;
+  margin: 14px 0 10px;
 }
 
-.deco-desc {
+.deco-scene-desc {
   color: #6a4820;
-  line-height: 1.76;
-  font-size: 1rem;
-  margin: 0 0 28px;
-  max-width: 400px;
+  line-height: 1.7;
+  font-size: 0.92rem;
+  margin: 0;
+  max-width: 380px;
 }
 
-.deco-code {
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.8rem;
-  line-height: 1.6;
-  color: #7a5030;
-  background: #f5ede4;
-  border: 1px solid #e0c8a8;
-  border-radius: 5px;
-  padding: 20px 24px;
-  margin: 0 0 28px;
-  overflow: auto;
-  white-space: pre;
+/* Pista de scroll: vive dentro de la escena 1, así que desaparece con ella en
+   cuanto el usuario hace scroll a la escena 2 (sin JS extra para ocultarla). */
+.deco-scroll-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #b08858;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  animation: decoHintFade 2.6s ease-in-out infinite;
+}
+.deco-scroll-hint .material-symbols-outlined {
+  font-size: 1.3rem;
+  animation: decoHintBounce 1.6s ease-in-out infinite;
 }
 
-.deco-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+@keyframes decoHintBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+@keyframes decoHintFade {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.35; }
+}
+
+/* Puntos de progreso: hermano de .deco-scroll, no descendiente, para no
+   scrollear con el contenido. */
+.deco-progress {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  z-index: 2;
+}
+.deco-progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(154, 52, 18, 0.22);
+  transition: all 0.3s ease;
+}
+.deco-progress-dot.is-active {
+  background: #ea580c;
+  height: 20px;
+  border-radius: 3px;
 }
 
-.deco-fact {
+/* ── Mockups de la demo ───────────────────────────────── */
+.deco-mockup {
   border: 1px solid #e0c8a8;
   background: #fdf9f5;
-  padding: 14px 16px;
-  border-radius: 5px;
-  transition: all 0.22s ease;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(60, 30, 10, 0.1);
+  margin-bottom: 26px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-.deco-fact:hover {
-  transform: translateY(-2px);
-  border-color: rgba(234, 88, 12, 0.4);
-  box-shadow: 0 4px 14px rgba(60, 30, 10, 0.08);
+/* Escena 1: Proyectos */
+.mock-projects-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 10px; }
+.mock-h1 { display: block; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.1rem; color: #0a0604; }
+.mock-sub { display: block; font-size: 0.72rem; color: #8c603a; margin-top: 2px; }
+.mock-btn-primary {
+  flex-shrink: 0;
+  background: linear-gradient(160deg, #9a3412, #ea580c);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
+.mock-dropzone {
+  border: 1.5px dashed rgba(234, 88, 12, 0.4);
+  border-radius: 8px;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #8c603a;
+  font-size: 0.72rem;
+  margin-bottom: 16px;
+}
+.mock-dropzone .material-symbols-outlined { font-size: 1.6rem; color: #ea580c; }
+.mock-recent-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #7a5030; margin-bottom: 8px; }
+.mock-cards-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mock-card { border: 1px solid #e0c8a8; border-radius: 7px; overflow: hidden; background: #fff; }
+.mock-card-thumb { height: 56px; display: flex; align-items: center; justify-content: center; }
+.mock-thumb-doc { background: linear-gradient(135deg, #f5ede4, #e8d8c4); }
+.mock-thumb-dark { background: linear-gradient(160deg, #1e3a5f, #0d1b2e); }
+.mock-thumb-dark .material-symbols-outlined { color: #fff; font-size: 1.2rem; }
+.mock-card-title { display: block; font-size: 0.66rem; padding: 6px 8px; color: #5a3010; }
 
-.deco-fact strong { display: block; font-size: 0.88rem; color: #0a0604; }
-.deco-fact span { display: block; margin-top: 4px; font-size: 0.79rem; color: #7a5030; }
+/* Escena 2: Modal nuevo proyecto */
+.mock-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.mock-modal-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.95rem; color: #0a0604; }
+.mock-modal-close { font-size: 1rem; color: #b08858; }
+.mock-modal-tabs { display: flex; gap: 4px; background: #f9f4ee; border: 1px solid #e0c8a8; border-radius: 6px; padding: 3px; margin-bottom: 14px; }
+.mock-modal-tab { flex: 1; text-align: center; font-size: 0.66rem; font-weight: 700; padding: 6px; border-radius: 4px; color: #8c603a; }
+.mock-modal-tab--active { background: #fff; color: #9a3412; box-shadow: 0 1px 4px rgba(60, 30, 10, 0.1); }
+.mock-field-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #7a5030; margin: 12px 0 6px; }
+.mock-select { border: 1px solid #e0c8a8; background: #fff; border-radius: 6px; padding: 8px 10px; font-size: 0.74rem; color: #0a0604; }
+.mock-template-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.mock-template { border: 1px solid #e0c8a8; border-radius: 6px; padding: 7px; font-size: 0.66rem; text-align: center; color: #7a5030; background: #fff; }
+.mock-template--active { border-color: #ea580c; background: rgba(234, 88, 12, 0.08); color: #9a3412; font-weight: 700; }
+.mock-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.mock-btn-ghost { border: 1px solid #e0c8a8; border-radius: 6px; padding: 7px 12px; font-size: 0.68rem; color: #7a5030; background: #fff; }
+
+/* Escena 3: Editor */
+.mock-editor { padding: 0; overflow: hidden; }
+.mock-editor-topbar { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #e0c8a8; background: #fff; flex-wrap: wrap; }
+.mock-editor-logo { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.72rem; color: #0a0604; }
+.mock-editor-logo b { color: #ea580c; }
+.mock-editor-toolbtn { font-size: 0.6rem; color: #7a5030; padding: 4px 7px; border: 1px solid #e0c8a8; border-radius: 5px; background: #fdf9f5; }
+.mock-editor-play { margin-left: auto; font-size: 0.6rem; font-weight: 700; color: #fff; background: linear-gradient(160deg, #9a3412, #ea580c); padding: 5px 10px; border-radius: 99px; white-space: nowrap; }
+.mock-editor-body { display: grid; grid-template-columns: 78px 1fr 64px; min-height: 190px; }
+.mock-editor-sidebar { border-right: 1px solid #e0c8a8; padding: 8px 7px; background: #fdf9f5; }
+.mock-editor-sidebar-label { display: block; font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8c603a; margin-bottom: 6px; }
+.mock-editor-slide { background: #94949a; border-radius: 4px; height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; border: 1.5px solid #ea580c; }
+.mock-editor-slide-text { font-size: 0.42rem; color: #fff; font-weight: 700; letter-spacing: 0.03em; }
+.mock-editor-layer { font-size: 0.52rem; color: #6a4820; padding: 3px 5px; border-radius: 3px; margin-bottom: 3px; background: #fff; border: 1px solid #ecdcc4; }
+.mock-editor-canvas { background: #f2ede6; display: flex; align-items: center; justify-content: center; }
+.mock-editor-canvas span { background: #94949a; color: #fff; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; padding: 18px 26px; border-radius: 3px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15); }
+.mock-editor-props { border-left: 1px solid #e0c8a8; padding: 8px 6px; background: #fdf9f5; }
+.mock-editor-props-label { display: block; font-size: 0.5rem; font-weight: 700; text-transform: uppercase; color: #8c603a; margin-bottom: 8px; }
+.mock-editor-props-row { height: 6px; border-radius: 3px; background: #ecdcc4; margin-bottom: 6px; }
+.mock-editor-props-row.short { width: 60%; }
 
 /* ── Panel formulario ─────────────────────────────────── */
 .auth-form-panel {

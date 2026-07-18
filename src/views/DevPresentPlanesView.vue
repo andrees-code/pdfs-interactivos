@@ -104,7 +104,6 @@ const plans = [
     features: [
       'Hasta 2 proyectos',
       'Editor completo',
-      'Plantillas básicas',
       'Visor público compartible',
     ],
     locked: [
@@ -125,7 +124,6 @@ const plans = [
       'Proyectos ilimitados',
       'Exportación HTML offline',
       'Player interactivo sin límites',
-      'Plantillas premium',
       'Soporte prioritario',
     ],
     locked: [],

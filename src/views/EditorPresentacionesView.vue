@@ -13,7 +13,7 @@
         <EditorHeader
           :is-converting="isConverting"
           :has-doc="hasDoc"
-          :zoom="zoom"
+          :zoom="zoomDisplay"
           :play-mode="playMode"
           :is-saving="isSaving"
           :is-autosaving="isAutosaving"
@@ -66,11 +66,7 @@
             :style="{ width: isLeftSidebarOpen ? leftSidebarWidth + 'px' : '0px' }"
             @click.stop
           >
-            <div class="sidebar-cta">
-              <button class="btn-primary w-100" @click="showTemplateModal = true">
-                <i class="ph ph-layout"></i> Explorar Plantillas
-              </button>
-            </div>
+            <!-- Plantillas ocultas de momento: sidebar-cta y su modal (:5013) sin punto de entrada -->
 
             <div class="panel-header">
               <span>Diapositivas</span>
@@ -92,7 +88,10 @@
     pdfThumbnails[pdfPageMap[page] ?? 0],
     slideConfigs[page]?.bgColor,
     slideConfigs[page]?.bgImage,
-    thumbEditingPage === page
+    thumbEditingPage === page,
+    slideRevision[page] ?? 0,
+    thumbScale,
+    pageNum === page ? layerPanelSignature : 0
   ]"
   :class="{ 'is-active': pageNum === page, 'thumb-dragging': thumbDragSource === page, 'thumb-drag-over': thumbDragTarget === page }"
   @click="changePageTo(page)"
@@ -137,6 +136,34 @@
         backgroundImage: getThumbBackgroundImage(page),
       }"
     >
+      <!-- Preview en vivo: solo para paginas sin captura (nunca visitadas). -->
+      <div class="thumb-live-preview" v-if="shouldShowLivePreview(page)">
+        <div
+          class="thumb-live-stage"
+          :style="{
+            width: `${baseWidth}px`,
+            height: `${baseHeight}px`,
+            transform: `scale(${thumbScale})`,
+          }"
+        >
+          <template v-for="el in (documentState[page] || [])" :key="el.id">
+            <div v-if="!el.isHidden" :style="getPreviewElementStyle(el)">
+              <img
+                v-if="getPreviewKind(el) === 'image'"
+                :src="getPreviewImageSrc(el)"
+                alt=""
+                loading="lazy"
+                style="width: 100%; height: 100%; object-fit: contain"
+              />
+              <template v-else-if="getPreviewKind(el) === 'text'">{{ getPreviewText(el) }}</template>
+              <div v-else-if="getPreviewKind(el) === 'generic'" class="thumb-live-generic">
+                <i :class="`ph ${getIconClassForType(el.type)}`"></i>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <div class="thumb-actions" v-if="!isTemplateCreatorMode">
         <button class="thumb-action-btn" @click.stop="duplicateSlide(page)" title="Duplicar">
           <i class="ph ph-copy"></i>
@@ -722,8 +749,20 @@
               <div
                 class="canvas-wrapper"
                 :class="{ 'play-mode-active': playMode }"
-                :style="{ width: `${baseWidth}px`, height: `${baseHeight}px`, overflow: 'hidden', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }"
+                :style="{ width: `${baseWidth}px`, height: `${baseHeight}px`, overflow: playMode ? 'hidden' : 'visible', backgroundColor: currentBgColor, backgroundImage: currentBgImage, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }"
               >
+                <!-- Velo de fuera del lienzo: atenúa todo lo que queda fuera de la
+                     diapositiva sin tocar la parte que cae dentro. En play mode no existe:
+                     ahí el propio .canvas-wrapper recorta con overflow: hidden. -->
+                <template v-if="!playMode">
+                  <div
+                    v-for="veil in outsideVeilRects"
+                    :key="veil.key"
+                    class="canvas-outside-veil"
+                    :style="veil.style"
+                  ></div>
+                </template>
+
                 <Transition
                   :name="playMode && activeTransition !== 'none' ? 'slide-trans-' + activeTransition : ''"
                 >
@@ -749,16 +788,13 @@
                     :style="guide.type === 'vertical' ? { left: guide.pos + 'px' } : { top: guide.pos + 'px' }"
                   ></div>
 
-                  <!-- Rectángulo de selección múltiple -->
+                  <!-- Rectángulo de selección múltiple.
+                       Su geometría se escribe directamente al DOM desde el rAF del arrastre
+                       (ver handleCanvasPanStart) para no re-renderizar el editor en cada frame. -->
                   <div
                     v-if="isMarqueeSelecting"
+                    ref="marqueeRef"
                     class="marquee-selection"
-                    :style="{
-                      left: marqueeRect.x + 'px',
-                      top: marqueeRect.y + 'px',
-                      width: marqueeRect.width + 'px',
-                      height: marqueeRect.height + 'px'
-                    }"
                   ></div>
 
                   <img
@@ -5619,6 +5655,25 @@ const themeVariables = computed(() => {
 
 // --- NUEVO: ESTADO PARA LAS MINIATURAS GENERADAS ---
 const generatedThumbnails = ref<Record<number, string>>({});
+// Contador por pagina: invalida el v-memo del thumb-item cuando cambia el contenido
+// de esa diapositiva, para que la preview en vivo del sidebar se repinte.
+const slideRevision = ref<Record<number, number>>({});
+const bumpSlideRevision = (...pages: number[]) => {
+  pages.forEach((page) => {
+    if (!page) return
+    slideRevision.value[page] = (slideRevision.value[page] || 0) + 1
+  })
+};
+// Tras reordenar/duplicar/eliminar diapositivas el contenido de casi todas las
+// paginas se desplaza, asi que invalidamos todas las previews de golpe.
+const bumpAllSlideRevisions = () => {
+  const next: Record<number, number> = {}
+  const total = Math.max(numPages.value || 0, Object.keys(slideRevision.value).length)
+  for (let page = 1; page <= total; page += 1) {
+    next[page] = (slideRevision.value[page] || 0) + 1
+  }
+  slideRevision.value = next
+};
 const isSaveInFlight = ref(false);
 const hasTemplateClosingSlide = ref(false);
 const hasUnsavedChanges = ref(false);
@@ -5701,6 +5756,102 @@ const getThumbBackgroundImage = (page: number): string => {
   return assetUrl ? `url(${assetUrl})` : 'none'
 }
 
+// --- PREVIEW EN VIVO DE LA MINIATURA ---
+// Solo existe en el DOM la diapositiva activa, asi que una pagina nunca visitada no
+// se puede fotografiar con html-to-image. Para esas paginas dibujamos un render
+// simplificado de sus elementos, escalado con transform: scale().
+const thumbCardWidth = ref(0)
+const thumbScale = computed(() => {
+  if (!thumbCardWidth.value || !baseWidth.value) return 0
+  return thumbCardWidth.value / baseWidth.value
+})
+
+let thumbCardResizeObserver: ResizeObserver | null = null
+
+const measureThumbCardWidth = () => {
+  const card = leftSidebarEl.value?.querySelector('.thumb-card') as HTMLElement | null
+  if (!card) return
+  const width = card.getBoundingClientRect().width
+  if (width && Math.abs(width - thumbCardWidth.value) > 0.5) {
+    thumbCardWidth.value = width
+  }
+}
+
+const setupThumbCardObserver = () => {
+  thumbCardResizeObserver?.disconnect()
+  const list = leftSidebarEl.value?.querySelector('.slides-preview-list') as HTMLElement | null
+  if (!list) return
+  thumbCardResizeObserver = new ResizeObserver(() => {
+    // El arrastre del resizer de sidebar cambia el ancho de .slides-preview-list en
+    // cada frame. Sin este guard, cada tick recalcula thumbCardWidth y repinta todas
+    // las miniaturas en vivo, sumandose al mismo problema de jank de fitToScreen.
+    if (isSidebarResizing.value) return
+    measureThumbCardWidth()
+  })
+  thumbCardResizeObserver.observe(list)
+  measureThumbCardWidth()
+}
+
+const shouldShowLivePreview = (page: number): boolean => {
+  if (!visibleThumbPages.value.has(page)) return false
+  if (!thumbScale.value) return false
+  if (generatedThumbnails.value[page]) return false
+  return (documentState.value[page] || []).length > 0
+}
+
+// Texto plano para la preview: nada de v-html en la miniatura.
+const getPreviewText = (el: any): string => {
+  const raw =
+    el.type === 'text' ? el.content :
+    el.type === 'link' ? el.text :
+    el.type === 'list' ? (el.items || []).join('\n') :
+    el.type === 'checkbox' ? (el.items || []).map((i: any) => i?.text ?? '').join('\n') :
+    el.type === 'accordion' ? (el.items || []).map((i: any) => i?.title ?? '').join('\n') :
+    (el.chartTitle || el.modalTitle || '')
+  return String(raw ?? '').replace(/<[^>]*>/g, '').trim()
+}
+
+const PREVIEW_TEXT_TYPES = ['text', 'link', 'list', 'checkbox', 'accordion']
+const PREVIEW_IMAGE_TYPES = ['image', 'qr', 'video', 'gif']
+const PREVIEW_SHAPE_TYPES = ['shape', 'rect', 'draw', 'line', 'arrow']
+
+const getPreviewKind = (el: any): 'text' | 'image' | 'shape' | 'generic' => {
+  if (PREVIEW_TEXT_TYPES.includes(el.type)) return 'text'
+  if (PREVIEW_IMAGE_TYPES.includes(el.type) && el.src) return 'image'
+  if (PREVIEW_SHAPE_TYPES.includes(el.type)) return 'shape'
+  return 'generic'
+}
+
+const getPreviewElementStyle = (el: any): Record<string, string> => {
+  const style: Record<string, string> = {
+    position: 'absolute',
+    left: `${el.x || 0}px`,
+    top: `${el.y || 0}px`,
+    width: `${typeof el.width === 'number' ? el.width : 150}px`,
+    height: el.height === 'auto' ? 'auto' : `${typeof el.height === 'number' ? el.height : 50}px`,
+    opacity: String(el.opacity ?? 1),
+    overflow: 'hidden',
+  }
+  if (el.rotation) style.transform = `rotate(${el.rotation}deg)`
+
+  const kind = getPreviewKind(el)
+  if (kind === 'text') {
+    style.color = el.color || '#111827'
+    style.fontSize = `${el.fontSize || 16}px`
+    style.fontFamily = el.fontFamily || 'inherit'
+    style.fontWeight = String(el.fontWeight || 'normal')
+    style.textAlign = el.textAlign || 'left'
+    style.lineHeight = String(el.lineHeight || 1.3)
+    style.whiteSpace = 'pre-wrap'
+  } else if (kind === 'shape') {
+    style.background = el.fillColor || 'rgba(148, 163, 184, 0.45)'
+    if (el.borderRadius) style.borderRadius = `${el.borderRadius}px`
+  }
+  return style
+}
+
+const getPreviewImageSrc = (el: any): string => optimizeCloudinaryImageUrl(el.src, { width: 320 })
+
 const refreshVisibleThumbPages = () => {
   const container = leftSidebarEl.value?.querySelector('.slides-preview-list') as HTMLElement | null
   if (!container) return
@@ -5738,12 +5889,24 @@ const handleThumbListScroll = () => {
   scheduleVisibleThumbRefresh()
 }
 
+// Solo persistimos las URLs remotas: los data: URL de las capturas reventarian el
+// limite de 8MB del payload que se valida al guardar.
+const getPersistableThumbnails = (): Record<number, string> => {
+  const persistable: Record<number, string> = {}
+  Object.entries(generatedThumbnails.value).forEach(([page, url]) => {
+    if (typeof url === 'string' && /^https?:\/\//.test(url)) persistable[Number(page)] = url
+  })
+  return persistable
+}
+
 const getThumbnailSignature = (page: number) => {
   const elements = documentState.value[page] || []
   const config = slideConfigs.value[page] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }
   // Firma ligera: evita JSON.stringify del documentState completo (freeze con docs grandes)
   const elemSig = elements.map((e: any) =>
-    `${e.id}:${e.x},${e.y},${e.width},${e.height},${e.content ?? ''},${e.src ?? ''},${e.fillColor ?? ''}`
+    `${e.id}:${e.x},${e.y},${e.width},${e.height},${e.content ?? ''},${e.src ?? ''},${e.fillColor ?? ''}` +
+    `,${e.text ?? ''},${e.fontSize ?? ''},${e.color ?? ''},${e.fontFamily ?? ''},${e.fontWeight ?? ''}` +
+    `,${e.rotation ?? 0},${e.opacity ?? 1},${e.isHidden ? 1 : 0}`
   ).join('|')
   return `${config.bgColor}|${config.bgImage ?? ''}|${config.transition ?? ''}|${elemSig}`
 }
@@ -5804,6 +5967,9 @@ const captureThumbnail = async (
       backgroundColor: slideConfigs.value[targetPage]?.bgColor || currentBgColor.value || '#ffffff',
       style: {
         transform: 'none',
+        // .layer-engine es overflow: visible en el editor; sin esto los elementos
+        // colocados fuera del lienzo se colarían en la miniatura.
+        overflow: 'hidden',
       },
       filter: (node) => node.nodeName !== 'SCRIPT'
     });
@@ -5849,7 +6015,6 @@ const handleAiAction = async (actionsData: any) => {
     return;
   }
 
-  const currentPage = pageNum.value;
   let hasMadeChanges = false;
 
   // 🔥 PROCESAMOS CADA ACCIÓN
@@ -6458,6 +6623,7 @@ const moveSlideToPosition = (fromPage: number, toPage: number) => {
   slideConfigs.value = { ...slideConfigs.value }
   pdfPageMap.value = { ...pdfPageMap.value }
   generatedThumbnails.value = { ...generatedThumbnails.value }
+  bumpAllSlideRevisions()
 
   // Actualizamos la página activa
   if (pageNum.value === fromPage) {
@@ -6497,6 +6663,10 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   // --- ESTADO DE NAVEGACIÓN (PAN Y ZOOM) ---
   const panX = ref(0)
   const panY = ref(0)
+  // Referencia para el % mostrado en la cabecera: "Ajustar a pantalla" ya no fija
+  // zoom a 1 (ver fitToScreen), así que ese encaje pasa a ser el nuevo "100%" visual.
+  // El transform real del lienzo sigue usando zoom.value tal cual, sin tocar.
+  const zoomFitBaseline = ref(1)
   const isPanning = ref(false)
   const isSpacePressed = ref(false)
   // --- GUÍAS DE ALINEACIÓN (SNAPPING) ---
@@ -6649,6 +6819,7 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         pdfPageMap: pdfPageMap.value,
         pdfBase64: _PDF_BASE64_STORE || null,
         coverImage: generatedThumbnails.value[1] || null,
+        slideThumbnails: getPersistableThumbnails(),
       };
 
       await _normalizePayloadMedia(payload)
@@ -8378,6 +8549,7 @@ const startResizeSidebar = (e: MouseEvent, side: 'left' | 'right') => {
 
     // Recomendado: forzar un reajuste del lienzo al terminar de arrastrar
     setTimeout(fitToScreen, 50);
+    if (side === 'left') setTimeout(measureThumbCardWidth, 50);
   };
 
   document.addEventListener('mousemove', onMouseMove);
@@ -8700,6 +8872,25 @@ const selectedElements = computed(() => {
     )
   }
 
+  // Cuatro bandas que cubren todo MENOS el rectangulo de la diapositiva. Viven dentro
+  // de .canvas-wrapper, asi que heredan su translate3d + scale y acompañan al pan/zoom
+  // sin ningun calculo en JS. La extension es amplia para tapar la pantalla completa
+  // incluso con el zoom muy alejado.
+  const OUTSIDE_VEIL_EXTENT = 20000
+
+  const outsideVeilRects = computed(() => {
+    const w = baseWidth.value
+    const h = baseHeight.value
+    const extent = OUTSIDE_VEIL_EXTENT
+    const bandWidth = extent * 2 + w
+    return [
+      { key: 'top', style: { left: `${-extent}px`, top: `${-extent}px`, width: `${bandWidth}px`, height: `${extent}px` } },
+      { key: 'bottom', style: { left: `${-extent}px`, top: `${h}px`, width: `${bandWidth}px`, height: `${extent}px` } },
+      { key: 'left', style: { left: `${-extent}px`, top: '0px', width: `${extent}px`, height: `${h}px` } },
+      { key: 'right', style: { left: `${w}px`, top: '0px', width: `${extent}px`, height: `${h}px` } },
+    ]
+  })
+
   const currentBgColor = computed(() => slideConfigs.value[pageNum.value]?.bgColor || '#ffffff')
   const getMappedPdfPage = (page: number): number => {
     const rawMapped = (pdfPageMap.value as Record<number, unknown>)[page]
@@ -8910,6 +9101,16 @@ watch(activeTransition, (newVal, oldVal) => {
   // --- DRAG AND DROP EN LA LISTA DE CAPAS ---
   const dragTargetIndex = ref<number | null>(null)
   let draggedIndex: number | null = null
+
+  // Firma del panel de capas: se inyecta en el v-memo del thumb-item para que las
+  // filas .tree-child se repinten al seleccionar, renombrar o arrastrar. Solo se
+  // evalua para la pagina activa (la lista de capas es v-if="pageNum === page").
+  const layerPanelSignature = computed(() => {
+    const rows = currentPageElements.value
+      .map((el: any) => `${el.id}:${el.name ?? ''}:${el.isLocked ? 1 : 0}:${el.isHidden ? 1 : 0}`)
+      .join('~')
+    return `${selectedElementIds.value.join(',')}|${editingLayerNameId.value ?? ''}|${dragTargetIndex.value ?? ''}|${rows}`
+  })
 
   const onDragStartLayer = (e: DragEvent, index: number) => {
     draggedIndex = index
@@ -9584,6 +9785,7 @@ watch(activeTransition, (newVal, oldVal) => {
     initEditorFromRoute(true)
     nextTick(() => {
       scheduleVisibleThumbRefresh()
+      setupThumbCardObserver()
     })
     nextTick(scheduleFormAccessibilitySync)
     nextTick(() => {
@@ -9620,6 +9822,10 @@ watch(activeTransition, (newVal, oldVal) => {
       cancelAnimationFrame(visibleThumbRefreshRaf)
       visibleThumbRefreshRaf = null
     }
+    if (thumbCardResizeObserver) {
+      thumbCardResizeObserver.disconnect()
+      thumbCardResizeObserver = null
+    }
 
     if (timerInterval) clearInterval(timerInterval)
     if (accessibilitySyncRaf !== null) cancelAnimationFrame(accessibilitySyncRaf)
@@ -9628,10 +9834,8 @@ watch(activeTransition, (newVal, oldVal) => {
       draftPersistTimeout = null
       if (hasUnsavedChanges.value) writeDraftState()
     }
-    if (thumbnailTimeout) {
-      clearTimeout(thumbnailTimeout)
-      thumbnailTimeout = null
-    }
+    thumbnailTimeouts.forEach((timeout) => clearTimeout(timeout))
+    thumbnailTimeouts.clear()
     if (historyTimeout) {
       clearTimeout(historyTimeout)
       historyTimeout = null
@@ -9821,6 +10025,7 @@ watch(activeTransition, (newVal, oldVal) => {
     documentState: documentState.value,
     slideConfigs: slideConfigs.value,
     pdfPageMap: pdfPageMap.value,
+    slideThumbnails: getPersistableThumbnails(),
     updatedAt: Date.now(),
     isReduced: false,
   })
@@ -9941,6 +10146,7 @@ watch(activeTransition, (newVal, oldVal) => {
       documentState.value = draft.documentState || {}
       slideConfigs.value = draft.slideConfigs || {}
       pdfPageMap.value = draft.pdfPageMap || {}
+      generatedThumbnails.value = draft.slideThumbnails || {}
 
       const pagesArray = Object.keys(documentState.value).map(Number)
       numPages.value = pagesArray.length > 0 ? Math.max(...pagesArray) : 1
@@ -10032,23 +10238,41 @@ watch(activeTransition, (newVal, oldVal) => {
   }
 
   // --- NUEVO: AUTOCAPTURA DE MINIATURA "CASI EN TIEMPO REAL" ---
-let thumbnailTimeout: ReturnType<typeof setTimeout> | null = null;
+// Un timeout por pagina: con un unico timeout global las capturas encoladas en
+// rafaga se pisaban entre si y solo sobrevivia la ultima.
+const thumbnailTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
 
 const scheduleThumbnailCapture = (delayMs = 700, targetPage: number = pageNum.value) => {
   if (playMode.value || !hasDoc.value) return
   if (isPlayModeTransitioning.value) return
   if (isComparatorDragging.value) return
-  if (thumbnailTimeout) clearTimeout(thumbnailTimeout)
-  thumbnailTimeout = setTimeout(() => {
+  const pending = thumbnailTimeouts.get(targetPage)
+  if (pending) clearTimeout(pending)
+  thumbnailTimeouts.set(targetPage, setTimeout(() => {
+    thumbnailTimeouts.delete(targetPage)
     captureThumbnail(targetPage, { onlyIfChanged: true })
-  }, delayMs)
+  }, delayMs))
 }
+
+// El proyecto puede cargarse despues del onMounted: reintentamos medir la tarjeta
+// cuando aparecen diapositivas, si no thumbScale se queda en 0 y no hay preview.
+watch(
+  [hasDoc, numPages],
+  () => {
+    void nextTick(() => {
+      setupThumbCardObserver()
+    })
+  },
+  { immediate: true }
+);
 
 watch(
   [() => documentState.value, () => slideConfigs.value],
   () => {
     if (isPlayModeTransitioning.value) return
     if (isComparatorDragging.value) return
+    // Repinta la preview en vivo de la diapositiva editada (invalida su v-memo).
+    bumpSlideRevision(pageNum.value)
     // Solo captura si hay cambios reales en la firma de la diapositiva.
     scheduleThumbnailCapture(700)
   },
@@ -10062,6 +10286,12 @@ watch(
     }
     if (!workspaceRef.value) return
     workspaceResizeObserver = new ResizeObserver(() => {
+      // El arrastre del resizer de sidebar cambia el ancho de .pro-canvas-area en
+      // cada frame (es flex:1). Sin este guard, cada tick del observer dispara
+      // fitToScreen(), que escribe zoom/panX/panY sin comprobar si cambian, lo que
+      // fuerza un re-render completo y pisa el ancho que el resizer escribe
+      // directamente al DOM, produciendo el salto hacia atrás.
+      if (isSidebarResizing.value) return
       if (fitToScreenTimer) clearTimeout(fitToScreenTimer)
       fitToScreenTimer = setTimeout(fitToScreen, 50)
     })
@@ -11392,6 +11622,7 @@ watch(
       documentState.value = data.documentState || {};
       slideConfigs.value = data.slideConfigs || {};
       pdfPageMap.value = data.pdfPageMap || {};
+      generatedThumbnails.value = data.slideThumbnails || {};
 
       // 3. Calculamos cuántas páginas tiene
       const pagesArray = Object.keys(documentState.value).map(Number);
@@ -12437,6 +12668,7 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     pdfPageMap.value = {}
     pdfThumbnails.value = {}
     generatedThumbnails.value = {}
+    slideRevision.value = {}
     selectedElementIds.value = []
     activeTransition.value = 'none'
     resetHistory()
@@ -12592,15 +12824,22 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         transition: 'none',
       }))
       pdfPageMap.value[i] = pdfPageMap.value[i + 1] || 0
+      // Las miniaturas se desplazan con su diapositiva, si no quedan desfasadas.
+      const shiftedThumb = generatedThumbnails.value[i + 1]
+      if (shiftedThumb !== undefined) generatedThumbnails.value[i] = shiftedThumb
+      else delete generatedThumbnails.value[i]
     }
     delete documentState.value[numPages.value]
     delete slideConfigs.value[numPages.value]
     delete pdfPageMap.value[numPages.value]
+    delete generatedThumbnails.value[numPages.value]
     numPages.value -= 1
 
     documentState.value = { ...documentState.value }
     slideConfigs.value = { ...slideConfigs.value }
     pdfPageMap.value = { ...pdfPageMap.value }
+    generatedThumbnails.value = { ...generatedThumbnails.value }
+    bumpAllSlideRevisions()
 
     changePageTo(Math.min(pageNum.value, numPages.value))
   }
@@ -12611,6 +12850,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       documentState.value[i + 1] = JSON.parse(JSON.stringify(documentState.value[i] || []))
       slideConfigs.value[i + 1] = JSON.parse(JSON.stringify(slideConfigs.value[i] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
       pdfPageMap.value[i + 1] = pdfPageMap.value[i] || 0
+      const shiftedThumb = generatedThumbnails.value[i]
+      if (shiftedThumb !== undefined) generatedThumbnails.value[i + 1] = shiftedThumb
+      else delete generatedThumbnails.value[i + 1]
     }
     documentState.value[page + 1] = JSON.parse(JSON.stringify(documentState.value[page] || [])).map((el: any) => ({
       ...el,
@@ -12618,11 +12860,15 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }))
     slideConfigs.value[page + 1] = JSON.parse(JSON.stringify(slideConfigs.value[page] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
     pdfPageMap.value[page + 1] = pdfPageMap.value[page] || 0
+    // La copia aun no tiene captura: la preview en vivo la cubre hasta que se genere.
+    delete generatedThumbnails.value[page + 1]
     numPages.value += 1
 
     documentState.value = { ...documentState.value }
     slideConfigs.value = { ...slideConfigs.value }
     pdfPageMap.value = { ...pdfPageMap.value }
+    generatedThumbnails.value = { ...generatedThumbnails.value }
+    bumpAllSlideRevisions()
 
     changePageTo(page + 1)
   }
@@ -12645,6 +12891,9 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
           documentState.value[i + 1] = JSON.parse(JSON.stringify(documentState.value[i] || []))
           slideConfigs.value[i + 1] = JSON.parse(JSON.stringify(slideConfigs.value[i] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
           pdfPageMap.value[i + 1] = pdfPageMap.value[i] || 0
+          const shiftedThumb = generatedThumbnails.value[i]
+          if (shiftedThumb !== undefined) generatedThumbnails.value[i + 1] = shiftedThumb
+          else delete generatedThumbnails.value[i + 1]
         }
         newPage = insertAt
       }
@@ -12732,6 +12981,11 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       }
       pdfPageMap.value[newPage] = 0
     }
+
+    // La diapositiva nueva no tiene captura todavia: fuerza el repintado del sidebar.
+    delete generatedThumbnails.value[newPage]
+    generatedThumbnails.value = { ...generatedThumbnails.value }
+    bumpAllSlideRevisions()
 
     changePageTo(newPage)
   }
@@ -13072,18 +13326,29 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
 
   const changeZoom = (delta: number) => (zoom.value = Math.max(0.2, Math.min(zoom.value + delta, 4)))
 
+  // % que ve el usuario en la cabecera, relativo al último "ajustar a pantalla".
+  const zoomDisplay = computed(() => (zoomFitBaseline.value ? zoom.value / zoomFitBaseline.value : zoom.value))
+
   const fitToScreen = () => {
     if (workspaceRef.value) {
       const scaleX = (workspaceRef.value.clientWidth - 60) / baseWidth.value
       const scaleY = (workspaceRef.value.clientHeight - 60) / baseHeight.value
-      if (playMode.value) {
-        zoom.value = Math.max(0.1, Math.min(scaleX, scaleY, 1.0))
-      } else {
-        zoom.value = 1
-      }
+      // En presentación no superamos el 100% (evita pixelar contenido raster al
+      // reproducir). En el editor sí: "ajustar a pantalla" debe usar todo el espacio
+      // disponible, igual que Figma/PowerPoint, con el mismo tope que el zoom manual.
+      const nextZoom = playMode.value
+        ? Math.max(0.1, Math.min(scaleX, scaleY, 1.0))
+        : Math.max(0.2, Math.min(scaleX, scaleY, 4))
 
-      panX.value = 0;
-      panY.value = 0;
+      // El encaje actual pasa a ser el "100%" que se muestra en la cabecera.
+      if (!playMode.value && zoomFitBaseline.value !== nextZoom) zoomFitBaseline.value = nextZoom
+
+      // Escribir solo si cambia: cada asignación a un ref dispara un re-render
+      // completo de este SFC gigante, que repinta estilos inline en toda la
+      // plantilla (incluido el ancho de los sidebars durante su resizer).
+      if (zoom.value !== nextZoom) zoom.value = nextZoom
+      if (panX.value !== 0) panX.value = 0
+      if (panY.value !== 0) panY.value = 0
     }
   }
 
@@ -13157,28 +13422,83 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
         activeMapNodeId.value = null;
       }
 
+      // Cacheamos el rect del lienzo y el zoom UNA vez: ni el pan ni el zoom cambian
+      // durante el marquee (la rama de panning hace return antes de llegar aquí).
+      const canvasEl = workspaceRef.value?.querySelector('.canvas-shadow-box') as HTMLElement | null;
+      let canvasRect = canvasEl?.getBoundingClientRect() ?? null;
+      let cachedZoom = zoom.value || 1;
+      const toCanvas = (clientX: number, clientY: number) => {
+        // Si el usuario hace zoom con la rueda a mitad del arrastre, remedimos.
+        // Es la única vía por la que el lienzo se mueve durante un marquee.
+        if (zoom.value !== cachedZoom) {
+          cachedZoom = zoom.value || 1;
+          canvasRect = canvasEl?.getBoundingClientRect() ?? canvasRect;
+        }
+        if (!canvasRect) return { x: 0, y: 0 };
+        return {
+          x: (clientX - canvasRect.left) / cachedZoom,
+          y: (clientY - canvasRect.top) / cachedZoom,
+        };
+      };
+      const startCanvas = toCanvas(marqueeStartX, marqueeStartY);
+
+      // El arrastre no toca la reactividad de Vue: acumulamos la última posición del
+      // ratón y la volcamos al DOM en un solo rAF por frame (mismo patrón que el
+      // resizer de los paneles laterales).
+      let latestX = marqueeStartX;
+      let latestY = marqueeStartY;
+      let marqueeRaf: number | null = null;
+      const pendingRect = { x: startCanvas.x, y: startCanvas.y, width: 0, height: 0 };
+
+      const paintMarquee = () => {
+        marqueeRaf = null;
+        const currentCanvas = toCanvas(latestX, latestY);
+        pendingRect.x = Math.min(startCanvas.x, currentCanvas.x);
+        pendingRect.y = Math.min(startCanvas.y, currentCanvas.y);
+        pendingRect.width = Math.abs(currentCanvas.x - startCanvas.x);
+        pendingRect.height = Math.abs(currentCanvas.y - startCanvas.y);
+
+        const node = marqueeRef.value;
+        if (!node) return;
+        node.style.transform = `translate3d(${pendingRect.x}px, ${pendingRect.y}px, 0)`;
+        node.style.width = `${pendingRect.width}px`;
+        node.style.height = `${pendingRect.height}px`;
+      };
+
       const onMouseMove = (moveEvent: MouseEvent) => {
-        const currentX = moveEvent.clientX;
-        const currentY = moveEvent.clientY;
+        latestX = moveEvent.clientX;
+        latestY = moveEvent.clientY;
 
         // Detectar arrastre real (umbral 3px)
-        if (!wasDraggingOrPanning && (Math.abs(currentX - marqueeStartX) > 3 || Math.abs(currentY - marqueeStartY) > 3)) {
+        if (!wasDraggingOrPanning && (Math.abs(latestX - marqueeStartX) > 3 || Math.abs(latestY - marqueeStartY) > 3)) {
           wasDraggingOrPanning = true;
           isMarqueeSelecting.value = true;
+          // El div aún no está montado: pintamos en cuanto exista para no ver un
+          // rectángulo de 0x0 en el origen del lienzo.
+          void nextTick(paintMarquee);
         }
 
-        if (wasDraggingOrPanning) {
-          const startCanvas = screenToCanvas(marqueeStartX, marqueeStartY);
-          const currentCanvas = screenToCanvas(currentX, currentY);
-
-          marqueeRect.value.x = Math.min(startCanvas.x, currentCanvas.x);
-          marqueeRect.value.y = Math.min(startCanvas.y, currentCanvas.y);
-          marqueeRect.value.width = Math.abs(currentCanvas.x - startCanvas.x);
-          marqueeRect.value.height = Math.abs(currentCanvas.y - startCanvas.y);
-        }
+        if (!wasDraggingOrPanning) return;
+        if (marqueeRaf !== null) return;
+        marqueeRaf = window.requestAnimationFrame(paintMarquee);
       };
 
       const onMouseUp = () => {
+        if (marqueeRaf !== null) {
+          window.cancelAnimationFrame(marqueeRaf);
+          marqueeRaf = null;
+        }
+        // Volcamos la geometría final al ref una sola vez: es lo que consume el test
+        // de intersección de abajo. Se recalcula aquí para no depender de si el
+        // último rAF llegó a ejecutarse.
+        const endCanvas = toCanvas(latestX, latestY);
+        marqueeRect.value = {
+          x: Math.min(startCanvas.x, endCanvas.x),
+          y: Math.min(startCanvas.y, endCanvas.y),
+          width: Math.abs(endCanvas.x - startCanvas.x),
+          height: Math.abs(endCanvas.y - startCanvas.y),
+        };
+
         // Procesar selección solo si realmente arrastramos
         if (wasDraggingOrPanning && isMarqueeSelecting.value) {
           currentPageElements.value.forEach(el => {
@@ -13723,6 +14043,7 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
   // --- ARRASTRE Y REDIMENSIÓN CON SNAPPING (IMÁN) ---
   const isMarqueeSelecting = ref(false);
   const marqueeRect = ref({ x: 0, y: 0, width: 0, height: 0 });
+  const marqueeRef = ref<HTMLElement | null>(null);
 
   let isDragging = false,
     isResizing = false,
@@ -16609,6 +16930,9 @@ watch(isMobile, (newVal) => {
     min-width: 0;
     width: 100%;
     position: relative;
+    /* .canvas-wrapper ya no recorta en el editor: sin esto, un elemento colocado muy
+       a la izquierda pintaría por encima de los paneles laterales. */
+    overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -16746,12 +17070,39 @@ watch(isMobile, (newVal) => {
     overflow: hidden;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 26px rgba(0, 0, 0, 0.18);
   }
+  /* Render simplificado de la diapositiva para paginas aun sin captura JPEG. */
+  .thumb-live-preview {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .thumb-live-stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+  }
+  .thumb-live-generic {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(148, 163, 184, 0.18);
+    border: 1px dashed rgba(148, 163, 184, 0.5);
+    border-radius: 6px;
+    color: rgba(100, 116, 139, 0.9);
+    font-size: 28px;
+  }
   .thumb-actions {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 2;
     background: var(--overlay-backdrop);
     display: flex;
     flex-wrap: wrap;
@@ -17007,9 +17358,10 @@ watch(isMobile, (newVal) => {
     border-radius: 4px;
     padding: 4px 10px;
   }
-  /* Elemento fuera del lienzo — visible en editor, oculto en presentación */
+  /* Elemento totalmente fuera del lienzo — visible en editor, oculto en presentación.
+     La atenuación la aporta .canvas-outside-veil: un opacity aquí no serviría, porque
+     el estilo inline del elemento (opacity: el.opacity ?? 1) siempre gana. */
   .interactive-element.is-outside-canvas {
-    opacity: 0.6;
     outline: 1.5px dashed var(--accent-primary) !important;
     outline-offset: 2px;
   }
@@ -17200,6 +17552,17 @@ watch(isMobile, (newVal) => {
   .pro-canvas-area.is-panning .canvas-wrapper {
     transition: none !important;
   }
+  /* Atenúa la zona de fuera de la diapositiva. Al ir por encima de los elementos, de un
+     elemento a caballo del borde solo se ve a color pleno la parte que cae dentro.
+     z-index 900: por encima de los elementos (zIndex inline = index + 10) y por debajo
+     del marquee (1000) y de las guías de snap (9999), que deben quedar nítidos. */
+  .canvas-outside-veil {
+    position: absolute;
+    z-index: 900;
+    pointer-events: none;
+    background-color: var(--surface-canvas);
+    opacity: 0.0;
+  }
   .canvas-wrapper.play-mode-active {
     transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: var(--shadow-lg);
@@ -17251,6 +17614,10 @@ watch(isMobile, (newVal) => {
   .interactive-element.is-selected {
     outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
+    /* Por encima de .canvas-outside-veil (900): si el elemento está fuera del lienzo,
+       sus tiradores de rotar/redimensionar deben verse nítidos. El !important es
+       necesario porque el z-index base va en el estilo inline. */
+    z-index: 901 !important;
   }
   .interactive-element.is-clickable {
     cursor: pointer;
@@ -17974,10 +18341,15 @@ watch(isMobile, (newVal) => {
   /* RECTÁNGULO DE SELECCIÓN MÚLTIPLE */
   .marquee-selection {
     position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
     border: 1px solid rgba(37, 99, 235, 0.7);
     background: rgba(37, 99, 235, 0.08);
     pointer-events: none;
     z-index: 1000;
+    will-change: transform, width, height;
   }
 
   /* REDIMENSIONADORES DE PANELES LATERALES */

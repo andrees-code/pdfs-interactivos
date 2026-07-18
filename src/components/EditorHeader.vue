@@ -72,22 +72,10 @@
           <i class="ph ph-books"></i>
           Proyectos
         </button>
-        <button
-          type="button"
-          class="menu-item menu-item-ghost"
-          :class="{ 'menu-item-active': activeView === 'templates' }"
-          @click="navigate('/devpresent/templates')"
-        >
-          <i class="ph ph-storefront"></i>
-          Plantillas
-        </button>
+        <!-- Plantillas ocultas de momento -->
         <button v-if="mode === 'projects'" type="button" class="menu-item menu-item-ghost" @click="emit('create-new-project')">
           <i class="ph ph-plus-circle"></i>
           Nuevo proyecto
-        </button>
-        <button v-if="mode === 'templates'" type="button" class="menu-item menu-item-ghost" @click="emit('create-template')">
-          <i class="ph ph-layout"></i>
-          Crear plantilla
         </button>
       </div>
     </div>
@@ -143,9 +131,7 @@
           <button type="button" class="dropdown-item" @click="navigate('/devpresent/projects')">
             <i class="ph ph-books"></i> Proyectos
           </button>
-          <button type="button" class="dropdown-item" @click="navigate('/devpresent/templates')">
-            <i class="ph ph-storefront"></i> Plantillas
-          </button>
+          <!-- Plantillas ocultas de momento -->
 
           <button
             type="button"

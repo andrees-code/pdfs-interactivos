@@ -3,11 +3,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth' // Importamos el store
 
 const EditorPresentaciones = () => import('@/views/EditorPresentacionesView.vue')
-const DevPresentLandingView = () => import('@/views/DevPresentLandingView.vue')
 const DevPresentAuthView = () => import('@/views/DevPresentAuthView.vue')
 const ResetPasswordView = () => import('@/views/ResetPasswordView.vue')
 const DevPresentProjectsView = () => import('@/views/DevPresentProjectsView.vue')
-const DevPresentTemplatesView = () => import('@/views/DevPresentTemplatesView.vue')
+// Plantillas ocultas de momento (ver ruta '/devpresent/templates' mas abajo).
+// const DevPresentTemplatesView = () => import('@/views/DevPresentTemplatesView.vue')
 const DevPresentPlanesView = () => import('@/views/DevPresentPlanesView.vue')
 
 // Legal pages (lazy-loaded)
@@ -20,9 +20,12 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      // Landing eliminada: sin sesion, la puerta de entrada es el login (auth-deco
+      // hace de intro/demo de la app). requiresGuest de '/devpresent/auth' se aplica
+      // igual tras el redirect y rebota a quien ya tenga sesion.
       path: '/',
       name: 'landing',
-      component: DevPresentLandingView,
+      redirect: '/devpresent/auth',
     },
     {
       // ✨ AQUÍ ESTÁ EL CAMBIO CLAVE: agregamos /:id?
@@ -55,7 +58,7 @@ const router = createRouter({
     {
       path: '/devpresent',
       name: 'devpresent-landing',
-      component: DevPresentLandingView,
+      redirect: '/devpresent/auth',
     },
     {
       path: '/devpresent/auth',
@@ -75,10 +78,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      // Plantillas ocultas de momento en toda la app: redirige en vez de servir la
+      // galeria. DevPresentTemplatesView se deja intacta para reactivar quitando
+      // este redirect.
       path: '/devpresent/templates',
       name: 'devpresent-templates',
-      component: DevPresentTemplatesView,
-      meta: { requiresAuth: true },
+      redirect: '/devpresent/projects',
     },
     {
       path: '/devpresent/perfil',
