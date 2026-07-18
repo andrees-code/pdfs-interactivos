@@ -159,6 +159,8 @@ Las fuentes vienen del CDN de Google en `index.html`, no hay `@font-face` local.
   (`html-to-image` para capturas, `pako` para compresion, `jszip` para PPTX,
   `pdfjs-dist` para PDF, `dompurify` antes de cualquier `v-html`).
 - No uses `v-html` sin pasar por `dompurify`.
-- No toques `three` ni `@google/model-viewer` a la ligera: `three` se quito como
-  dependencia directa porque nadie lo importaba y su version chocaba con el peer
-  de `model-viewer`. Volver a añadirlo rompe `npm install`.
+- No quites `three` de `dependencies` aunque el codigo no lo importe: es peer
+  dependency de `@google/model-viewer` y el build de Vercel (que instala con
+  `--legacy-peer-deps`) no lo resuelve, con lo que Rollup falla en
+  `model-viewer.js`. Mantenlo alineado con el peer que pida `model-viewer`
+  (hoy `^0.183.0`).
