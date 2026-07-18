@@ -1,37 +1,66 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import MockIntro from './mocks/MockIntro.vue'
 import MockCanvas from './mocks/MockCanvas.vue'
 import MockProperties from './mocks/MockProperties.vue'
 import MockSlides from './mocks/MockSlides.vue'
+import MockProjects from './mocks/MockProjects.vue'
+import MockExport from './mocks/MockExport.vue'
 import { useShowcaseTimeline } from '@/composables/useShowcaseTimeline'
 
 const sceneTitles = [
-  '3D y web dentro de tu diapositiva',
+  'Como PowerPoint, pero web e interactivo',
+  '3D y páginas web dentro de tu diapositiva',
   'Control exacto, sin tocar código',
-  'Presentaciones completas, no diapositivas sueltas',
+  'Capas y diapositivas, todo a la vista',
+  'Importa PDF, PPTX o HTML y sigue editando',
+  'Publica con un enlace, presenta en el navegador',
 ]
 
 const scene0 = ref<HTMLElement | null>(null)
 const scene1 = ref<HTMLElement | null>(null)
 const scene2 = ref<HTMLElement | null>(null)
+const scene3 = ref<HTMLElement | null>(null)
+const scene4 = ref<HTMLElement | null>(null)
+const scene5 = ref<HTMLElement | null>(null)
 const title0 = ref<HTMLElement | null>(null)
 const title1 = ref<HTMLElement | null>(null)
 const title2 = ref<HTMLElement | null>(null)
-const mock0 = ref<InstanceType<typeof MockCanvas> | null>(null)
-const mock1 = ref<InstanceType<typeof MockProperties> | null>(null)
-const mock2 = ref<InstanceType<typeof MockSlides> | null>(null)
+const title3 = ref<HTMLElement | null>(null)
+const title4 = ref<HTMLElement | null>(null)
+const title5 = ref<HTMLElement | null>(null)
+const mock0 = ref<InstanceType<typeof MockIntro> | null>(null)
+const mock1 = ref<InstanceType<typeof MockCanvas> | null>(null)
+const mock2 = ref<InstanceType<typeof MockProperties> | null>(null)
+const mock3 = ref<InstanceType<typeof MockSlides> | null>(null)
+const mock4 = ref<InstanceType<typeof MockProjects> | null>(null)
+const mock5 = ref<InstanceType<typeof MockExport> | null>(null)
 
-const { activeScene, init, goToScene, hoverPause, hoverResume } = useShowcaseTimeline()
+const { activeScene, init, goToScene, next, prev, hoverPause, hoverResume } = useShowcaseTimeline()
 
-// Arrastre horizontal: pasa a la escena siguiente/anterior y toma el control
-let downX = 0
+// Rueda: carrusel vertical. Umbral + bloqueo corto para no saltar varias
+// escenas con un solo gesto de trackpad.
+let wheelLock = false
+const onWheel = (e: WheelEvent) => {
+  if (wheelLock || Math.abs(e.deltaY) < 24) return
+  wheelLock = true
+  setTimeout(() => {
+    wheelLock = false
+  }, 600)
+  if (e.deltaY > 0) next()
+  else prev()
+}
+
+// Arrastre vertical (táctil/ratón)
+let downY = 0
 const onPointerDown = (e: PointerEvent) => {
-  downX = e.clientX
+  downY = e.clientY
 }
 const onPointerUp = (e: PointerEvent) => {
-  const dx = e.clientX - downX
-  if (Math.abs(dx) < 48) return
-  goToScene((activeScene.value + (dx < 0 ? 1 : -1) + sceneTitles.length) % sceneTitles.length)
+  const dy = e.clientY - downY
+  if (Math.abs(dy) < 48) return
+  if (dy < 0) next()
+  else prev()
 }
 
 onMounted(() => {
@@ -39,6 +68,9 @@ onMounted(() => {
     { el: scene0.value!, title: title0.value!, mockTl: mock0.value!.buildTimeline() },
     { el: scene1.value!, title: title1.value!, mockTl: mock1.value!.buildTimeline() },
     { el: scene2.value!, title: title2.value!, mockTl: mock2.value!.buildTimeline() },
+    { el: scene3.value!, title: title3.value!, mockTl: mock3.value!.buildTimeline() },
+    { el: scene4.value!, title: title4.value!, mockTl: mock4.value!.buildTimeline() },
+    { el: scene5.value!, title: title5.value!, mockTl: mock5.value!.buildTimeline() },
   ])
 })
 </script>
@@ -49,23 +81,39 @@ onMounted(() => {
     aria-label="Demostración del editor"
     @mouseenter="hoverPause"
     @mouseleave="hoverResume"
+    @wheel.prevent="onWheel"
     @pointerdown="onPointerDown"
     @pointerup="onPointerUp"
   >
     <div class="sc-stage">
       <article class="sc-scene" ref="scene0">
-        <MockCanvas ref="mock0" class="sc-mock" />
+        <MockIntro ref="mock0" class="sc-mock" />
         <h3 class="sc-title" ref="title0">{{ sceneTitles[0] }}</h3>
       </article>
 
       <article class="sc-scene" ref="scene1">
-        <MockProperties ref="mock1" class="sc-mock" />
+        <MockCanvas ref="mock1" class="sc-mock" />
         <h3 class="sc-title" ref="title1">{{ sceneTitles[1] }}</h3>
       </article>
 
       <article class="sc-scene" ref="scene2">
-        <MockSlides ref="mock2" class="sc-mock" />
+        <MockProperties ref="mock2" class="sc-mock" />
         <h3 class="sc-title" ref="title2">{{ sceneTitles[2] }}</h3>
+      </article>
+
+      <article class="sc-scene" ref="scene3">
+        <MockSlides ref="mock3" class="sc-mock" />
+        <h3 class="sc-title" ref="title3">{{ sceneTitles[3] }}</h3>
+      </article>
+
+      <article class="sc-scene" ref="scene4">
+        <MockProjects ref="mock4" class="sc-mock" />
+        <h3 class="sc-title" ref="title4">{{ sceneTitles[4] }}</h3>
+      </article>
+
+      <article class="sc-scene" ref="scene5">
+        <MockExport ref="mock5" class="sc-mock" />
+        <h3 class="sc-title" ref="title5">{{ sceneTitles[5] }}</h3>
       </article>
     </div>
 
@@ -98,7 +146,7 @@ onMounted(() => {
     radial-gradient(ellipse at 80% 85%, rgba(154, 52, 18, 0.04) 0%, transparent 45%),
     #ffffff;
   user-select: none;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .sc-stage {
@@ -113,8 +161,8 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 30px;
-  padding: 48px 56px 92px;
+  gap: 28px;
+  padding: 44px 72px 44px 56px;
   visibility: hidden; /* gsap toma el control con autoAlpha en el init */
   will-change: transform, filter, opacity;
 }
@@ -136,14 +184,16 @@ onMounted(() => {
   max-width: 460px;
 }
 
+/* Puntos de progreso: columna vertical, como el carrusel */
 .sc-dots {
   position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   z-index: 5;
 }
 
@@ -156,7 +206,7 @@ onMounted(() => {
   background: rgba(154, 52, 18, 0.25);
   cursor: pointer;
   transition:
-    width 0.3s ease,
+    height 0.3s ease,
     background 0.3s ease;
 }
 
@@ -165,7 +215,7 @@ onMounted(() => {
 }
 
 .sc-dot.is-active {
-  width: 24px;
+  height: 24px;
   background: var(--accent-primary, #ea580c);
 }
 

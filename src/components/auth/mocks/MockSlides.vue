@@ -51,6 +51,14 @@ const buildTimeline = (): gsap.core.Timeline => {
   )
   tl.fromTo(q('.ms-new'), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, '-=0.4')
 
+  // Las capas de la diapositiva activa se despliegan (Iframe, 3D, texto)
+  tl.fromTo(
+    q('.ms-layer'),
+    { y: -8, autoAlpha: 0 },
+    { y: 0, autoAlpha: 1, duration: 0.35, stagger: 0.09, ease: 'power2.out' },
+    '-=0.2',
+  )
+
   // Reorden: la tarjeta 2 baja un hueco, la 3 sube a ocupar el suyo
   tl.set(thumbDown, { zIndex: 3 }, '+=0.2')
   tl.fromTo(
@@ -81,11 +89,27 @@ defineExpose({ buildTimeline })
     </div>
 
     <div class="ms-list">
-      <div class="ms-row">
+      <div class="ms-row ms-row--open">
         <span class="ms-num">1</span>
-        <div class="ms-thumb">
-          <span class="ms-t-title"></span>
-          <span class="ms-t-sub"></span>
+        <div class="ms-first">
+          <div class="ms-thumb ms-thumb--active">
+            <span class="ms-t-title"></span>
+            <span class="ms-t-sub"></span>
+          </div>
+          <div class="ms-layers">
+            <span class="ms-layer">
+              <span class="material-symbols-outlined">language</span>
+              Iframe
+            </span>
+            <span class="ms-layer">
+              <span class="material-symbols-outlined">view_in_ar</span>
+              Modelo A la 3D
+            </span>
+            <span class="ms-layer">
+              <span class="material-symbols-outlined">title</span>
+              text
+            </span>
+          </div>
         </div>
       </div>
       <div class="ms-row">
@@ -182,6 +206,48 @@ defineExpose({ buildTimeline })
   color: #b08858;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.ms-row--open .ms-num {
+  align-self: flex-start;
+  padding-top: 20px;
+  color: #9a3412;
+}
+
+.ms-first {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ms-thumb--active {
+  border-color: var(--accent-primary, #ea580c);
+  border-width: 1.5px;
+}
+
+.ms-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 6px;
+}
+
+.ms-layer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: #6a4820;
+  background: #fff;
+  border: 1px solid #ecdcc4;
+  border-radius: 4px;
+  padding: 3px 7px;
+}
+
+.ms-layer .material-symbols-outlined {
+  font-size: 0.78rem;
+  color: var(--accent-primary, #ea580c);
 }
 
 .ms-thumb {
