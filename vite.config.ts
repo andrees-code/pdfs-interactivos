@@ -39,15 +39,13 @@ export default defineConfig({
           if (!id.includes('node_modules')) return undefined
 
           if (id.includes('pdfjs-dist')) return 'vendor-pdfjs'
-          if (id.includes('pdf-lib')) return 'vendor-pdf-lib'
-          if (id.includes('jspdf')) return 'vendor-jspdf'
           if (id.includes('jszip')) return 'vendor-jszip'
+          // pako llega como dependencia transitiva de pdfjs-dist/jszip.
           if (id.includes('pako')) return 'vendor-pako'
-          if (id.includes('html2canvas') || id.includes('html-to-image')) return 'vendor-capture'
+          if (id.includes('html-to-image')) return 'vendor-capture'
           if (id.includes('cropperjs')) return 'vendor-cropper'
           if (id.includes('leaflet')) return 'vendor-leaflet'
           if (id.includes('@phosphor-icons')) return 'vendor-icons'
-          if (id.includes('canvas-confetti')) return 'vendor-fx'
           if (id.includes('dompurify')) return 'vendor-sanitize'
 
           if (

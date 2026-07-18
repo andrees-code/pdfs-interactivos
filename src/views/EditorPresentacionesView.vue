@@ -5834,17 +5834,15 @@ const onThumbDragStart = (e: DragEvent, page: number) => {
     e.dataTransfer.setData('text/plain', String(page))
   }
 }
+/**
+ * Punto de entrada de las acciones que devuelve el chatbot de IA.
+ * Recibe una accion suelta o un array, y las aplica una a una sobre
+ * documentState/slideConfigs de la pagina que indique cada accion
+ * (targetPage), no necesariamente la pagina activa.
+ */
 const handleAiAction = async (actionsData: any) => {
-  console.log("🔥 [handleAiAction] TRIGGERED! Recibiendo datos:", actionsData);
-
   // Garantizamos que actionsData sea un array
   const actions = Array.isArray(actionsData) ? actionsData : [actionsData];
-
-  console.log("📋 [handleAiAction] Acciones parseadas:", {
-    actionCount: actions.length,
-    currentPage: pageNum.value,
-    actions: actions
-  });
 
   if (!actions || actions.length === 0) {
     console.warn("⚠️ [handleAiAction] No hay acciones para ejecutar.");
@@ -5858,15 +5856,11 @@ const handleAiAction = async (actionsData: any) => {
   for (const action of actions) {
     const targetPage = Number(action.targetPage || action.slideNum || pageNum.value);
 
-    console.log(`⚡ [handleAiAction] Ejecutando acción en pág ${targetPage}: ${action.actionType}`, action);
-
     // 🔒 SEGURIDAD: Garantizamos que la diapositiva específica existe
     if (!documentState.value[targetPage]) {
-      console.log(`⚙️ [handleAiAction] Creando documentState[${targetPage}]`);
       documentState.value[targetPage] = [];
     }
     if (!slideConfigs.value[targetPage]) {
-      console.log(`⚙️ [handleAiAction] Creando slideConfigs[${targetPage}]`);
       slideConfigs.value[targetPage] = { bgColor: '#ffffff', bgImage: null, transition: 'none' };
     }
 
@@ -6379,32 +6373,19 @@ const handleAiAction = async (actionsData: any) => {
   // Las acciones ya dispararon reactividad con spread operators
   // Aquí solo actualizamos las referencias padre para completar el ciclo
   if (hasMadeChanges) {
-    console.log("✅ [handleAiAction] Cambios detectados, actualizando reactividad...");
-    console.log("📊 Estado después de acciones:", {
-      page: currentPage,
-      elementCount: documentState.value[currentPage]?.length || 0,
-      elements: documentState.value[currentPage],
-      slideConfig: slideConfigs.value[currentPage]
-    });
-
     // 🔥 Actualizar referencias padre
     slideConfigs.value = { ...slideConfigs.value };
     documentState.value = { ...documentState.value };
 
-    console.log("🔄 Referencias actualizadas para reactividad");
-
     // 🚀 GUARDAR EN HISTORIAL (Para Ctrl+Z)
     saveHistory();
-    console.log("📝 Historial guardado");
 
     // 🚀 GUARDAR EN BD (Para persistencia)
     await savePresentation(true);
-    console.log("💾 Presentación guardada en BD");
   } else {
     console.warn("⚠️ [handleAiAction] No se hicieron cambios");
   }
 
-  console.log("🏁 [handleAiAction] Finalizado");
 }
 
 const onThumbDragOver = (e: DragEvent, page: number) => {
@@ -6509,7 +6490,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
 }
 
   // --- ESTADO GENERAL ---
-  const _pdfCanvas = ref<HTMLCanvasElement | null>(null)
   const workspaceRef = ref<HTMLElement | null>(null)
   const appContainerRef = ref<HTMLElement | null>(null)
   let workspaceResizeObserver: ResizeObserver | null = null
@@ -6536,7 +6516,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
   const isAutosaving = ref(false);
   const route = useRoute()
   const isLoadingProject = ref(false) // Para mostrar un spinner si tarda en cargar
-  const isPlayModeLoading = ref(false)
   const editingElementId = ref<string | null>(null)
   const router = useRouter() // 👈 Inicializamos el router
   const isTemplateCreatorMode = computed(() => route.query.mode === 'template')
@@ -6678,7 +6657,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
       // Payload limpio: solo metadata + elementos + URLs públicas
       const payloadJson = JSON.stringify(payload)
       const payloadSizeMB = (payloadJson.length / 1048576).toFixed(2)
-      console.log(`📤 Enviando presentación (${payloadSizeMB}MB)...`)
 
       // Validar tamaño ANTES de enviar
       if (payloadJson.length > 8 * 1024 * 1024) {
@@ -6722,7 +6700,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
 
             if (attempt < maxRetries) {
               const delayMs = 1000 * Math.pow(2, attempt - 1);
-              console.log(`Reintentando en ${delayMs}ms...`);
               if (!isAutosave) {
                 showToast(`Reintentando guardado (intento ${attempt}/${maxRetries})...`, 'info');
               }
@@ -6762,7 +6739,6 @@ const commitThumbMove = (currentPage: number, e: Event) => {
         }
       }
 
-      console.log('✅ Presentación guardada exitosamente');
       hasUnsavedChanges.value = false;
       clearDraftState();
 
@@ -8624,11 +8600,6 @@ const activeMapNode = computed(() => {
     cancelLayerNameEdit()
   }
 
-  const _hasExtractedTextOnCurrentPage = computed(() =>
-    currentPageElements.value.some(
-      (el: any) => typeof el?.id === 'string' && el.id.startsWith('el_pdf_'),
-    ),
-  )
   const selectedElement = computed(() => {
   if (selectedElementIds.value.length !== 1) return null;
   return currentPageElements.value.find((el) => el.id === selectedElementIds.value[0]) || null;
@@ -8934,20 +8905,6 @@ watch(activeTransition, (newVal, oldVal) => {
   const removeMapMarker = (el: any, markerId: string) => {
     if (!el.markers) return
     el.markers = el.markers.filter((marker: any) => marker.id !== markerId)
-  }
-
-  const _addMapRoutePoint = (el: any) => {
-    if (!el.routePoints) el.routePoints = []
-    el.routePoints.push({
-      id: 'route_' + Date.now(),
-      lat: el.centerLat || 0,
-      lng: el.centerLng || 0,
-    })
-  }
-
-  const _removeMapRoutePoint = (el: any, pointId: string) => {
-    if (!el.routePoints) return
-    el.routePoints = el.routePoints.filter((point: any) => point.id !== pointId)
   }
 
   // --- DRAG AND DROP EN LA LISTA DE CAPAS ---
@@ -9696,7 +9653,6 @@ watch(activeTransition, (newVal, oldVal) => {
     }
 
     playModeEntryPreloadToken += 1
-    isPlayModeLoading.value = false
 
     idlePreloadToken += 1
     idlePreloadQueue = []
@@ -9723,7 +9679,6 @@ watch(activeTransition, (newVal, oldVal) => {
       .filter(el => selectedElementIds.value.includes(el.id))
       .map(el => JSON.parse(JSON.stringify(el)))
 
-    console.log(`${clipboardElements.value.length} elementos copiados.`)
   }
 
   const pasteElements = () => {
@@ -11157,20 +11112,6 @@ watch(
             fontSize = Math.max(10, Math.round(el.fontSizePt * EMU_PER_PT * (ch / slideCyEmu)))
           }
 
-          // Diagnóstico: verificar propiedades antes de pushear
-          if (totalElements === 0 && el.type === 'text') {
-            console.log('[convertPptxFullEdit] First text element before push:', {
-              id: el.id,
-              type: el.type,
-              content: el.content,
-              fontSize,
-              fontSizePt: el.fontSizePt,
-              color: el.color,
-              fontWeight: el.fontWeight,
-              fontFamily: el.fontFamily,
-            })
-          }
-
           documentState.value[page].push({
             ...el,
             x, y, width, height,
@@ -12061,8 +12002,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
       const hasAnimations = rawStructure !== null &&
         Object.values(rawStructure.pages || {}).some((p: any[]) => p.length > 0);
 
-      console.log('[PPTX] rawStructure:', rawStructure);
-      console.log('[PPTX] hasAnimations:', hasAnimations);
 
       // Cargamos el PDF extrayendo siempre el texto estático.
       // cleaner.py ya eliminó los shapes animados del PPTX antes de convertir,
@@ -12094,7 +12033,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
             totalAnimated++;
           }
         }
-        console.log('[PPTX] elementos animados inyectados:', totalAnimated, documentState.value);
 
         if (totalAnimated > 0) {
           // Forzar reactividad Vue 3 — el push() directo no siempre dispara el re-render
@@ -12562,33 +12500,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     }
   }
 
-  const _publishAsTemplate = async () => {
-    const isPublic = confirm('¿Quieres que esta plantilla sea pública en la tienda? (Aceptar = Pública, Cancelar = Privada)')
-    const userId = authStore.user?._id
-    if (!userId) return
-
-    const payload = {
-      userId,
-      authorName: authStore.user?.username || 'Anónimo',
-      title: presentationTitle.value || 'Mi Nueva Plantilla',
-      documentState: documentState.value,
-      slideConfigs: slideConfigs.value,
-      baseWidth: baseWidth.value,
-      baseHeight: baseHeight.value,
-      coverImage: generatedThumbnails.value[1] || null,
-      isPrivate: !isPublic,
-    }
-
-    try {
-      showToast('Publicando plantilla...', 'info')
-      await templateService.createTemplate(payload)
-      showToast('¡Plantilla guardada con éxito!', 'success')
-      loadGalleryTemplates()
-    } catch {
-      showToast('Error al guardar la plantilla', 'error')
-    }
-  }
-
   const applyTemplate = (templateId: string) => {
     const w = baseWidth.value
     const h = baseHeight.value
@@ -12714,33 +12625,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
     pdfPageMap.value = { ...pdfPageMap.value }
 
     changePageTo(page + 1)
-  }
-
-  const swapSlides = (p1: number, p2: number) => {
-    const tempDoc = JSON.parse(JSON.stringify(documentState.value[p1] || []))
-    const tempConfig = JSON.parse(JSON.stringify(slideConfigs.value[p1] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
-    const tempPdf = pdfPageMap.value[p1] || 0
-
-    documentState.value[p1] = JSON.parse(JSON.stringify(documentState.value[p2] || []))
-    slideConfigs.value[p1] = JSON.parse(JSON.stringify(slideConfigs.value[p2] || { bgColor: '#ffffff', bgImage: null, transition: 'none' }))
-    pdfPageMap.value[p1] = pdfPageMap.value[p2] || 0
-
-    documentState.value[p2] = tempDoc
-    slideConfigs.value[p2] = tempConfig
-    pdfPageMap.value[p2] = tempPdf
-
-    documentState.value = { ...documentState.value }
-    slideConfigs.value = { ...slideConfigs.value }
-    pdfPageMap.value = { ...pdfPageMap.value }
-  }
-
-  const _moveSlide = (page: number, direction: 'up' | 'down') => {
-    const targetPage = direction === 'up' ? page - 1 : page + 1
-    if (targetPage >= 1 && targetPage <= numPages.value) {
-      swapSlides(page, targetPage)
-      if (pageNum.value === page || pageNum.value === targetPage) changePageTo(targetPage)
-      else renderPage(pageNum.value)
-    }
   }
 
   const addNewSlide = () => {
@@ -12907,7 +12791,6 @@ const extractTextToNativeElements = async (page: any, pageIndex: number, viewpor
   const IDLE_PRELOAD_RESUME_MS = 1200
   const IDLE_PRELOAD_CONCURRENCY = 3
   const IDLE_PRELOAD_MAX_PDF_PAGES = 100
-  const PLAY_MODE_PRELOAD_OVERLAY_MS = 3500
   const PLAY_MODE_PRELOAD_CONCURRENCY = 6
 
   let idlePreloadQueue: number[] = []
@@ -13578,42 +13461,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
       }
     });
   };
-  // --- OPTIMIZAR IMÁGENES BASE64 HEREDADAS ---
-  const _optimizeBase64Image = (base64Str: string, maxWidth = 3840, maxHeight = 2160, quality = 0.9): Promise<string> => {
-    return new Promise((resolve) => {
-      // Si no es un base64 de imagen o pesa menos de ~400KB, no gastamos recursos en tocarla
-      if (!base64Str.startsWith('data:image/') || base64Str.length < 500000) {
-        return resolve(base64Str);
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/webp', quality));
-        } else {
-          resolve(base64Str); // Fallback si falla el canvas
-        }
-      };
-      img.onerror = () => resolve(base64Str); // Fallback si la imagen está corrupta
-      img.src = base64Str;
-    });
-  };
-
   // Función que barre todo el proyecto buscando imágenes Base64 heredadas y las migra a Cloudinary
   const autoOptimizeProjectImages = async () => {
     let migratedCount = 0;
@@ -13655,7 +13502,6 @@ const handleCanvasClickOutside = (e: MouseEvent) => {
     }
 
     if (migratedCount > 0) {
-      console.log(`Migradas ${migratedCount} imágenes Base64 heredadas a Cloudinary.`);
       savePresentation(true);
     }
   };
@@ -16098,7 +15944,12 @@ watch(isMobile, (newVal) => {
       transform: rotate(360deg);
     }
   }
-  /* pro-header existe por el componente hijo pero lo dejamos listo por si acaso */
+  /*
+   * .pro-header es el elemento raiz de <EditorHeader>. Los estilos scoped SI
+   * alcanzan la raiz del componente hijo, por eso esta regla sigue viva aqui.
+   * Los nodos internos de la cabecera (.header-left, .pro-logo, .menu-item...)
+   * NO reciben el atributo data-v del padre: sus estilos viven en EditorHeader.vue.
+   */
   .pro-header {
     display: flex;
     justify-content: space-between;
@@ -16111,111 +15962,8 @@ watch(isMobile, (newVal) => {
     box-shadow: var(--shadow-sm);
     z-index: 10;
   }
-  .header-left,
-  .header-center,
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-  }
-  .pro-logo {
-    font-size: 1.1rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    letter-spacing: -0.5px;
-  }
   .text-accent {
     color: var(--accent-primary);
-  }
-  .file-menu {
-    display: flex;
-    gap: 8px;
-  }
-  .menu-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: transparent;
-    border: 1px solid var(--border-strong);
-    color: var(--text-primary);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .menu-item:hover:not(:disabled) {
-    background: var(--border-strong);
-  }
-  .menu-item:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .menu-item.is-loading {
-    background: var(--accent-primary);
-    color: var(--text-primary);
-    font-weight: bold;
-    border-color: var(--accent-primary);
-  }
-  .btn-export {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    color: var(--text-primary);
-  }
-  .btn-export:hover:not(:disabled) {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-  }
-  .zoom-controls {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--bg-base);
-    padding: 4px;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong);
-  }
-  .zoom-level {
-    font-size: 0.8rem;
-    font-weight: 600;
-    min-width: 45px;
-    text-align: center;
-  }
-  .divider-vertical {
-    width: 1px;
-    height: 20px;
-    background: var(--border-strong);
-    margin: 0 5px;
-  }
-  .btn-play {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--accent-primary);
-    color: var(--text-primary);
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-  }
-  .btn-play:hover {
-    background: var(--accent-primary);
-    transform: translateY(-1px);
-    box-shadow: var(--ring-accent);
-  }
-  .btn-play.is-active {
-    background: var(--surface-elevated);
-    border: 1px solid var(--border-strong);
-  }
-  .btn-play.is-active:hover {
-    background: var(--danger-hover);
-    box-shadow: var(--ring-accent);
   }
   .play-nav-overlay {
     position: fixed;
@@ -17310,83 +17058,6 @@ watch(isMobile, (newVal) => {
     font-size: 0.75rem;
     padding: 8px 10px;
   }
-  /* MIS PLANTILLAS */
-  .tsp-my-templates-wrapper {
-    position: relative;
-    margin-top: 8px;
-  }
-
-  .tsp-my-templates-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    background: rgba(167, 139, 250, 0.08);
-    border: 1px dashed rgba(167, 139, 250, 0.35);
-    border-radius: 6px;
-    color: #a78bfa;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .tsp-my-templates-btn:hover {
-    background: rgba(167, 139, 250, 0.15);
-    border-color: rgba(167, 139, 250, 0.6);
-  }
-  .tsp-my-templates-btn i:first-child {
-    font-size: 1rem;
-  }
-
-  /* POPUP FLOTANTE */
-
-  .tmpl-popup-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-strong);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .tmpl-popup-header i {
-    color: #a78bfa;
-    font-size: 1rem;
-  }
-
-  .tmpl-popup-body {
-    padding: 10px;
-  }
-
-  .tmpl-coming-soon {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 24px 16px;
-    text-align: center;
-  }
-  .tmpl-coming-soon i {
-    font-size: 2rem;
-    color: #a78bfa;
-    opacity: 0.6;
-  }
-  .tmpl-coming-soon p {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-  }
-  .tmpl-coming-soon small {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    line-height: 1.4;
-  }
   .align-buttons {
     display: flex;
     gap: 4px;
@@ -18003,70 +17674,11 @@ watch(isMobile, (newVal) => {
     color: var(--accent-primary);
     flex-shrink: 0;
   }
-  /* PANEL DE PLANTILLAS EN SIDEBAR */
-  .template-sidebar-panel {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-strong);
-    background: var(--bg-base);
-    flex-shrink: 0;
-  }
-  /* PANEL PLANTILLAS DESPLEGABLE */
-  .template-sidebar-panel {
-    border-bottom: 1px solid var(--border-strong);
-    flex-shrink: 0;
-  }
-
-  .tsp-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 12px;
-  background: var(--bg-base);
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.7rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.tsp-toggle:hover { background: var(--surface-panel); color: var(--text-primary); }
-
-  .tsp-toggle-left {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  .tsp-toggle-left i { font-size: 1rem; color: var(--accent-primary); }
-
-  .tsp-active-badge {
-    background: var(--surface-soft);
-    color: var(--accent-primary);
-    font-size: 0.6rem;
-    padding: 2px 7px;
-    border-radius: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-
-  .tsp-body {
-    position: absolute;
-    top: 0;
-    left: 105%;
-    width: 270px;
-    padding: 15px;
-    background: var(--surface-elevated);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px;
-    box-shadow: var(--shadow-lg);
-    z-index: 10050;
-  }
-
+  /*
+   * Rejilla de plantillas del modal "Galeria de Plantillas" (template ~L4985).
+   * El prefijo tsp- viene de un antiguo panel lateral ya retirado; hoy estas
+   * reglas solo visten ese modal.
+   */
   .tsp-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -18107,7 +17719,6 @@ watch(isMobile, (newVal) => {
   .tsp-preview-blank { background: var(--surface-elevated); }
   .tsp-preview-modern { background: var(--surface-panel); flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 0; }
   .tsp-preview-dark { background: var(--surface-base); }
-  .tsp-preview-custom { background: var(--surface-panel); }
 
   /* Moderna: barra superior */
   .tsp-preview-header-bar {
@@ -18125,59 +17736,10 @@ watch(isMobile, (newVal) => {
     display: flex;
     flex-direction: column;
   }
-  .tsp-preview-accent {
-    width: 22px;
-    height: 3px;
-    background: var(--accent-primary);
-    border-radius: 2px;
-    margin-top: 6px;
-  }
-
-  /* Oscura: punto decorativo */
-  .tsp-preview-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent-primary);
-    margin-top: 8px;
-    opacity: 0.7;
-  }
-
   .tsp-preview-line { flex-shrink: 0; border-radius: 3px; }
   .tsp-preview-line-blank { width: 60%; height: 8px; background: var(--text-secondary); opacity: 0.35; }
   .tsp-preview-line-modern { width: 70%; height: 7px; background: var(--text-primary); opacity: 0.9; }
   .tsp-preview-line-dark { width: 75%; height: 8px; background: var(--text-primary); opacity: 0.9; }
-
-  /* BOTÓN AÑADIR al hacer hover */
-  .tsp-add-btn {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.7);
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--accent-primary);
-    border: none;
-    color: var(--text-primary);
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0;
-    transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: var(--shadow-sm);
-    z-index: 2;
-  }
-  .tsp-preview:hover .tsp-add-btn {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  .tsp-add-btn:hover {
-    background: var(--accent-primary);
-    transform: translate(-50%, -50%) scale(1.15) !important;
-  }
 
   .tsp-name {
     font-size: 0.68rem;
@@ -18186,35 +17748,6 @@ watch(isMobile, (newVal) => {
     text-align: center;
   }
 
-  .tsp-backdrop {
-    position: fixed;
-    inset: 0;
-    background: var(--overlay-backdrop);
-    backdrop-filter: blur(4px);
-    z-index: 10499;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .tmpl-close-btn {
-    margin-left: auto;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px;
-    border-radius: 4px;
-    transition: 0.15s;
-  }
-  .tmpl-close-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-primary);
-  }
   .tsp-card.is-active .tsp-name { color: var(--accent-primary); }
 
   /* REORDENACIÓN DE THUMBS */

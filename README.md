@@ -111,22 +111,19 @@ Ver [BRANDING.md](./BRANDING.md) para detalles sobre la identidad visual, colore
 - **Build**: Vite
 - **Router**: Vue Router
 - **Estado**: Pinia
-- **Estilos**: CSS3 con variables personalizadas
-- **PDF**: PDF.js, PDFLib, html2canvas
+- **Estilos**: CSS3 con variables personalizadas + Tailwind
+- **PDF**: PDF.js
+- **Captura / export**: html-to-image, jszip, pako
 - **Herramientas**: ESLint, Prettier, Vue TSC
 
-## 📦 Dependencias Principales
+## 📚 Documentación
 
-```json
-{
-  "vue": "^3.5.25",
-  "vue-router": "^4.6.3",
-  "pinia": "^3.0.4",
-  "pdfjs-dist": "^3.11.174",
-  "pdf-lib": "^1.17.1",
-  "cropperjs": "^1.6.2"
-}
-```
+- **[CLAUDE.md](./CLAUDE.md)** — guía técnica del repo: arquitectura, mapa del
+  editor, trampas conocidas y convenciones. Léela antes de tocar código.
+- [BRANDING.md](./BRANDING.md) y [STYLE_GUIDE.md](./STYLE_GUIDE.md) — identidad
+  visual y sistema de diseño.
+- [KEYBOARD_SHORTCUTS.md](./KEYBOARD_SHORTCUTS.md) — atajos del editor.
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — despliegue en Vercel.
 
 ## 🔗 Enlaces Útiles
 
